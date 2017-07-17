@@ -1,0 +1,13 @@
+name: pycomplex
+channels:
+  - anaconda
+  - conda-forge
+dependencies:
+  - python =3.6
+  - numpy
+  - scipy
+  - numpy-indexed
+  - matplotlib
+  - pycosat
+  - cached-property
+  - pytest

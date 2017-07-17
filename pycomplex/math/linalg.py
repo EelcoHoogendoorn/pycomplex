@@ -1,0 +1,90 @@
+
+
+import numpy as np
+
+
+def dot(a, b):
+    """Compute the dot products over the last axes of two arrays of vectors
+
+    Parameters
+    ----------
+    a : ndarray, [..., n], float
+        array of vectors
+    b : ndarray, [..., n], float
+        array of vectors
+
+    Returns
+    -------
+    ndarray, [...], float
+        dot products over the last axes of a and b
+    """
+    return np.einsum('...i,...i->...', a, b)
+
+
+def normalized(array_of_vectors, axis=-1, ord=2, ignore_zeros=False, return_norm=False):
+    """Return a copy of a, normalized along axis with the ord-norm
+
+    Parameters
+    ----------
+    array_of_vectors : ndarray, [..., n_dim]
+        input data to be normalized
+    axis : int, optional
+        axis to perform normalization along
+    ord : see np.linalg.norm
+        the normalization order. default 2 gives the euclidean norm
+    ignore_zeros : bool
+        if true, elements with norm zero are left zero
+    return_norm : bool
+        if true, the norms are returned
+
+    Returns
+    -------
+    normalized : ndarray, [n_vectors, n_dim]
+        normalized values; same shape as input array
+    norms : ndarray, [n_vectors], float, optional
+        the norms of the input vectors
+
+    See Also
+    --------
+    np.linalg.norm, for the precise spec of the ord parameter
+    """
+    array_of_vectors = np.asarray(array_of_vectors)
+    norm = np.linalg.norm(array_of_vectors, ord, axis)
+    norm = np.expand_dims(norm, axis)
+    zeros = norm == 0
+    if ignore_zeros:
+        norm[zeros] = 1
+    normed = array_of_vectors / norm
+    if ignore_zeros:
+        norm[zeros] = 0
+    if return_norm:
+        return normed, np.take(norm, 0, axis)
+    else:
+        return normed
+
+
+def orthonormalize(axes, demirror=True):
+    """Orthonormalize the input matrix
+
+    Parameters
+    ----------
+    axes : ndarray, [n, m], float
+        input axes to orthonormalize
+
+    Returns
+    -------
+    ndarray, [n, m], float
+        orthonormal matrix which most closely resembles axes
+
+    Examples
+    --------
+    >>> orthonormalize([[0, -2], [2, 0]])
+    [[0, -1], [1, 0]]
+
+    """
+    axes = np.asarray(axes)
+    u, _, v = np.linalg.svd(axes)
+    if demirror:
+        det = np.linalg.det(axes)
+        v[0] *= np.sign(det)
+    return u.dot(np.eye(*axes.shape)).dot(v)
