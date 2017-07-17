@@ -9,7 +9,7 @@ def test_combinations():
     print(comb)
 
 
-def test_basic(rt):
+def basic_test(rt):
     """Some basic sanity checks on a topology matrix"""
     for i in range(rt.n_dim - 1):
         t = rt.matrix(i)

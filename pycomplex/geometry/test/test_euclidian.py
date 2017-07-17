@@ -29,27 +29,25 @@ def test_circumcenter_barycentric():
 
 
 def test_circumcenter():
-    c, r = euclidian.circumcenter([[0], [4]])
+    c = euclidian.circumcenter([[0], [4]])
     print()
-    print(c, r)
+    print(c)
 
-    c, r = euclidian.circumcenter(
+    c = euclidian.circumcenter(
         [
             [[0, 0], [4, 0], [0, 4]],
             [[0, 0], [2, 1], [0, 4]]
         ])  # triangles in 2D
     print()
     print(c)
-    print(r)
 
-    c, r = euclidian.circumcenter(
+    c = euclidian.circumcenter(
         [
             [[0, 0, 10], [4, 0, 10], [0, 4, 10]],
             [[0, 0, 10], [2, 1, 10], [0, 4, 10]]
         ])  # triangles in 3D; get in-plane circumcenter
     print()
     print(c)
-    print(r)
 
 
 def test_volume():

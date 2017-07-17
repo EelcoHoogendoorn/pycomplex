@@ -2,7 +2,7 @@ import numpy as np
 
 from pycomplex.synthetic import n_cube
 from pycomplex.topology.cubical import TopologyCubical, generate_boundary
-from pycomplex.topology.test.test_base import test_basic
+from pycomplex.topology.test.test_base import basic_test
 
 
 def test_generate_boundary():
@@ -21,7 +21,7 @@ def test_cube():
 
     topology = TopologyCubical.from_cubes(n_cubes)
 
-    test_basic(topology)
+    basic_test(topology)
 
 
 def test_quads():
@@ -39,12 +39,12 @@ def test_quads():
 
     topology = TopologyCubical.from_cubes(quads)
 
-    test_basic(topology)
+    basic_test(topology)
     b = topology.boundary()
     dual = topology.dual()
 
 
 def test_product():
     quad = n_cube(2)
-    c = quad.topology.extrude()
-    print(c.elements)
+    line = n_cube(1)
+    c = quad.product(line)
