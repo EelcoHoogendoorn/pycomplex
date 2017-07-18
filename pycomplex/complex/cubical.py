@@ -20,19 +20,17 @@ class ComplexCubical(BaseComplexCubical):
         ----------
         vertices : ndarray, [n_vertices, n_dim], float
             vertex positions in euclidian space
-        cubes : ndarray, [n_regulars, 2 ** n_dim], index_type, optional
-        topology : RegularTopology object, optional
+        cubes : ndarray, [n_cubes, 2 ** n_dim], index_type, optional
+        topology : TopologyCubical object, optional
         """
         self.vertices = np.asarray(vertices)
         if topology is None:
             topology = TopologyCubical.from_cubes(cubes)
             self.topology = topology
-            self.cubes = cubes
         if cubes is None:
             self.topology = topology
-            self.cubes = topology.elements[-1]
 
-    def subdivide(self, creases=None, smooth=False):
+    def subdivide(coarse, creases=None, smooth=False):
         """Catmull–Clark subdivision; n-d case
         Each n-cube leads to a new vertex on the subdivided grid
 
@@ -41,43 +39,49 @@ class ComplexCubical(BaseComplexCubical):
         creases : dict of (int: ndarray), optional
             dict of n to n-chains, where nonzero elements denote crease elements
         smooth : bool
-            if true, smoothing is performed
+            if true, smoothing is performed after subdivision
         """
 
-        divided = type(self)(
-            vertices=np.concatenate(self.primal_position(), axis=0),
-            topology=self.topology.subdivide()
+        fine = type(coarse)(
+            vertices=np.concatenate(coarse.primal_position(), axis=0),    # every n-element spawns a new vertex
+            topology=coarse.topology.subdivide()
         )
 
         # propagate creases to lower level
         if creases is not None:
-            creases = {n: divided.topology.transfer_matrices[n] * c
+            creases = {n: fine.topology.transfer_matrices[n] * c
                        for n, c in creases.items()}
 
         if smooth:
-            divided = divided.smooth(creases)
-        return divided
+            fine = fine.smooth(creases)
+        return fine
 
     def boundary(self):
-        # FIXME: need to implement vertex subset selection! this only works if vertex-set remains stable
-        return ComplexCubical(vertices=self.vertices, topology=self.topology.boundary())
+        # FIXME: need to implement vertex subset selection! current implementation only works if vertex-set remains stable
+        # FIXME: could be higher up in the class hierarchy
+        B = self.topology.boundary()
+        if B is None:
+            return None
+        else:
+            return ComplexCubical(vertices=self.vertices, topology=B)
 
     def product(self, other):
-        """Construct the product of two regular complexes
+        """Construct the product of two cubical complexes
 
         Parameters
         ----------
         self : ComplexCubical
-        other ; RegularComplex
+        other : ComplexCubical
 
         Returns
         -------
-        RegularComplex of dimension self.n_dim + other.n_dim
+        ComplexCubical of dimension self.n_dim + other.n_dim
         """
         if not self.n_dim == self.topology.n_dim:
             raise ValueError
         if not other.n_dim == other.topology.n_dim:
             raise ValueError
+        # these vertex indices need to agree with the conventions employed in the topological product
         j, i = np.indices((len(other.vertices), len(self.vertices)))
         return ComplexCubical(
             vertices=np.concatenate([
@@ -112,94 +116,21 @@ class ComplexCubical(BaseComplexCubical):
 
 
 class ComplexCubical2(ComplexCubical):
-    """Specialization for 2d plotting"""
+    """Specialization for 2d quads"""
 
     def to_simplicial(self):
-        """Convert the regular complex into a simplicial complex,
+        """Convert the cubical complex into a simplicial complex,
         by forming 4 tris from each quad and its dual position"""
-        Q20 = self.topology.elements[2]
-        n_e = self.topology.n_elements
-
-        T20 = -np.ones((n_e[2], 4, 3), dtype=index_dtype)
-        T20[:, 0, :2] = Q20[:, 0, ::+1]
-        T20[:, 1, :2] = Q20[:, 1, ::-1]
-        T20[:, 2, :2] = Q20[:, ::-1, 0]
-        T20[:, 3, :2] = Q20[:, ::+1, 1]
-        T20[:, :, 2] = np.arange(n_e[2], dtype=index_dtype)[:, None] + n_e[0]   # all tris connect to a vertex inserted at each triangle
-        # FIXME: should not be restricted to 3d embedding space
-        from pycomplex.complex.simplicial import ComplexTriangular
-        # FIXME: construct a mapping from 0-forms in self to 0-forms in the returned topology?
-        # FIXME: likely super useful when using this for rendering
-        # can make for a legitimate step in subdivision too when combined with smoothing step
-        # FIXME: split topological part
-        # FIXME: add transfer operators here too
         v, e, f = self.primal_position()
+        from pycomplex.complex.simplicial import ComplexTriangular  # Triangular and Quadrilateral or Simplical2 and Cubical2; pick one...
         return ComplexTriangular(
             vertices=np.concatenate([v, f], axis=0),
-            triangles=T20.reshape(-1, 3)
+            topology=self.topology.as_2().to_simplicial()
         )
-
-    def metric(self):
-        """
-        calc metric properties and hodges for a 2d regular complex
-        sum over subdomains.
-        should be relatively easy to generalize to n-dimensions
-        """
-        from pycomplex.geometry import cubical
-
-        def gather(idx, vals):
-            """return vals[idx]. return.shape = idx.shape + vals.shape[1:]"""
-            return vals[idx]
-        def scatter(idx, vals, target):
-            """target[idx] += vals. """
-            np.add.at(target.ravel(), idx.ravel(), vals.ravel())
-
-        topology = self.topology
-        dual_vertices, dual_edges, dual_faces = self.dual_position()
-        primal_vertices, primal_edges, primal_faces = self.primal_position()
-
-        #metrics
-        P0, P1, P2 = topology.n_vertices, topology.n_edges, topology.n_faces
-        D0, D1, D2 = P2, P1, P0
-        MP0 = np.ones (P0)
-        MP1 = np.zeros(P1)
-        MP2 = np.zeros(P2)
-        MD0 = np.ones (D0)
-        MD1 = np.zeros(D1)
-        MD2 = np.zeros(D2)
-
-        #precomputations
-        E21 = topology.elements[2, 1]     # [faces, e3]
-        E10 = topology.elements[1, 0]     # [edges, v2]
-        E10P  = self.vertices[E10] # [edges, v2, c3]
-        E210P = E10P[E21]          # [faces, e3, v2, c3]
-        FEM  = (E210P.mean(axis=2))  # face-edge midpoints; [faces, e3, c3]
-        FEV  = E10[E21] # [faces, e3, v2]
-
-        # calc areas of fundamental squares
-        for d1 in range(2):
-            for d2 in range(2):
-                # this is the area of one fundamental domain
-                # note that it is assumed here that the primal face center lies within the triangle
-                # could we just compute a signed area and would it generalize?
-                areas = cubical.area_from_corners(E210P[:, e, 0, :], E210P[:, e, 1, :], primal_faces)
-                MP2 += areas                    # add contribution to primal face
-                scatter(FEV[:,e,0], areas/2, MD2)
-
-        # calc edge lengths
-        MP1 += cubical.edge_length(E10P[:, 0, :], E10P[:, 1, :])
-        for e in range(3):
-            scatter(
-                E21[:,e],
-                cubical.edge_length(FEM[:, e, :], primal_faces),
-                MD1)
-
-        self.primal_metric = [MP0, MP1, MP2]
-        self.dual_metric = [MD0, MD1, MD2]
 
 
 class ComplexCubical2Euclidian2(ComplexCubical2):
-    def plot(self, plot_dual=True):
+    def plot(self, plot_dual=True, plot_vertices=True):
         import matplotlib.pyplot as plt
         import matplotlib.collections
 
@@ -209,7 +140,8 @@ class ComplexCubical2Euclidian2(ComplexCubical2):
         fig, ax = plt.subplots(1,1)
         lc = matplotlib.collections.LineCollection(e, color='b', alpha=0.5)
         ax.add_collection(lc)
-        ax.scatter(*self.vertices.T, color='b')
+        if plot_vertices:
+            ax.scatter(*self.vertices.T, color='b')
 
         if plot_dual:
             # plot dual cells
@@ -226,17 +158,17 @@ class ComplexCubical2Euclidian2(ComplexCubical2):
             e = np.moveaxis(np.array([dual_edges, e]), 0, 1)
             lc = matplotlib.collections.LineCollection(e, color='r', alpha=0.5)
             ax.add_collection(lc)
-
-            ax.scatter(*dual_vertices.T, color='r')
+            if plot_vertices:
+                ax.scatter(*dual_vertices.T, color='r')
 
         plt.axis('equal')
         plt.show()
 
 
 class ComplexCubical2Euclidian3(ComplexCubical2):
-    """2 dimesional topology with 3d euclidian embedding"""
+    """2 dimensional topology (quadrilateral) with 3d euclidian embedding"""
 
-    def plot(self, plot_dual=True):
+    def plot(self, plot_dual=True, plot_vertices=False):
         import matplotlib.pyplot as plt
         import matplotlib.collections
 
@@ -246,7 +178,8 @@ class ComplexCubical2Euclidian3(ComplexCubical2):
         fig, ax = plt.subplots(1,1)
         lc = matplotlib.collections.LineCollection(e[..., :2], color='b', alpha=0.5)
         ax.add_collection(lc)
-        ax.scatter(*self.vertices.T[:2], color='b')
+        if plot_vertices:
+            ax.scatter(*self.vertices.T[:2], color='b')
 
         # plot dual cells
         if plot_dual:
@@ -264,7 +197,8 @@ class ComplexCubical2Euclidian3(ComplexCubical2):
             lc = matplotlib.collections.LineCollection(e[...,:2], color='r', alpha=0.5)
             ax.add_collection(lc)
 
-            ax.scatter(*dual_vertices.T[:2], color='r')
+            if plot_vertices:
+                ax.scatter(*dual_vertices.T[:2], color='r')
 
         plt.axis('equal')
         plt.show()
@@ -291,7 +225,7 @@ class ComplexCubical1Euclidian2(ComplexCubical):
 
 
 class ComplexCubical3Euclidian3(ComplexCubical):
-    """Cubes in 3d euclidian space"""
+    """3-Cubes in 3d euclidian space"""
 
     def plot(self, plot_dual=False):
         import matplotlib.pyplot as plt
@@ -325,3 +259,6 @@ class ComplexCubical3Euclidian3(ComplexCubical):
 
         plt.axis('equal')
         plt.show()
+
+    def plot_slice(self, affine, ):
+        pass

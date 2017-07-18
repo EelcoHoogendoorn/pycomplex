@@ -32,8 +32,10 @@ Todo
 - Build up interpolation and restriction multigrid transfer operators over different topologies
 - Fix cubical meshes for n > 3; Fully n-dim cube subdivision; Correct relative orientation calculations for higher dims
 - Fix simplicial meshes for n > 3
-- Black box multigrid
+- Black box multigrid (at least for 0-forms)
 - Minres with constraints solver
+- multigrid eigen solver
+- Add mesh picking functionality to complexes
 
 Speculative todo
 ----------------

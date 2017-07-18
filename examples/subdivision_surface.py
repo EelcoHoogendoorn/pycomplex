@@ -57,33 +57,44 @@ def example_letter_a():
             vertices=quads.vertices,
             cubes=quads.topology.elements[-1][s.flatten()]
         )
-    quads.as_22().plot(plot_dual=False)
+    quads.as_22().plot(plot_dual=True)
 
     segment = synthetic.n_cube(1)
 
     grid = quads.product(segment)
+    print(grid.topology.is_oriented)
 
     grid = grid.boundary()
+
+    # fix the orientation of the resulting cubes
+    print(grid.topology.is_oriented)
+    # grid.topology = grid.topology.fix_orientation()
+    print(grid.topology.is_oriented)
 
     # get bottom face chain
     fp = grid.primal_position()[2]
     fi = np.argsort(fp[:, 1])[:2]
     fc = grid.topology.chain(2, 0)
     fc[fi] = 1
-    ec = grid.topology.matrix(1, 2) * fc
+    c1 = grid.topology.matrix(1, 2) * fc
 
-    # propagate this chain along the subdivision
-    grid = grid.subdivide(smooth=True, creases={1:ec})
-    ec = grid.topology.transfer_matrices[1] * ec
-    grid = grid.subdivide(smooth=True, creases={1:ec})
-    ec = grid.topology.transfer_matrices[1] * ec
-    grid = grid.subdivide(smooth=True, creases={1:ec})
-    ec = grid.topology.transfer_matrices[1] * ec
+    # add random rotation
+    grid.vertices = np.dot(grid.vertices, linalg.orthonormalize(np.random.randn(3, 3)))
 
+    # subdivide; propagate crease along the subdivision
+    grid = grid.subdivide(smooth=True, creases={1:c1})
+    c1 = grid.topology.transfer_matrices[1] * c1
+    grid = grid.subdivide(smooth=True, creases={1:c1})
+    c1 = grid.topology.transfer_matrices[1] * c1
+    grid = grid.subdivide(smooth=True, creases={1:c1})
+    c1 = grid.topology.transfer_matrices[1] * c1
+
+
+    grid.as_23().plot(plot_dual=False, plot_vertices=False)
 
     grid = grid.as_23().to_simplicial()#.smooth().smooth()
+    grid.topology = grid.topology.fix_orientation()
 
-    grid.vertices = np.dot(grid.vertices, linalg.orthonormalize(np.random.randn(3, 3)))
 
     grid.as_3().plot_3d(plot_dual=False, plot_vertices=False)
 
@@ -106,5 +117,6 @@ def example_sphere():
 
     sphere.plot_3d(backface_culling=True)
 
-# example_letter_a()
-example_sphere()
+
+example_letter_a()
+# example_sphere()

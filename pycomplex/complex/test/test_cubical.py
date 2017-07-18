@@ -73,7 +73,7 @@ def test_triangulated_cube():
     # surface.plot_3d(backface_culling=True)
 
     # map back to quads again
-    surface = surface.to_regular().smooth()
+    surface = surface.to_cubical().smooth()
 
     # surface = surface.subdivide()
     # surface = surface.subdivide()
@@ -110,3 +110,6 @@ def test_product_2_1():
     grid.vertices = np.dot(grid.vertices, linalg.orthonormalize(np.random.randn(3, 3)))
 
     grid.as_33().plot()
+
+
+test_triangulated_cube()

@@ -132,5 +132,3 @@ class BaseComplexSpherical(BaseComplex):
         """
         from pycomplex.geometry.spherical import circumcenter
         return [circumcenter(self.vertices[c]) for c in self.topology.corners]
-
-

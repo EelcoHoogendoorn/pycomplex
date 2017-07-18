@@ -109,7 +109,7 @@ def edge_circumcenter(pts):
     n_pts, n_dim = pts.shape[-2:]
     if n_pts != 2:
         raise ValueError('Edge needs to be defined in terms of 2 points')
-    return linalg.normalized(pts.mean(axis=-2))
+    return linalg.normalized(pts.sum(axis=-2))
 
 
 def triangle_circumcenter(pts):

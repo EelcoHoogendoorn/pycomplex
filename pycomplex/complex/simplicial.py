@@ -71,48 +71,35 @@ class ComplexTriangular(BaseComplexEuclidian):
         """
         return euclidian.unsigned_volume(self.vertices[self.topology.faces])
 
-    def subdivide(self, smooth=False, creases=None):
-        """Loop subdivision"""
-        pp = self.primal_position()
-        divided = type(self)(
+    def subdivide(coarse, smooth=False, creases=None):
+        """Loop subdivision
+
+        """
+        pp = coarse.primal_position()
+        fine = type(coarse)(
             vertices=np.concatenate([pp[0], pp[1]], axis=0),
-            topology=self.topology.subdivide()
+            topology=coarse.topology.subdivide()
         )
 
         # propagate creases to lower level
         if creases is not None:
-            creases = {n: divided.topology.transfer_matrices[n] * c
+            creases = {n: fine.topology.transfer_matrices[n] * c
                        for n, c in creases.items()}
 
         if smooth:
-            divided = divided.smooth(creases)
+            fine = fine.smooth(creases)
 
-        # if smooth:
-        #     divided = divided.smooth()
-        return divided
+        return fine
 
-    def to_regular(self):
-        """Convert the triangular complex into a regular complex,
+    def to_cubical(self):
+        """Convert the simplicial complex into a cubical complex,
         by forming 3 quads from each triangle and its dual position"""
-        I20 = self.topology.incidence[2, 0]
-        I21 = self.topology.incidence[2, 1]
-
-        n_e = self.topology.n_elements
-        quads = -np.ones((n_e[2], 3, 2, 2), dtype=index_dtype)
-        quads[:, :, 0, 0] = np.arange(n_e[2])[:, None] + n_e[0] + n_e[1]
-        quads[:, :, 0, 1] = np.roll(I21, -1, axis=1) + n_e[0]
-        quads[:, :, 1, 0] = np.roll(I21, +1, axis=1) + n_e[0]
-        quads[:, :, 1, 1] = I20
-
-        # FIXME: should not be restricted to 3d embedding space
-        from pycomplex.complex.cubical import ComplexCubical
-        # FIXME: construct a mapping from 0-forms in self to 0-forms in the returned topology?
-        # FIXME: likely super useful when using this for rendering
-        # can make for a legitimate step in subdivision too when combined with smoothing step
         barycenters = [self.vertices[c].mean(axis=1) for c in self.topology.corners]
-        return ComplexCubical(
+
+        from pycomplex.complex.cubical import ComplexCubical2
+        return ComplexCubical2(
             vertices=np.concatenate(barycenters, axis=0),
-            cubes=quads.reshape(-1, 2, 2)
+            topology=self.topology.to_cubical()
         )
 
     def as_2(self):
@@ -260,6 +247,35 @@ class ComplexTriangularEuclidian3(ComplexTriangular):
 
             if plot_vertices:
                 ax.scatter(*dual_vertices.T[:2], color='r')
+
+        plt.axis('equal')
+        plt.show()
+
+    def plot_primal_0_form(self, c0, backface_culling=True):
+        """plot a primal 0-form
+
+        Parameters
+        ----------
+        c0 : ndarray, [n_vertices], float
+            a primal 0-form
+
+        """
+        # FIXME: add color mapping, including banded stripes
+        import matplotlib.pyplot as plt
+        import matplotlib.tri as tri
+
+        if backface_culling:
+            visible = self.triangle_normals()[:, 2] > 0
+        else:
+            visible = Ellipsis
+
+        triang = tri.Triangulation(*self.vertices[:, :2].T, triangles=self.topology.triangles, mask=visible)
+
+        fig, ax = plt.subplots(1, 1)
+
+        plt.tricontourf(triang, c0)
+        # plt.colorbar()
+        plt.tricontour(triang, c0, colors='k')
 
         plt.axis('equal')
         plt.show()

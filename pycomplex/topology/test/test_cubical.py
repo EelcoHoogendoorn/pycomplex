@@ -8,20 +8,15 @@ from pycomplex.topology.test.test_base import basic_test
 def test_generate_boundary():
     n_dim = 3
     cube = n_cube(n_dim)
-
-    edges = generate_boundary(cube.topology.elements[-1], degree=1)
-    print(edges.shape)
-    print(edges)
+    cubes = cube.topology.elements[-1]
+    for d in range(3):
+        b = generate_boundary(cubes, degree=d)
 
 
 def test_cube():
     n_dim = 3
-
-    n_cubes = np.arange(2**n_dim).reshape((1,)+(2,)*n_dim)
-
-    topology = TopologyCubical.from_cubes(n_cubes)
-
-    basic_test(topology)
+    cube = n_cube(n_dim)
+    basic_test(cube.topology)
 
 
 def test_quads():
@@ -42,9 +37,22 @@ def test_quads():
     basic_test(topology)
     b = topology.boundary()
     dual = topology.dual()
+    assert topology.is_oriented
 
 
 def test_product():
+    """Test product topology functionality"""
     quad = n_cube(2)
     line = n_cube(1)
     c = quad.product(line)
+
+
+def test_to_simplicial():
+    """Check that mapping cubical to simplicial retains orientation"""
+    n_dim = 3
+    cube = n_cube(n_dim).boundary()
+    assert not cube.topology.is_oriented
+    assert not cube.as_23().to_simplicial().topology.is_oriented
+    cube.topology = cube.topology.fix_orientation()
+    assert cube.topology.is_oriented
+    assert cube.as_23().to_simplicial().topology.is_oriented

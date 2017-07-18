@@ -237,9 +237,7 @@ class BaseTopology(object):
     @cached_property
     def is_oriented(self):
         """Return true if the topology is oriented"""
-        B10 = self._orientation[0]
-        B10 = np.sort(B10, axis=1)
-        return np.alltrue(B10 == [[-1, +1]])
+        return npi.all_equal(self.relative_orientation())
 
     def dual(self):
         """return dual topology with closed boundary
@@ -346,7 +344,7 @@ class BaseTopology(object):
         if not len(clauses):
             # FIXME: this is needed for loose triangles; but what about loose disjoint triangle plus other connection component?
             # would prob fail; need to handle remapping back from tris lost in interior filtering
-            return self
+            return self.chain(-1, fill=0)
         orientation = pycosat.solve(clauses.tolist() + (-clauses).tolist())
         if orientation == 'UNSAT':
             raise ValueError('Topology is a non-orientable manifold.')

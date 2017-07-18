@@ -55,7 +55,7 @@ class TopologyCubical(BaseTopology):
 
         Parameters
         ----------
-        cls : type(CubicalTopolgy)
+        cls : type(TopologyCubical)
         cubes : ndarray, [n_elements, (2,) * n_dim], index_type
             vertex indices defining the n_cubes
 
@@ -119,29 +119,6 @@ class TopologyCubical(BaseTopology):
 
         return cls(elements=E, boundary=B, orientation=O)
 
-    @staticmethod
-    def from_vertices(vertices):
-        """Assumed regular grid of vertices
-
-        Parameters
-        ----------
-        vertices : ndarray, [x, y ,z, ...]
-
-        """
-        vertices = np.asarray(vertices)
-        n_dim = vertices.ndim
-        shape = np.array(vertices.shape)
-        elements = np.empty(tuple(shape-1), (2,)*n_dim)
-
-        for i in range(n_dim):
-            rng = np.arange(vertices.shape[i])
-            slc = elements.take(rng[1:], axis=i)
-            q = slc.take(0, axis=i+n_dim)
-            q[...] = vertices.take(range[1:], axis=i)
-            elements[...] = vertices.take(range[1:], axis=i)
-            e = vertices.take(range[:-1], axis=i)
-        return TopologyCubical.from_cubes()
-
     def boundary(self):
         """Return n-1-topology representing the boundary"""
         bound = self.elements[-2][self.boundary_indices()]
@@ -178,24 +155,31 @@ class TopologyCubical(BaseTopology):
         new_cubes = new_cubes.reshape((-1,) + (2,) * n_dim)
         sub = type(self).from_cubes(new_cubes)
 
-        # build up transfer operators
+        sub.transfers = self.subdivide_transfers(sub, O)
+        sub.transfer_matrices = [transfer_matrix(*t, shape=(sub.n_elements[n], self.n_elements[n]))
+                                 for n, t in enumerate(sub.transfers)]
+        sub.parent = self
+
+        return sub
+
+    def subdivide_transfers(coarse, fine, O):
+        """build up transfer operators
+
+        Returns
+        -------
+        transfers : list of tuple of arrays
+            where each entry i is a tuple of ndarray, index_dtype, referencing (fine.elements[i], coarse.elements[i])
+        """
         transfers = []
-        for c, o in zip(sub.corners, O):
+        for c, o in zip(fine.corners, O):
             q = np.sort(c, axis=1)
             # filter down e for those having connection with original vertices
-            idx = np.flatnonzero(q[:, 0] < self.n_elements[0])
+            idx = np.flatnonzero(q[:, 0] < coarse.n_elements[0])
             q = q[idx]
             # highest vertex; translate to corresponding n-cube on the coarse level
             q = q[:, -1] - o
             transfers.append((idx, q))
-        # transfers is a list of arrays
-        # where each entry i is an ndarray, [sub.n_elements[i]], index_dtype, referring to the parent element
-        sub.transfers = transfers
-        sub.transfer_matrices = [transfer_matrix(*t, shape=(sub.n_elements[n], self.n_elements[n]))
-                                 for n, t in enumerate(transfers)]
-        sub.parent = self
-
-        return sub
+        return transfers
 
     def subdivide_specialized(self, I):
         """Construct subdivided cubes from list of boundary indices
@@ -289,3 +273,54 @@ class TopologyCubical(BaseTopology):
                 other_cubes.reshape((1,) + ol + (1,) * self.n_dim + os) * self.n_elements[0]
 
         return TopologyCubical.from_cubes(cubes.reshape((-1,) + cubes.shape[2:]))
+
+    def fix_orientation(self):
+        """Try to find a consistent orientation for all cubes
+
+        Returns
+        -------
+        oriented : TopologyCubical
+            same topology but with oriented simplices
+
+        Raises
+        ------
+        ValueError
+            if the topology is not orientable
+        """
+        E = self.elements[-1]
+        orientation = self.relative_orientation()
+        orientation = orientation.reshape((len(E),) + (1,) * self.n_dim)
+        # FIXME: this type of edge flipping only works if from_cubes does internal sorting
+        return type(self).from_cubes(np.where(orientation, E, E[:, ::-1]))
+
+    def as_2(self):
+        return TopologyCubical2(elements=self._elements, boundary=self._boundary, orientation=self._orientation)
+
+
+class TopologyCubical2(TopologyCubical):
+
+    def to_simplicial(self):
+        """Convert the cubical topology into a simplicial topology,
+        by forming 4 tris from each quad
+
+        Returns
+        -------
+        TopologyTriangular
+        """
+        Q20 = self.elements[2]
+        n_e = self.n_elements
+
+        T20 = -np.ones((n_e[2], 4, 3), dtype=index_dtype)
+        T20[:, 0, :2] = Q20[:, 0, ::+1]
+        T20[:, 1, :2] = Q20[:, 1, ::-1]
+        T20[:, 2, :2] = Q20[:, ::-1, 0]
+        T20[:, 3, :2] = Q20[:, ::+1, 1]
+        # all tris connect to a vertex inserted at each quad
+        T20[:, :, 2] = self.range(2)[:, None] + n_e[0]
+
+        from pycomplex.topology.simplicial import TopologyTriangular
+        return TopologyTriangular.from_simplices(T20.reshape(-1, 3))
+
+    def to_simplicial_transfer(cubical, simplicial):
+        pass
+        # need to be able to interpolate 0-forms for many purposes... stack E00 and E20

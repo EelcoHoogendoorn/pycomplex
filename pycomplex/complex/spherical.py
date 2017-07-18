@@ -8,7 +8,7 @@ from pycomplex.topology import index_dtype
 
 
 class ComplexCircular(BaseComplexSpherical):
-    """Simplicial complex on the surface of a 1-sphere"""
+    """Simplicial complex on the surface of a 1-sphere; cant really think of any applications"""
     pass
 
 
@@ -19,14 +19,13 @@ class ComplexSpherical(BaseComplexSpherical):
         self.vertices = np.asarray(vertices)
 
         if topology is None:
-            # ad hoc fix to orient triangles
-            # FIXME: get fix_orientation working instead!
+            # fix orientation in an absolute sense
             triangles = np.asarray(triangles, dtype=index_dtype)
             bc = vertices[triangles].mean(axis=1)
             cc = spherical.circumcenter(vertices[triangles])
             orientation = linalg.dot(bc, cc) > 0
             triangles = np.where(orientation[:, None], triangles, triangles[:, ::-1])
-            topology = TopologyTriangular.from_simplices(triangles)  # .fix_orientation()
+            topology = TopologyTriangular.from_simplices(triangles)
             assert topology.is_oriented
 
         self.topology = topology
@@ -47,7 +46,7 @@ class ComplexSpherical(BaseComplexSpherical):
             np.add.at(target.ravel(), idx.ravel(), vals.ravel())
 
         topology = self.topology
-        primal_vertices, primal_edges, primal_faces = self.primal_position()
+        PP0, PP1, PP2 = self.primal_position()
 
         #metrics
         P0, P1, P2 = topology.n_elements
@@ -59,35 +58,38 @@ class ComplexSpherical(BaseComplexSpherical):
         MD1 = np.zeros(D1)
         MD2 = np.zeros(D2)
 
-        #precomputations
-        E21 = topology.E[2, 1]     # [faces, e3]
-        E10 = topology.E[1, 0]     # [edges, v2]
-        E10P  = self.vertices[E10] # [edges, v2, c3]
-        E210P = E10P[E21]          # [faces, e3, v2, c3]
-        FEM  = linalg.normalize(E210P.sum(axis=2))  # face-edge midpoints; [faces, e3, c3]
-        FEV  = E10[E21]            # [faces, e3, v2]
+        # precomputations
+        E21  = topology.incidence[2, 1]  # [faces, e3]
+        E10  = topology.incidence[1, 0]  # [edges, v2]
+        E210 = E10[E21]                  # [faces, e3, v2]
+
+        PP10  = PP0[E10]                 # [edges, v2, c3]
+        PP210 = PP10[E21]                # [faces, e3, v2, c3]
+        PP21  = PP1[E21]                 # [faces, e3, c3] ; face-edge midpoints
 
         # calculate areas; devectorization over e makes things a little more elegant, by avoiding superfluous stacking
         for e in range(3):
-            # this is the area of one fundamental domain
+            # this is the area of two fundamental domains
             # note that it is assumed here that the primal face center lies within the triangle
             # could we just compute a signed area and would it generalize?
-            areas = spherical.triangle_area_from_corners(E210P[:,e,0,:], E210P[:,e,1,:], primal_faces)
+            areas = spherical.triangle_area_from_corners(PP210[:,e,0,:], PP210[:,e,1,:], PP2)
             MP2 += areas                    # add contribution to primal face
-            scatter(FEV[:,e,0], areas/2, MD2)
-            scatter(FEV[:,e,1], areas/2, MD2)
+            scatter(E210[:,e,0], areas/2, MD2)
+            scatter(E210[:,e,1], areas/2, MD2)
 
-        #calc edge lengths
-        MP1 += spherical.edge_length(E10P[:,0,:], E10P[:,1,:])
+        # calc edge lengths
+        MP1 += spherical.edge_length(PP10[:,0,:], PP10[:,1,:])
         for e in range(3):
             # note: this calc would need to be signed too, to support external circumcenters
             scatter(
                 E21[:,e],
-                spherical.edge_length(FEM[:,e,:], primal_faces),
+                spherical.edge_length(PP21[:,e,:], PP2),
                 MD1)
 
         self.primal_metric = [MP0, MP1, MP2]
         self.dual_metric = [MD0, MD1, MD2]
+
+        self.hodge_from_metric()
 
     def hodge_from_metric(self):
         MP = self.primal_metric

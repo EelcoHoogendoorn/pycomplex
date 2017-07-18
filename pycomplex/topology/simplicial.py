@@ -341,13 +341,28 @@ class TopologyTriangular(TopologySimplicial):
 
     @staticmethod
     def subdivide_direct_transfer(coarse, fine):
-        """Transfer operators belonging to direct subdivision logic"""
+        """Transfer operators belonging to direct subdivision logic; note their simplicity"""
         transfers = [
             (fine.range(0)[:coarse.n_elements[0]],   coarse.range(0)),
             (fine.range(1)[:coarse.n_elements[1]*2], np.repeat(coarse.range(1), 2)),
             (fine.range(2),                          np.repeat(coarse.range(2), 4)),
         ]
 
+    def to_cubical(self):
+        """Convert the triangular complex into a cubical complex,
+        by forming 3 quads from each triangle"""
+        N0, N1, N2 = self.n_elements
+        I20 = self.incidence[2, 0]
+        I21 = self.incidence[2, 1]
+
+        Q20 = -np.ones((N2, 3, 2, 2), dtype=index_dtype)
+        Q20[:, :, 0, 0] = self.range(2)[:, None] + N0 + N1
+        Q20[:, :, 0, 1] = np.roll(I21, -1, axis=1) + N0
+        Q20[:, :, 1, 0] = np.roll(I21, +1, axis=1) + N0
+        Q20[:, :, 1, 1] = I20
+
+        from pycomplex.topology.cubical import TopologyCubical2
+        return TopologyCubical2.from_cubes(Q20.reshape(N2 * 3, 2, 2))
 
     # some convenient named accessors
     def face_edge(self):
