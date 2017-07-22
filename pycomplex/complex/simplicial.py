@@ -142,6 +142,52 @@ class ComplexTriangularEuclidian2(ComplexTriangular):
         plt.axis('equal')
         plt.show()
 
+    def plot_primal_0_form(self, c0):
+        """plot a primal 0-form
+
+        Parameters
+        ----------
+        c0 : ndarray, [n_vertices], float
+            a primal 0-form
+
+        """
+        # FIXME: add color mapping, including banded stripes
+        import matplotlib.pyplot as plt
+        import matplotlib.tri as tri
+
+        triang = tri.Triangulation(*self.vertices[:, :2].T, triangles=self.topology.triangles)
+
+        fig, ax = plt.subplots(1, 1)
+
+        plt.tricontourf(triang, c0)
+        # plt.colorbar()
+        plt.tricontour(triang, c0, colors='k')
+
+        plt.axis('equal')
+        plt.show()
+
+    def plot_primal_2_form(self, p2):
+        """plot a primal 2-form
+
+        Parameters
+        ----------
+        p2 : ndarray, [n_vertices], float
+            a primal 0-form
+
+        """
+        # FIXME: add color mapping, including banded stripes
+        import matplotlib.pyplot as plt
+        from matplotlib.collections import PolyCollection
+        from matplotlib.cm import ScalarMappable
+
+        fig, ax = plt.subplots(1, 1)
+        cmap = plt.get_cmap('jet')
+        facecolors = ScalarMappable(cmap=cmap).to_rgba(p2)
+        ax.add_collection(PolyCollection(self.vertices[self.topology.triangles], facecolors=facecolors, edgecolors=None))
+
+        plt.axis('equal')
+        plt.show()
+
 
 class ComplexTriangularEuclidian3(ComplexTriangular):
     """Triangular topology embedded in euclidian 3-space"""
@@ -177,6 +223,10 @@ class ComplexTriangularEuclidian3(ComplexTriangular):
         I20 = self.topology.incidence[2, 0]
         vertex_idx, v_n = npi.group_by(I20.flatten()).sum(np.repeat(t_n, 3, axis=0))
         return v_n
+
+    def vertex_areas(self):
+        """Compute circumcentric area here"""
+        raise NotImplementedError()
 
     def volume(self):
         """Return the volume enclosed by this complex
@@ -273,9 +323,37 @@ class ComplexTriangularEuclidian3(ComplexTriangular):
 
         fig, ax = plt.subplots(1, 1)
 
-        plt.tricontourf(triang, c0)
+        plt.tricontourf(triang, c0)#, cmap='terrain')
         # plt.colorbar()
         plt.tricontour(triang, c0, colors='k')
+
+        plt.axis('equal')
+        plt.show()
+
+    def plot_primal_2_form(self, p2, backface_culling=True):
+        """plot a primal 0-form
+
+        Parameters
+        ----------
+        p2 : ndarray, [n_vertices], float
+            a primal 2-form
+
+        """
+        import matplotlib.pyplot as plt
+        from matplotlib.collections import PolyCollection
+        from matplotlib.cm import ScalarMappable
+
+        if backface_culling:
+            visible = self.triangle_normals()[:, 2] > 0
+        else:
+            visible = Ellipsis
+
+        tris = self.vertices[self.topology.triangles[visible]]
+
+        fig, ax = plt.subplots(1, 1)
+        cmap = plt.get_cmap('jet')
+        facecolors = ScalarMappable(cmap=cmap).to_rgba(p2)
+        ax.add_collection(PolyCollection(tris[:, :, :2], facecolors=facecolors[visible], edgecolors=None))
 
         plt.axis('equal')
         plt.show()

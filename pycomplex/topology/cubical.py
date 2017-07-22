@@ -2,6 +2,7 @@ import numpy as np
 import numpy_indexed as npi
 import scipy
 import scipy.sparse
+from cached_property import cached_property
 
 import pycomplex.math.combinatorial
 from pycomplex.topology.topology import BaseTopology
@@ -48,6 +49,13 @@ def generate_boundary(cubes, degree=1):
 
 class TopologyCubical(BaseTopology):
     """N-dimensional regular topology, where each element is an n-cube"""
+
+    def boundary_type(self):
+        return TopologyCubical
+
+    @classmethod
+    def from_elements(cls, elements):
+        return cls.from_cubes(cubes=elements)
 
     @classmethod
     def from_cubes(cls, cubes):
@@ -118,11 +126,6 @@ class TopologyCubical(BaseTopology):
                 break
 
         return cls(elements=E, boundary=B, orientation=O)
-
-    def boundary(self):
-        """Return n-1-topology representing the boundary"""
-        bound = self.elements[-2][self.boundary_indices()]
-        return TopologyCubical.from_cubes(bound) if len(bound) else None
 
     def subdivide(self):
         """Cubical topology subdivision; general n-d case

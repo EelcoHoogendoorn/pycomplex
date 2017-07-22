@@ -56,15 +56,6 @@ class ComplexCubical(BaseComplexCubical):
             fine = fine.smooth(creases)
         return fine
 
-    def boundary(self):
-        # FIXME: need to implement vertex subset selection! current implementation only works if vertex-set remains stable
-        # FIXME: could be higher up in the class hierarchy
-        B = self.topology.boundary()
-        if B is None:
-            return None
-        else:
-            return ComplexCubical(vertices=self.vertices, topology=B)
-
     def product(self, other):
         """Construct the product of two cubical complexes
 
@@ -128,8 +119,21 @@ class ComplexCubical2(ComplexCubical):
             topology=self.topology.as_2().to_simplicial()
         )
 
+    def to_simplicial_transfer_0(self, c0):
+        """map 0 form from cubical to simplical"""
+        s0 = np.concatenate([c0, c0[self.topology.corners[2]].mean(axis=1)])
+        return s0
+
+    def to_simplicial_transfer_2(self, c2):
+        """map 0 form from cubical to simplical"""
+        s0 = np.repeat(c2, 4)
+        return s0
 
 class ComplexCubical2Euclidian2(ComplexCubical2):
+
+    def as_regular(self):
+        from pycomplex.complex.regular import ComplexRegular2
+        return ComplexRegular2(vertices=self.vertices, topology=self.topology)
     def plot(self, plot_dual=True, plot_vertices=True):
         import matplotlib.pyplot as plt
         import matplotlib.collections

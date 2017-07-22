@@ -35,7 +35,7 @@ def test_quads():
     topology = TopologyCubical.from_cubes(quads)
 
     basic_test(topology)
-    b = topology.boundary()
+    b = topology.boundary
     dual = topology.dual()
     assert topology.is_oriented
 

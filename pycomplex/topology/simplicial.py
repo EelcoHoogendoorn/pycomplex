@@ -1,6 +1,7 @@
 
 import numpy as np
 import numpy_indexed as npi
+from cached_property import cached_property
 
 from pycomplex.topology import topology_matrix, sign_dtype, index_dtype, transfer_matrix
 from pycomplex.topology.topology import BaseTopology
@@ -30,9 +31,13 @@ def simplex_parity(simplices):
 class TopologySimplicial(BaseTopology):
     """Simplicial topology of arbitrary dimension
 
-    Note: maintain both vertex index as boundary index description here as well, like in regular
-    should topology matrix always be a lazy view of those dense arrays?
     """
+    def boundary_type(self):
+        return TopologySimplicial
+
+    @classmethod
+    def from_elements(cls, elements):
+        return cls.from_simplices(elements)
 
     @classmethod
     def from_simplices(cls, simplices):
@@ -108,10 +113,18 @@ class TopologySimplicial(BaseTopology):
 
         return cls(elements=E, orientation=O, boundary=B)
 
-    def boundary(self):
-        """Return n-1-topology representing the boundary"""
-        bound = self.elements[-2][self.boundary_indices()]
-        return TopologySimplicial.from_simplices(bound) if len(bound) else None
+    # @cached_property
+    # def boundary(self):
+    #     """Return n-1-topology representing the boundary"""
+    #     b_idx = self.boundary_indices()
+    #     if len(b_idx) == 0:
+    #         return None
+    #     # construct boundary
+    #     B = type(self).from_simplices(self.elements[-2][b_idx])
+    #     # compute correspondence idx for all parent and boundary elements
+    #     B.parent_idx = self.find_correspondence(B)
+    #     B.parent = self
+    #     return B
 
     def fix_orientation(self):
         """Try to find a consistent orientation for all simplices
@@ -145,6 +158,9 @@ class TopologyTriangular(TopologySimplicial):
         seek to do similar things for tets
         """
         E20 = np.asarray(triangles, dtype=index_dtype)
+        if not E20.ndim==2 and E20.shape[1] == 3:
+            raise ValueError('Expectect integer triples')
+
         E00 = np.unique(E20).reshape(-1, 1)
 
         L = np.roll(E20, -1, axis=1)

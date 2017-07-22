@@ -24,13 +24,13 @@ def test_ico_subset():
     """Test that a concave boundary works just the same on a sphere"""
     sphere = synthetic.icosahedron()
     sphere.vertices = np.dot(sphere.vertices, linalg.orthonormalize(np.random.randn(3, 3)))
-
-    selection = np.delete(np.arange(20), sphere.primal_position()[2][:, 2].argmax())
-    sphere = ComplexSpherical(vertices=sphere.vertices, triangles=sphere.topology.elements[-1][selection])
+    triangle_position = sphere.primal_position()[2]
+    selection = triangle_position[:, 2] != triangle_position[:,2].max()
+    sphere = sphere.select_subset(selection)
     sphere = sphere.subdivide()
     sphere = sphere.subdivide()
 
-    sphere.plot()
+    sphere.plot(plot_dual=True)
 
 
 def test_subdivide():

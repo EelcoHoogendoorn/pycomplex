@@ -79,7 +79,7 @@ def test_triangulated_cube():
     # surface = surface.subdivide()
 
     surface.as_23().plot(plot_dual=False)
-    assert surface.topology.is_oriented
+    # assert surface.topology.is_oriented
 
 
 def test_cube_grid_2():
@@ -112,4 +112,4 @@ def test_product_2_1():
     grid.as_33().plot()
 
 
-test_triangulated_cube()
+test_product_2_1()

@@ -33,6 +33,32 @@ class BaseComplex(object):
         """Return a complex of the same type, with one level of subdivision applied"""
         raise NotImplementedError
 
+    def select_subset(self, n_chain):
+        """
+
+        Parameters
+        ----------
+        n_chain : ndarray, [n_elements[-1], sign_type
+            chain indicating which elements to select
+
+        Returns
+        -------
+        type(self)
+            The indicated subset
+        """
+        n_chain = np.asarray(n_chain)
+        if not len(n_chain) == self.topology.n_elements[-1]:
+            raise ValueError
+        subset_topology = self.topology.select_subset(n_chain)
+        return type(self)(topology=subset_topology, vertices=self.vertices[subset_topology.parent_idx[0]])
+
+    def boundary(self):
+        B = self.topology.boundary
+        if B is None:
+            return None
+        else:
+            return type(self)(vertices=self.vertices[B.parent_idx[0]], topology=B)
+
     def dual_position(self):
         """Positions of all dual elements; primal elements with boundary elements appended where required
 
@@ -48,12 +74,12 @@ class BaseComplex(object):
         dp = []
 
         # location of dual boundary element is location of corresponding primal boundary element
-        boundary = self.topology.boundary()
+        boundary = self.topology.boundary
         for i, (e) in enumerate(self.topology.elements):
             if i == 0 or boundary is None:
                 c = [pp[i]]
             else:
-                idx = npi.indices(self.topology.elements[i-1], boundary.elements[i-1])
+                idx = boundary.parent_idx[i-1]
                 b = pp[i-1][idx]
                 c = [pp[i], b]
             dp.append(np.concatenate(c, axis=0))

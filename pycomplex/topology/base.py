@@ -20,6 +20,9 @@ class BaseTopology(object):
     T(n) defines the n-elements in terms of an oriented closed boundary of n-1 elements
 
     """
+    @classmethod
+    def from_elements(cls, elements):
+        raise NotImplementedError
 
     def __init__(self, elements, boundary, orientation, element_labels=None, strict=False):
         """
@@ -197,10 +200,6 @@ class BaseTopology(object):
         """
         return len(self.split_connected_components()) == 1
 
-    @abstractmethod
-    def select_subchain(self, chain, ndim):
-        raise NotImplementedError
-
     @cached_property
     def is_manifold(self):
         try:
@@ -226,13 +225,9 @@ class BaseTopology(object):
         b_idx = chain_n == 1
         return np.flatnonzero(b_idx)
 
-    @abstractmethod
-    def boundary(self):
-        raise NotImplementedError
-
     @cached_property
     def is_closed(self):
-        return self.boundary() is None
+        return self.boundary is None
 
     @cached_property
     def is_oriented(self):
@@ -273,8 +268,9 @@ class BaseTopology(object):
         D12 = T01.T + I
 
         """
+        # FIXME: migrate this logic to dual subclass
 
-        def dual_T(T, E, B, Be):
+        def dual_T(T, B, idx):
             """Compose dual topology matrix in presence of boundaries
 
             FIXME: make block structure persistent? would be more self-documenting to vectors
@@ -284,7 +280,7 @@ class BaseTopology(object):
             only really care about the caps to close the dual; interrelations appear irrelevant
             """
 
-            idx = npi.indices(E, Be)
+            # idx = npi.indices(E, Be)
             orientation = np.ones_like(idx) # FIXME: this is obviously nonsense; need to work out signs
             I = scipy.sparse.coo_matrix(
                 (orientation,
@@ -302,22 +298,19 @@ class BaseTopology(object):
                     [I, B]
                 ]
             return scipy.sparse.bmat(blocks)
-        boundary = self.boundary()
+        boundary = self.boundary
         CBT = []
         T = [self.matrix(i) for i in range(self.n_dim)]
-        E = self.elements
         if not boundary is None:
             BT = [boundary.matrix(i) for i in range(boundary.n_dim)]
-            BE = boundary.elements
 
         for d in range(len(T)):
             CBT.append(
                 T[::-1][d].T if boundary is None else
                 dual_T(
                     T[::-1][d].T,
-                    E[::-1][d+1],
                     BT[::-1][d].T if d < len(BT) else None,
-                    BE[::-1][d]
+                    boundary.parent_idx[::-1][d]
                 )
             )
         return CBT
@@ -352,3 +345,85 @@ class BaseTopology(object):
         # reorient the faces according to the solution found
         orientation = np.array(orientation)[:, None] > 0
         return orientation
+
+    def find_correspondence(self, other, mapping):
+        """
+
+        Parameters
+        ----------
+        self : BaseTopology
+        other : BaseTopology
+            subset of self
+        mapping : ndarray, [other.n_elements[0]], index_type
+            indices of self.vertices for each of other.vertices
+
+        Returns
+        -------
+        idx : list of ndarray
+            ith entry of the list contains the index of other in self of the i-elements
+        """
+        idx = []
+        for C, c in zip(self.corners, other.corners):
+            c = np.sort(mapping[c], axis=1)
+            C = np.sort(C, axis=1)
+            # FIXME: find and do something with relative orientation here?
+            idx.append(npi.indices(C, c))
+        return idx
+
+    def select_subset(self, n_chain):
+        """
+
+        Parameters
+        ----------
+        n_chain : ndarray, [n_elements[-1], sign_type
+            chain indicating which elements to select
+
+        Returns
+        -------
+        type(self)
+            Topology of the indicated subset,
+            including a precomputed mapping back to the original topology
+        """
+        n_chain = np.asarray(n_chain)
+        if not len(n_chain) == self.n_elements[-1]:
+            raise ValueError
+
+        elements = self.elements[-1][np.flatnonzero(n_chain)]   # FIXME: discarding sign info of chain here...
+
+        mapping, inverse = np.unique(elements.flatten(), return_inverse=True)
+        elements = inverse.reshape(elements.shape).astype(index_dtype)
+
+        subset = type(self).from_elements(elements)
+        subset.parent_idx = self.find_correspondence(subset, mapping)
+        return subset
+
+    @cached_property
+    def boundary(self):
+        """Return n-1-topology representing the boundary
+
+        Returns
+        -------
+        self.boundary_type
+            Boundary topology, with attribute parent_idx referring back to the parent elements
+        """
+
+        chain_N = self.chain(-1, fill=1)
+        chain_n = self.matrix(-1) * chain_N
+        b_idx = np.flatnonzero(chain_n)
+        orientation = chain_n[b_idx]
+        if len(b_idx) == 0:
+            return None
+        # construct boundary
+        elements = self.elements[-2][b_idx]
+
+        # FIXME: enabling this orientation logic breaks subdivision\letter example; need to figure out why
+        # shape = np.asarray(elements.shape)
+        # shape[1:] = 1
+        # elements = np.where(orientation.reshape(shape)==1, elements, elements[:, ::-1])
+        mapping, inverse = np.unique(elements.flatten(), return_inverse=True)
+        elements = inverse.reshape(elements.shape).astype(index_dtype)
+
+        B = self.boundary_type().from_elements(elements)
+        B.parent_idx = self.find_correspondence(B, mapping)
+        B.parent = self
+        return B
