@@ -71,12 +71,15 @@ class BaseComplex(object):
         """
         # interior dual elements are located at their corresponding primal
         pp = self.primal_position()
-        dp = []
 
         # location of dual boundary element is location of corresponding primal boundary element
         boundary = self.topology.boundary
+        if boundary is None:
+            return pp[::-1]
+
+        dp = []
         for i, (e) in enumerate(self.topology.elements):
-            if i == 0 or boundary is None:
+            if i == 0:
                 c = [pp[i]]
             else:
                 idx = boundary.parent_idx[i-1]

@@ -174,7 +174,8 @@ class TopologyTriangular(TopologySimplicial):
 
         # special case rule for triangle orientations
         O21 = ((L < R) * 2 - 1).astype(sign_dtype)
-        O10 = np.ones((len(E10), 2), sign_dtype) * [[-1, +1]]
+        O10 = np.ones((len(E10), 2), sign_dtype)
+        O10[:, 0] *= -1
 
         # construct grid of all element representations
         E = [E00, E10, E20]

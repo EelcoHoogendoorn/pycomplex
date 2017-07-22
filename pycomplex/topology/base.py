@@ -56,6 +56,13 @@ class BaseTopology(object):
         for b, o in zip(boundary, orientation):
             if not b.shape == o.shape:
                 raise ValueError
+            if not b.dtype == index_dtype:
+                raise ValueError
+            if not o.dtype == sign_dtype:
+                raise ValueError
+        for e in elements:
+            if not e.dtype == index_dtype:
+                raise ValueError
 
     @cached_property
     def elements(self):
@@ -67,6 +74,7 @@ class BaseTopology(object):
 
     @cached_property
     def n_elements(self):
+        """List of ints; n-th entry is number of n-elements"""
         return [len(e) for e in self._elements]
 
     @cached_property
@@ -209,21 +217,13 @@ class BaseTopology(object):
             return False
 
     def chain(self, n, fill=1, dtype=sign_dtype):
-        """allocate an n-chain"""
+        """Construct an n-chain"""
         c = np.empty(self.n_elements[n], dtype=dtype)
         c.fill(fill)
         return c
-
     def range(self, n):
+        """Construct an n-chain filled with an integer range"""
         return np.arange(self.n_elements[n], dtype=index_dtype)
-
-    def boundary_indices(self):
-        """Return integer indices denoting n-1-elements forming the boundary"""
-        chain_N = self.chain(-1, fill=1)
-
-        chain_n = np.abs(self.matrix(-1)) * chain_N
-        b_idx = chain_n == 1
-        return np.flatnonzero(b_idx)
 
     @cached_property
     def is_closed(self):
@@ -234,86 +234,11 @@ class BaseTopology(object):
         """Return true if the topology is oriented"""
         return npi.all_equal(self.relative_orientation())
 
+    @cached_property
     def dual(self):
-        """return dual topology with closed boundary
-
-        Returns
-        -------
-        list of dual topology matrices
-
-        Notes
-        -----
-        dual topology is tranpose of primal topology plus transpose of primal boundary topology
-        boundary does not add any dual n-elements
-        Every topology matrix needs an identity term added to link the new boundary elements with their
-        adjecent dual internal topology
-        that is, every T matrix has a block structure, such that:
-        [T.T, 0   ]
-        [I,   B.T]
-
-        3d example:
-        D01 = T23.T + I + B12.T
-        D12 = T12.T + I + B01.T
-        D23 = T01.T + I
-
-        D0 = P3 + B2
-        D1 = P2 + B1
-        D2 = P1 + B0
-        D3 = P0
-        NOTE: D elements generally cannot be constructed in the same layout as the primal ones,
-        for lack of uniform valence
-
-        2d example:
-        D01 = T12.T + I + B01.T
-        D12 = T01.T + I
-
-        """
-        # FIXME: migrate this logic to dual subclass
-
-        def dual_T(T, B, idx):
-            """Compose dual topology matrix in presence of boundaries
-
-            FIXME: make block structure persistent? would be more self-documenting to vectors
-            also would be cleaner to split primal topology in interior/boundary blocks first
-
-            To what extent do we care about relations between dual boundary elements?
-            only really care about the caps to close the dual; interrelations appear irrelevant
-            """
-
-            # idx = npi.indices(E, Be)
-            orientation = np.ones_like(idx) # FIXME: this is obviously nonsense; need to work out signs
-            I = scipy.sparse.coo_matrix(
-                (orientation,
-                 (np.arange(len(idx)), idx )),
-                shape=(B.shape[0], T.shape[1]) if not B is None else (len(idx), T.shape[1])
-            )
-            if B is None:
-                blocks = [
-                    [T],
-                    [I]
-                ]
-            else:
-                blocks = [
-                    [T, None],
-                    [I, B]
-                ]
-            return scipy.sparse.bmat(blocks)
-        boundary = self.boundary
-        CBT = []
-        T = [self.matrix(i) for i in range(self.n_dim)]
-        if not boundary is None:
-            BT = [boundary.matrix(i) for i in range(boundary.n_dim)]
-
-        for d in range(len(T)):
-            CBT.append(
-                T[::-1][d].T if boundary is None else
-                dual_T(
-                    T[::-1][d].T,
-                    BT[::-1][d].T if d < len(BT) else None,
-                    boundary.parent_idx[::-1][d]
-                )
-            )
-        return CBT
+        """Return dual topology object, that closes all boundaries"""
+        from pycomplex.topology.dual import Dual
+        return Dual(self)
 
     def relative_orientation(self):
         """Try to find the relative orientation of all n-elements
@@ -412,6 +337,7 @@ class BaseTopology(object):
         b_idx = np.flatnonzero(chain_n)
         orientation = chain_n[b_idx]
         if len(b_idx) == 0:
+            # topology is closed
             return None
         # construct boundary
         elements = self.elements[-2][b_idx]

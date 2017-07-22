@@ -56,3 +56,30 @@ how to specify anti-symmetry of solution? zero flux would do perhaps?
 
 
 to what extent can we trick minres into helping us?
+
+how different is this in 3d?
+
+[[0, 0], [δ, 0, 0], [0, 0, 0], [0, 0]] [0i]   [0i]
+[[0, 0], [δ, δ, I], [0, 0, 0], [0, 0]] [0p]   [0p]
+
+[[d, d], [0, 0, 0], [δ, 0, 0], [0, 0]] [1i]   [1i]
+[[0, d], [0, 0, 0], [δ, δ, I], [0, 0]] [1p] = [1p]  boundary edges
+[[0, _], [0, 0, _], [0, 0, b], [0, 0]] [1d]   [1d]  have dual 2 elements
+
+[[0, 0], [d, d, 0], [0, 0, 0], [δ, 0]] [2i]   [2i]
+[[0, 0], [0, d, 0], [0, 0, 0], [δ, I]] [2p] = [2p]
+[[0, 0], [0, _, _], [0, 0, _], [0, b]] [2d]   [2d]
+
+[[0, 0], [0, 0, 0], [d, d, 0], [0, 0]] [3i]   [3i]
+[[0, 0], [0, 0, 0], [0, _, _], [0, _]] [3d]   [3d]
+
+if magnetic flux is a primal 2-form:
+
+[[δ, 0, 0]]         [Ji]     curl; nothing to see here. rhs is
+[[δ, δ, I]]         [Jp]
+[[0, 0, b]]  [Bi]   [Jd]
+             [Bp]
+[[d, d, 0]]  [Bd]   [0]     divergence; no dependence on dual boundary tangent flux; makes sense
+[[0, I, b]]         [bc]    implies normal flux constraint; ok. implied tangent flux change; antisymmetry if 0?
+
+we get another

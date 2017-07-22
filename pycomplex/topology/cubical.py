@@ -98,7 +98,7 @@ class TopologyCubical(BaseTopology):
 
             # create topology matrix
             orientation = parity * 2 - 1
-            return En0, EnN, orientation
+            return En0, EnN, orientation.astype(sign_dtype)
 
         EN0 = np.asarray(cubes)
         n_dim = EN0.ndim - 1

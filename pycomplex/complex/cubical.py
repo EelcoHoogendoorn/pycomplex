@@ -150,9 +150,9 @@ class ComplexCubical2Euclidian2(ComplexCubical2):
         if plot_dual:
             # plot dual cells
             dual_vertices, dual_edges = self.dual_position()[0:2]
-            dual_topology = self.topology.dual()
+            dual = self.topology.dual
             from pycomplex.topology import sparse_to_elements
-            de = sparse_to_elements(dual_topology[0].T)
+            de = sparse_to_elements(dual.matrix[0].T)
 
             de = dual_vertices[de]
             s, e = de[:,0], de[:,1]

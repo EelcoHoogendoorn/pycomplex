@@ -42,53 +42,23 @@ this is of course what least-squares based minres does internally anyway!
 absolves us from obsessing about symmetry, and gives more leeway in exploring boundary conditions!
 
 
-
-
-probably a fine start
-
-but can we simplify this into a system involving only a streamfunction phi?
-we note that expressing v as curl phi fails to prescribe vd; so this substitution is incomplete
-can we augment the curl operator with an I passthrough in lower right corner?
-and if we multiplied with the same op from the left, what would happen to the [vp, Pd] equations?
-extra
-
-since v in incompressible, we can write it as the curl of a potential
-v = curl phi
-putting curl in front of force equation too for symmetry
-
-[I,    curl, 0   ] [O]   [0]
-[curl, 0,    grad] [dphi] = [f]
-[0,    div,  0   ] [P]   [0]
-
-bottom eq drops out since div curl = 0; right column drops out since curl grad = 0
-
-
-
-
-
 """
 import numpy as np
 import scipy.sparse
+from examples.linear_system import *
 
-def grid():
+
+def grid(shape=(32, 32)):
     from pycomplex import synthetic
-    mesh = synthetic.n_cube_grid((32, 32))
+    mesh = synthetic.n_cube_grid(shape)
     return mesh.as_22().as_regular()
 
 def concave():
-    from pycomplex.complex.regular import ComplexRegular2
-    vertices = np.indices((3, 3))
-    vertices = vertices.reshape(2, -1).T[:-1]
-    quads = [
-        [[0, 1],
-         [3, 4]],
-        [[1, 2],
-         [4, 5]],
-        [[3, 4],
-         [6, 7]],
-    ]
+    # take a 2x2 grid
+    mesh = grid(shape=(2, 2))
+    # discard a corner
+    mesh = mesh.select_subset([1, 1, 1, 0])
 
-    mesh = ComplexRegular2(vertices=vertices, cubes=quads)
     for i in range(5):
         mesh = mesh.subdivide()
     return mesh
@@ -97,15 +67,55 @@ mesh = concave()
 mesh.metric()
 
 
-from examples.spherical_harmonics import get_harmonics_0, get_harmonics_2
+def debug_harmonics():
+    from examples.spherical_harmonics import get_harmonics_0, get_harmonics_2
+    v = get_harmonics_2(mesh)
+    q = mesh.to_simplicial_transfer_2(v[:, -10])
+    mesh.to_simplicial().as_2().plot_primal_2_form(q)
 
-v = get_harmonics_2(mesh)
-q = mesh.to_simplicial_transfer_2(v[:, -10])
-mesh.to_simplicial().as_2().plot_primal_2_form(q)
+    v = get_harmonics_0(mesh)
+    print(v[:, 5])
+    q = mesh.to_simplicial_transfer_0(v[:, 7])
+    mesh.to_simplicial().as_2().plot_primal_0_form(q)
 
 
 
-v = get_harmonics_0(mesh)
-print(v[:, 5])
-q = mesh.to_simplicial_transfer_0(v[:, 7])
-mesh.to_simplicial().as_2().plot_primal_0_form(q)
+def stokes_flow(complex2):
+
+    # grab the chain complex
+    P01 = complex2.topology.matrix(0, 1).T
+    P12 = complex2.topology.matrix(1, 2).T
+    D01, D12 = complex2.topology.dual.matrix
+
+    # mass = complex2.P0D2
+    # D1P1 = complex2.D1P1
+    P1D1 = sparse_diag(complex.P1D1)
+    P2D0 = sparse_diag(complex.P2D0)
+
+    vorticity  = [1         , D01       , 0      ]
+    momentum   = [P01 * P1D1, 0         , D12    ]
+    continuity = [0         , P12 * P2D0, 0      ]
+
+    system = [
+        vorticity,
+        momentum,
+        continuity
+    ]
+    vortex = np.zeros(complex2.topology.n_elements[0])
+    force  = np.zeros(complex2.topology.n_elements[1])
+    source = np.zeros(complex2.topology.n_elements[2])
+    rhs = [
+        vortex,
+        force,
+        source,
+    ]
+    omega    = np.zeros(complex2.topology.dual.n_elements[0])
+    velocity = np.zeros(complex2.topology.dual.n_elements[1])
+    pressure = np.zeros(complex2.topology.dual.n_elements[2])
+    unknowns = [
+        omega,
+        velocity,
+        pressure
+    ]
+
+    return BlockSystem(system=system, rhs=rhs, unknowns=unknowns)

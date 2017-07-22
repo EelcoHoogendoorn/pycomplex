@@ -12,6 +12,8 @@ vector potential fails to model a source/sink
 scalar potential fails to model a confined vortex
 so neither is great.. which one do we choose?
 ... neither, which will be the crux of the approach taken here!
+perhaps we shouldnt be calling it a potential flow then anymore...
+but havnt settled on a better name yet that does capture the essence
 
 [[δ, 0, 0]]         [Oi]     curl; vorticity source term
 [[δ, δ, I]]  [vi]   [Op]
@@ -55,46 +57,21 @@ yet we also added three tangent variables.
 this implies we can indeed add one additional constraint;
 either pin one tangent, or specify the circulation, or sum over those three
 
+it seems that foregoing the potential is also great for open boundary conditions
+since we are working with velocity directly in a minres sense,
+there is already a preferred solution in the face of indeterminism,
+which reflects physical intuition; smallest velocity squared is the
+least energetic / smoothest field
 
 
 """
 
-class BlockSystem(object):
-    """Blocked linear system"""
-
-    def __init__(self, system, rhs, unknowns):
-
-        self.system = np.asarray(system, dtype=np.object)
-        unknown_shape = [row.shape[1] for row in self.system]
-
-        # check that subblocks are consistent
-        self.rhs = rhs
-        self.unknowns = unknowns
-
-    @property
-    def shape(self):
-        return self.system.shape
-
-    def normal_equations(self):
-        raise NotImplementedError
-
-    def concatenate(self):
-        """Concatenate blocks into single system"""
-        raise NotImplementedError
-
-    def split(self, x):
-        """Split concatted vector into blocks
-
-        Parameters
-        ----------
-        x : ndarray, [n_cols], float
-
-        """
-        raise NotImplementedError
-
 
 import numpy as np
 import scipy.sparse
+from examples.linear_system import *
+
+
 
 def grid(shape=(32, 32)):
     from pycomplex import synthetic
@@ -105,7 +82,7 @@ def concave():
     # take a 2x2 grid
     mesh = grid(shape=(2, 2))
     # discard a corner
-    mesh = mesh.select_subset([1, 1, 1, 0])
+    mesh = mesh.select_subset([1, 1, 0, 1])
 
     # identify two boundaries
     edge_position = mesh.primal_position()[1]
@@ -113,7 +90,7 @@ def concave():
     right = edge_position[:, 0] == edge_position[:, 0].max()
 
     # subdivide
-    for i in range(5):
+    for i in range(3):
         mesh = mesh.subdivide()
         left = mesh.topology.transfer_matrices[1] * left
         right = mesh.topology.transfer_matrices[1] * right
@@ -122,41 +99,44 @@ def concave():
 mesh, left, right = concave()
 mesh.metric()
 
-print(np.flatnonzero(left))
-print(np.flatnonzero(right))
 
-def sparse_diag(diag):
-    s = len(diag)
-    i = np.arange(s)
-    return scipy.sparse.csc_matrix((diag, (i, i)), shape=(s, s))
+# BM = mesh.topology.dual.blocked_matrices
+# print(BM)
 
 
 def potential_flow(complex2):
     # grab all the operators we will be needing
-    T01 = complex2.topology.matrix(0, 1).T
-    T12 = complex2.topology.matrix(1, 2).T
-    D01, D12 = complex2.topology.dual()
-    # grad = T01
-    div = T01.T
-    curl = T12
-    mass = complex2.P0D2
-    D1P1 = complex2.D1P1
+    P1P0 = complex2.topology.matrix(0, 1).T
+    P2P1 = complex2.topology.matrix(1, 2).T
+    D1D0, D2D1 = complex2.topology.dual.matrix
 
-    continuity = div
-    momentum = curl * sparse_diag(D1P1)
+    # mass = complex2.P0D2
+    # D1P1 = complex2.D1P1
+    P0D2 = sparse_diag(complex2.P0D2)
+    P1D1 = sparse_diag(complex2.P1D1)
 
+    rotation   = [P0D2 * D2D1]
+    continuity = [P2P1 * P1D1]
     system = [
-        [continuity],
-        [momentum]
+        rotation,
+        continuity,
     ]
-    source = np.zeros(complex2.topology.n_elements[2])
-    vortex = np.zeros(complex2.topology.n_elements[0])
+
+    vortex = np.zeros(complex2.topology.n_elements[0])  # generally irrotational
+    source = np.zeros(complex2.topology.n_elements[2])  # generally incompressible
     rhs = [
-        source,
         vortex,
+        source,
     ]
-    unknowns = np.zeros(complex2.topology.n_elements[1])
+
+    velocity = np.zeros(complex2.topology.dual.n_elements[1])   # one velocity unknown for each dual edge
+    unknowns = [velocity]
+
     return BlockSystem(system=system, rhs=rhs, unknowns=unknowns)
 
+
+potential_system = potential_flow(mesh)
+
+N = potential_system.normal_equations()
 
 mesh.plot()
