@@ -5,10 +5,10 @@ import numpy as np
 from cached_property import cached_property
 
 from pycomplex.topology import ManifoldException
-from pycomplex.topology.base import BaseTopology
+from pycomplex.topology.base import PrimalTopology
 
 
-class Topology1(BaseTopology):
+class Topology1(PrimalTopology):
 
     @cached_property
     def n_vertices(self):
@@ -19,7 +19,7 @@ class Topology1(BaseTopology):
         return self.n_elements[1]
 
 
-class BaseTopology2(BaseTopology):
+class BaseTopology2(PrimalTopology):
 
     @cached_property
     def n_vertices(self):

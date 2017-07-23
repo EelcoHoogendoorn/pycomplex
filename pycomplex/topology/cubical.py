@@ -5,7 +5,7 @@ import scipy.sparse
 from cached_property import cached_property
 
 import pycomplex.math.combinatorial
-from pycomplex.topology.topology import BaseTopology
+from pycomplex.topology.topology import PrimalTopology
 from pycomplex.topology import index_dtype, sign_dtype, transfer_matrix
 
 
@@ -47,7 +47,7 @@ def generate_boundary(cubes, degree=1):
     return boundary
 
 
-class TopologyCubical(BaseTopology):
+class TopologyCubical(PrimalTopology):
     """N-dimensional regular topology, where each element is an n-cube"""
 
     def boundary_type(self):

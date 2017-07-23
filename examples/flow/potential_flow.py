@@ -90,7 +90,7 @@ def concave():
     right = edge_position[:, 0] == edge_position[:, 0].max()
 
     # subdivide
-    for i in range(3):
+    for i in range(2):
         mesh = mesh.subdivide()
         left = mesh.topology.transfer_matrices[1] * left
         right = mesh.topology.transfer_matrices[1] * right
@@ -106,37 +106,44 @@ mesh.metric()
 
 def potential_flow(complex2):
     # grab all the operators we will be needing
-    P1P0 = complex2.topology.matrix(0, 1).T
-    P2P1 = complex2.topology.matrix(1, 2).T
-    D1D0, D2D1 = complex2.topology.dual.matrix
+    P01, P12 = complex2.topology.matrices
+    D01, D12 = complex2.topology.dual.matrices
 
-    # mass = complex2.P0D2
-    # D1P1 = complex2.D1P1
-    P0D2 = sparse_diag(complex2.P0D2)
+    P2P1 = P12.T
+    P1P0 = P01.T
+    D2D1 = D12.T
+    D1D0 = D01.T
+
     P1D1 = sparse_diag(complex2.P1D1)
+    P0D2 = sparse_diag(complex2.P0D2)
+
+    P0, P1, P2 = complex2.topology.n_elements
+    D0, D1, D2 = complex2.topology.dual.n_elements
+
+    S = complex2.topology.dual.selector
 
     rotation   = [P0D2 * D2D1]
-    continuity = [P2P1 * P1D1]
+    continuity = [P2P1 * P1D1 * S[1]]
     system = [
         rotation,
         continuity,
     ]
 
-    vortex = np.zeros(complex2.topology.n_elements[0])  # generally irrotational
-    source = np.zeros(complex2.topology.n_elements[2])  # generally incompressible
-    rhs = [
+    velocity = np.zeros(D1)   # one velocity unknown for each dual edge
+    unknowns = [velocity]
+
+    vortex = np.zeros(P0)  # generally irrotational
+    source = np.zeros(P2)  # generally incompressible
+    knowns = [
         vortex,
         source,
     ]
 
-    velocity = np.zeros(complex2.topology.dual.n_elements[1])   # one velocity unknown for each dual edge
-    unknowns = [velocity]
-
-    return BlockSystem(system=system, rhs=rhs, unknowns=unknowns)
+    return BlockSystem(equations=system, knowns=knowns, unknowns=unknowns)
 
 
 potential_system = potential_flow(mesh)
-
+potential_system.plot()
 N = potential_system.normal_equations()
-
+N.plot()
 mesh.plot()

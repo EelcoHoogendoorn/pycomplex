@@ -1,0 +1,1 @@
+"""Model a permanent magnet"""

@@ -14,6 +14,9 @@ from pycomplex.topology import sign_dtype, index_dtype, sparse_to_elements
 
 
 class BaseTopology(object):
+    """Move everything common to primal and dual here; construct only with chain of topology matrices"""
+
+class PrimalTopology(BaseTopology):
     """Stuff common to all topology objects in all dimensions
 
     An n-dimensional topology is defined by a sequence of n (sparse) topology matrices, T(n)
@@ -63,6 +66,16 @@ class BaseTopology(object):
         for e in elements:
             if not e.dtype == index_dtype:
                 raise ValueError
+
+    @cached_property
+    def matrices(self):
+        """
+        Returns
+        -------
+        array_like, [n_dim], sparse matrix
+        """
+        # FIXME: this should go to baseclass
+        return [self.matrix(i) for i in range(self.n_dim)]
 
     @cached_property
     def elements(self):
@@ -237,8 +250,11 @@ class BaseTopology(object):
     @cached_property
     def dual(self):
         """Return dual topology object, that closes all boundaries"""
-        from pycomplex.topology.dual import Dual
-        return Dual(self)
+        from pycomplex.topology.dual import Dual, ClosedDual
+        if self.is_closed:
+            return ClosedDual(self)
+        else:
+            return Dual(self)
 
     def relative_orientation(self):
         """Try to find the relative orientation of all n-elements
@@ -350,6 +366,6 @@ class BaseTopology(object):
         elements = inverse.reshape(elements.shape).astype(index_dtype)
 
         B = self.boundary_type().from_elements(elements)
-        B.parent_idx = self.find_correspondence(B, mapping)
+        B.parent_idx = self.find_correspondence(B, mapping) + [None]    # last element to signal n-elements are not involved in the boundary
         B.parent = self
         return B

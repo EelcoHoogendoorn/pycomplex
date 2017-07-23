@@ -3,12 +3,17 @@ import numpy_indexed as npi
 import scipy.sparse
 from cached_property import cached_property
 
+from pycomplex.topology.base import BaseTopology
 
-class ClosedDual(object):
+
+class ClosedDual(BaseTopology):
     """dual for closed primal. should be rather boring"""
+
     def __init__(self, primal):
         # bind primal; all internals are lazily computed
         self.primal = primal
+        if not primal.boundary is None:
+            raise ValueError('Closed dual is not appropriate!')
 
     @cached_property
     def n_dim(self):
@@ -19,21 +24,25 @@ class ClosedDual(object):
         return self.primal.n_elements[::-1]
 
     @cached_property
-    def matrix(self):
-        return [T.T for T in self.primal.matrix[::-1]]
+    def matrices(self):
+        return [T.T for T in self.primal.matrices[::-1]]
 
 
-class Dual(object):
+class Dual(BaseTopology):
     """Object to wrap dual topology logic
 
-    In the intenal of the manifold the dual topology is simply the primal topology transposed
+    In the internal of the manifold the dual topology is simply the primal topology transposed
 
     However, on the boundary, we need some extra attention, which this class encapsulates
+
+    In short, we can think of the total dual as the dual of primal, plus the dual of the primal boundary
     """
 
     def __init__(self, primal):
         # bind primal; all internals are lazily computed
         self.primal = primal
+        if primal.boundary is None:
+            raise ValueError('Construct closed dual instead!')
 
     @cached_property
     def n_dim(self):
@@ -43,12 +52,12 @@ class Dual(object):
     def p_elements(self):
         """number of Primal boundary elements"""
         boundary = self.primal.boundary
-        return boundary.n_elements + [0] if boundary is not None else [0] * self.n_dim
+        return boundary.n_elements + [0]
     @cached_property
     def d_elements(self):
         """number of Dual boundary elements"""
         boundary = self.primal.boundary
-        return [0] + boundary.n_elements if boundary is not None else [0] * self.n_dim
+        return [0] + boundary.n_elements
     @cached_property
     def i_elements(self):
         """number of Internal elements of primal"""
@@ -71,22 +80,47 @@ class Dual(object):
         raise NotImplementedError
 
     @cached_property
-    def blocked_matrices(self):
-        """Construct blocked dual topology matrices"""
+    def matrices(self):
+        """Construct dual topology matrices
+
+        Returns
+        -------
+        array_like, [n_dim], sparse matrix
+        """
+
+        def close_topology(T, idx):
+            """Dual topology constructed by closing partially formed dual elements
+            """
+
+            # # FIXME: this is obviously nonsense; need to work out signs; grab T[idx] or somesuch
+            orientation = -np.ones_like(idx)
+            # T[idx]
+
+            I = scipy.sparse.coo_matrix(
+                (orientation,
+                 (np.arange(len(idx)), idx )),
+                shape=(len(idx), T.shape[1])
+            )
+
+            blocks = [
+                [T],
+                [-I]
+            ]
+            return scipy.sparse.bmat(blocks)
+
         boundary = self.primal.boundary
+        T = self.primal.matrices
 
-        NI = self.i_elements
-        NP = self.p_elements
-        ND = self.d_elements
+        return [close_topology(t.T, b) for t, b in zip(T, boundary.parent_idx)][::-1]
 
-        # FIXME: how relevant is internal-primal distinction, except for theory?
+    @cached_property
+    def selector(self):
+        """Operators to select primal form from dual form"""
 
-        CBT = []
-        T = [self.primal.matrix(i) for i in range(self.primal.n_dim)]
-        if not boundary is None:
-            BT = [boundary.matrix(i) for i in range(boundary.n_dim)]
-        return BT
+        def s(np, nd):
+            return scipy.sparse.eye(np, nd)
 
+        return [s(np, nd) for np, nd in zip(self.primal.n_elements, self.n_elements)]
 
     @cached_property
     def matrix(self):

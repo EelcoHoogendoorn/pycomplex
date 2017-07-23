@@ -8,37 +8,51 @@ def sparse_diag(diag):
     i = np.arange(s)
     return scipy.sparse.csc_matrix((diag, (i, i)), shape=(s, s))
 
+def sparse_zeros(shape):
+    q = np.zeros(0)
+    return scipy.sparse.coo_matrix((q, (q, q)), shape=shape)
+
 
 class BlockSystem(object):
-    """Blocked linear system"""
+    """Blocked linear system;
 
-    def __init__(self, system, rhs, unknowns):
+    system * unknowns = knowns
+    """
 
-        self.system = np.asarray(system, dtype=np.object)
-        unknown_shape = [row[0].shape[0] for row in self.system]
-        unknown_shape = [row[0].shape[1] for row in self.system.T]
+    def __init__(self, equations, knowns, unknowns):
+
+        self.shape = len(knowns), len(unknowns)
+        self.equations = np.asarray(equations, dtype=np.object)
+        self.knowns = knowns
+        self.unknowns = unknowns
+        if not self.equations.shape == self.shape:
+            raise ValueError
+
+        # unknown_shape = [row[0].shape[0] for row in self.system]
+        # unknown_shape = [row[0].shape[1] for row in self.system.T]
 
         # check that subblocks are consistent
-        self.rhs = rhs
-        self.unknowns = unknowns
 
-    @property
-    def shape(self):
-        return self.system.shape
+    # @property
+    # def shape(self):
+    #     return self.equations.shape
 
     def normal_equations(self):
-        output_shape = self.system.shape[1], self.system.shape[1]
-        S = self.system
-        output = np.zeros(output_shape, dtype=np.object)
-        for i in range(self.system.shape[0]):
-            for j in range(self.system.shape[1]):
-                for k in range(self.system.shape[1]):
-                    output[i, k] += S[i, j] * S[j, k]
-        return output
+        output_shape = self.equations.shape[1], self.equations.shape[1]
+        S = self.equations
+        equations = np.zeros(output_shape, dtype=np.object)
+        # knowns = np.zeros(len(self.unknowns), dtype=np.object)
+        knowns = [0] * len(self.unknowns)
+        for i in range(self.equations.shape[0]):
+            for j in range(self.equations.shape[1]):
+                for k in range(self.equations.shape[1]):
+                    equations[j, k] += S[i, j].T * S[i, k]
+                knowns[j] += S[i, j].T * self.knowns[i]
+        return BlockSystem(equations=equations, knowns=knowns, unknowns=list(self.unknowns))
 
     def concatenate(self):
         """Concatenate blocks into single system"""
-        raise NotImplementedError
+        return scipy.sparse.bmat(self.equations)
 
     def split(self, x):
         """Split concatted vector into blocks
@@ -49,3 +63,32 @@ class BlockSystem(object):
 
         """
         raise NotImplementedError
+
+    def print(self):
+        for i in range(self.equations.shape[0]):
+            for j in range(self.equations.shape[1]):
+                f = self.equations[i, j]
+                shape = getattr(f, 'shape', None)
+                print(shape, end='')
+            print()
+
+    def plot(self, dense=True):
+        import matplotlib.pyplot as plt
+        S = self.concatenate()
+        if not dense:
+            s = S.tocoo()
+            plt.scatter(S.col, S.row, c=S.data, cmap='seismic', vmin=-4, vmax=+4)
+            plt.gca().invert_yaxis()
+        else:
+            S = S.todense()
+            plt.imshow(S[::-1], cmap='seismic', vmin=-4, vmax=+4, origin='upper', extent=(0, S.shape[1], 0, S.shape[0]))
+            r = [self.equations[i, 0].shape[0] for i in range(self.shape[0])]
+            c = [self.equations[0, i].shape[1] for i in range(self.shape[1])]
+            for l in np.cumsum([0] + r):
+                plt.plot([0, S.shape[1]], [l, l], c='k')
+            for l in np.cumsum([0] + c):
+                plt.plot([l, l], [0, S.shape[0]], c='k')
+            plt.gca().invert_yaxis()
+
+        plt.axis('equal')
+        plt.show()

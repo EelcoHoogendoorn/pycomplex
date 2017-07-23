@@ -4,7 +4,7 @@ import numpy_indexed as npi
 from cached_property import cached_property
 
 from pycomplex.topology import topology_matrix, sign_dtype, index_dtype, transfer_matrix
-from pycomplex.topology.topology import BaseTopology
+from pycomplex.topology.topology import PrimalTopology
 
 
 def combinations(arr, n, axis):
@@ -28,7 +28,7 @@ def simplex_parity(simplices):
     return parity[npi.indices(permutation.astype(sign_dtype), sorter.astype(sign_dtype))]
 
 
-class TopologySimplicial(BaseTopology):
+class TopologySimplicial(PrimalTopology):
     """Simplicial topology of arbitrary dimension
 
     """
