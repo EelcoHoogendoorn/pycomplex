@@ -8,7 +8,10 @@ from pycomplex.topology.base import BaseTopology
 
 class PrimalTopology(BaseTopology):
     """Stuff common to all primal topology objects in all dimensions
+
+    This deals with their construction from element arrays
     """
+
     @classmethod
     def from_elements(cls, elements):
         raise NotImplementedError

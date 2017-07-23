@@ -92,11 +92,11 @@ class Dual(BaseTopology):
         def close_topology(T, idx_p, idx_P):
             """Dual topology constructed by closing partially formed dual elements
             """
-
-            # T.shape = [P, p], or [d, D]
-            # # FIXME: this is obviously nonsense; need to work out signs; grab T[idx] or somesuch
+            # FIXME: orientation of the closing elements is still failing hard
             # D01 case is simple; add opposing sign.
             # for subsequent operators, only care that product zeros out. can we use this?
+
+            # T.shape = [P, p], or [d, D]
 
             # z = T[idx_P, :][:, idx_p].tocoo()
 
@@ -117,9 +117,13 @@ class Dual(BaseTopology):
             return scipy.sparse.bmat(blocks)
 
         boundary = self.primal.boundary
+        cap = self.primal.chain(-1, fill=1)
         T = self.primal.matrices
+        p_idx = boundary.parent_idx
 
-        return [close_topology(t.T, b, b2) for t, b, b2 in zip(T, boundary.parent_idx, boundary.parent_idx[1:]+[None])][::-1]
+        # D01 =
+
+        return [close_topology(t.T, b, b2) for t, b, b2 in zip(T, p_idx, p_idx[1:]+None)][::-1]
 
     @cached_property
     def selector(self):

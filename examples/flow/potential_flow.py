@@ -100,11 +100,12 @@ mesh, left, right = concave()
 mesh.metric()
 
 
-# BM = mesh.topology.dual.blocked_matrices
-# print(BM)
-
-
 def potential_flow(complex2):
+    """Set up potential flow system
+
+    Note that it does not actually involve any potentials
+    And note the similarity, if not identicality, to EM problems
+    """
     # grab all the operators we will be needing
     P01, P12 = complex2.topology.matrices
     D01, D12 = complex2.topology.dual.matrices
@@ -123,8 +124,8 @@ def potential_flow(complex2):
     S = complex2.topology.dual.selector
 
     rotation   = [P0D2 * D2D1]
-    continuity = [P2P1 * P1D1 * S[1]]
-    system = [
+    continuity = [P2P1 * P1D1 * S[1]]   # dual boundary tangent fluxes are not involved in continuity
+    equations = [
         rotation,
         continuity,
     ]
@@ -139,8 +140,7 @@ def potential_flow(complex2):
         source,
     ]
 
-    system = BlockSystem(equations=system, knowns=knowns, unknowns=unknowns)
-
+    system = BlockSystem(equations=equations, knowns=knowns, unknowns=unknowns)
     return system
 
 

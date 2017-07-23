@@ -1,9 +1,9 @@
-import pycosat
 
 import numpy as np
 import numpy_indexed as npi
 import scipy
 import scipy.sparse
+import pycosat
 from cached_property import cached_property
 
 from pycomplex.topology import ManifoldException

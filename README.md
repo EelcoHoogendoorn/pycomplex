@@ -29,7 +29,6 @@ although the vectorized implementation provided here should scale a lot better
 
 Todo
 ----
-- Add proper dual class, encapsulating creation of blocked chains/forms and such
 - Add hierarchy class, to manage all transfers across levels
 - Build up all different interpolation and restriction multigrid transfer operators over all topologies
 - Fix cubical meshes for n > 3; Fully n-dim cube subdivision; Correct relative orientation calculations for higher dims
