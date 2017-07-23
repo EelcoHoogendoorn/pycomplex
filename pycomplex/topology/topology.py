@@ -5,7 +5,7 @@ import numpy as np
 from cached_property import cached_property
 
 from pycomplex.topology import ManifoldException
-from pycomplex.topology.base import PrimalTopology
+from pycomplex.topology.primal import PrimalTopology
 
 
 class Topology1(PrimalTopology):

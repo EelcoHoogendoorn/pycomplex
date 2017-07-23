@@ -17,6 +17,11 @@ class BlockSystem(object):
     """Blocked linear system;
 
     system * unknowns = knowns
+
+    Todo
+    ----
+    Add boundary condition terms
+
     """
 
     def __init__(self, equations, knowns, unknowns):
@@ -27,6 +32,10 @@ class BlockSystem(object):
         self.unknowns = unknowns
         if not self.equations.shape == self.shape:
             raise ValueError
+
+        self.rows = [self.equations[i, 0].shape[0] for i in range(self.shape[0])]
+        self.cols = [self.equations[0, i].shape[1] for i in range(self.shape[1])]
+
 
         # unknown_shape = [row[0].shape[0] for row in self.system]
         # unknown_shape = [row[0].shape[1] for row in self.system.T]
@@ -82,11 +91,10 @@ class BlockSystem(object):
         else:
             S = S.todense()
             plt.imshow(S[::-1], cmap='seismic', vmin=-4, vmax=+4, origin='upper', extent=(0, S.shape[1], 0, S.shape[0]))
-            r = [self.equations[i, 0].shape[0] for i in range(self.shape[0])]
-            c = [self.equations[0, i].shape[1] for i in range(self.shape[1])]
-            for l in np.cumsum([0] + r):
+            # plot block boundaries
+            for l in np.cumsum([0] + self.rows):
                 plt.plot([0, S.shape[1]], [l, l], c='k')
-            for l in np.cumsum([0] + c):
+            for l in np.cumsum([0] + self.cols):
                 plt.plot([l, l], [0, S.shape[0]], c='k')
             plt.gca().invert_yaxis()
 

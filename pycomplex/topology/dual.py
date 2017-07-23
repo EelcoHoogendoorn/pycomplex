@@ -4,6 +4,7 @@ import scipy.sparse
 from cached_property import cached_property
 
 from pycomplex.topology.base import BaseTopology
+from pycomplex.topology import sign_dtype, index_dtype
 
 
 class ClosedDual(BaseTopology):
@@ -88,18 +89,25 @@ class Dual(BaseTopology):
         array_like, [n_dim], sparse matrix
         """
 
-        def close_topology(T, idx):
+        def close_topology(T, idx_p, idx_P):
             """Dual topology constructed by closing partially formed dual elements
             """
 
+            # T.shape = [P, p], or [d, D]
             # # FIXME: this is obviously nonsense; need to work out signs; grab T[idx] or somesuch
-            orientation = -np.ones_like(idx)
-            # T[idx]
+            # D01 case is simple; add opposing sign.
+            # for subsequent operators, only care that product zeros out. can we use this?
+
+            # z = T[idx_P, :][:, idx_p].tocoo()
+
+            q = np.arange(len(idx_p), dtype=index_dtype)
+            orientation = -np.ones_like(idx_p, dtype=sign_dtype)
+            # orientation = T[idx_n][:, q]
 
             I = scipy.sparse.coo_matrix(
                 (orientation,
-                 (np.arange(len(idx)), idx )),
-                shape=(len(idx), T.shape[1])
+                 (q, idx_p)),
+                shape=(len(idx_p), T.shape[1])
             )
 
             blocks = [
@@ -111,7 +119,7 @@ class Dual(BaseTopology):
         boundary = self.primal.boundary
         T = self.primal.matrices
 
-        return [close_topology(t.T, b) for t, b in zip(T, boundary.parent_idx)][::-1]
+        return [close_topology(t.T, b, b2) for t, b, b2 in zip(T, boundary.parent_idx, boundary.parent_idx[1:]+[None])][::-1]
 
     @cached_property
     def selector(self):
@@ -132,28 +140,7 @@ class Dual(BaseTopology):
 
         Notes
         -----
-        dual topology is transpose of primal topology plus transpose of primal boundary topology
-        boundary does not add any dual n-elements
-        Every topology matrix needs an identity term added to link the new boundary elements with their
-        adjacent dual internal topology
-        that is, every T matrix has a block structure, such that:
-        [T.T, 0   ]
-        [I,   B.T]
-
-        3d example:
-        D01 = T23.T + I + B12.T
-        D12 = T12.T + I + B01.T
-        D23 = T01.T + I
-
-        D0 = P3 + B2
-        D1 = P2 + B1
-        D2 = P1 + B0
-        D3 = P0
-
-        2d example:
-        D01 = T12.T + I + B01.T
-        D12 = T01.T + I
-
+        This version attaches the dual boundary information; it is not clear that we actually need this anywhere
         """
         def dual_T(T, B, idx):
             """Compose dual topology matrix in presence of boundaries
@@ -180,9 +167,9 @@ class Dual(BaseTopology):
             else:
                 blocks = [
                     [T, None],
-                    [I, B * 0]      # its far from obvious any application actually needs this term...
+                    [I, B]      # its far from obvious any application actually needs this term...
                 ]
-            return scipy.sparse.bmat(blocks).T
+            return scipy.sparse.bmat(blocks)
 
         boundary = self.primal.boundary
         CBT = []

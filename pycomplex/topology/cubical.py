@@ -5,7 +5,7 @@ import scipy.sparse
 from cached_property import cached_property
 
 import pycomplex.math.combinatorial
-from pycomplex.topology.topology import PrimalTopology
+from pycomplex.topology.primal import PrimalTopology
 from pycomplex.topology import index_dtype, sign_dtype, transfer_matrix
 
 

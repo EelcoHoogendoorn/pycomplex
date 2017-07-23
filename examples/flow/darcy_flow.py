@@ -24,10 +24,12 @@ if b is zero, eq is quite simple
 [[0, I],  [δ, I]]  [vp] = [fp]
 
 [[d, d],  [0, 0]]  [Pi]   [0]
-[[0, I],  [0, J]]  [Pd]   [0]
+[[0, _],  [0, _]]  [Pd]   [0]
 
 either way, this lends itself perfectly to either solving as second order normal equation,
-or directly using minres if we both to make it symmetrical
+or directly using minres if we bother to make it symmetrical
+indeed normal equations are overkill here, and solving in terms of the physical pressure potential
+does not seem to impose any compromises
 
 """
 
@@ -87,7 +89,7 @@ def darcy_flow(complex2):
         continuity
     ]
 
-    velocity = np.zeros(P1)     # no point in modelling tangent flux
+    velocity = np.zeros(P1)     # no point in modelling tangent flux for darcy flow
     pressure = np.zeros(D2)
     unknowns = [
         velocity,
@@ -103,6 +105,7 @@ def darcy_flow(complex2):
 
     system = BlockSystem(equations=equations, knowns=knowns, unknowns=unknowns)
     return system
+
 
 system = darcy_flow(mesh)
 

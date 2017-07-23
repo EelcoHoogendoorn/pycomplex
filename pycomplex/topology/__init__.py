@@ -18,7 +18,9 @@ import numpy as np
 import numpy_indexed as npi
 import scipy
 
-# dtypes enforced for indices referring to elements; 16 bits is too few, but 32 should suffice
+# dtypes enforced for indices referring to elements;
+# 16 bits is too few for many applications, but 32 should suffice for almost all
+# these types are used globally throughout the package; changing them here should change them everywhere
 index_dtype = np.int32
 sign_dtype = np.int8
 
@@ -77,9 +79,9 @@ def sparse_to_elements(T):
 def generate_boundary_indices(this, that):
     """map boundary in terms of vertices to their unique indices
 
-    e : ndarray, [n_elements, ...], int
+    this : ndarray, [n_elements, ...], int
         vertex indices describing unique n-elements
-    b : ndarray, [n_test_elements, ...], int
+    that : ndarray, [n_test_elements, ...], int
         vertex indices describing n-elements to look up in 'this'
 
     Returns

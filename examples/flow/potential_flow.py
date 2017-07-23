@@ -139,11 +139,23 @@ def potential_flow(complex2):
         source,
     ]
 
-    return BlockSystem(equations=system, knowns=knowns, unknowns=unknowns)
+    system = BlockSystem(equations=system, knowns=knowns, unknowns=unknowns)
+
+    return system
 
 
 potential_system = potential_flow(mesh)
 potential_system.plot()
+
+S = mesh.topology.dual.selector
+# all normal fluxes zero, except the ends
+bc_rhs = mesh.topology.chain(1, fill=0)
+bc_rhs[left] = 1
+bc_rhs[right] = -1
+bc_eq = [[S[1]]]
+
+
+
 N = potential_system.normal_equations()
 N.plot()
 mesh.plot()

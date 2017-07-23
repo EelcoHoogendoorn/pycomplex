@@ -4,7 +4,7 @@ import numpy_indexed as npi
 from cached_property import cached_property
 
 from pycomplex.topology import topology_matrix, sign_dtype, index_dtype, transfer_matrix
-from pycomplex.topology.topology import PrimalTopology
+from pycomplex.topology.primal import PrimalTopology
 
 
 def combinations(arr, n, axis):
