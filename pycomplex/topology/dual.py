@@ -89,19 +89,22 @@ class Dual(BaseTopology):
         array_like, [n_dim], sparse matrix
         """
 
-        def close_topology(T, idx_p, idx_P):
+        def close_topology(T, idx_p, idx_P, i):
             """Dual topology constructed by closing partially formed dual elements
             """
             # FIXME: orientation of the closing elements is still failing hard
-            # D01 case is simple; add opposing sign.
+            # PNn/D01 case is simple; add opposing sign.
             # for subsequent operators, only care that product zeros out. can we use this?
+            # and how important are subsequent operators, really?
 
             # T.shape = [P, p], or [d, D]
-
-            # z = T[idx_P, :][:, idx_p].tocoo()
+            if i == 1:
+                q = T.sum(axis=0)  # sum over all dual vertices / primal faces per edge; shape [d_edges]
+                orientation = np.asarray(q[0, idx_p]).flatten()
+            else:
+                orientation = -np.ones_like(idx_p, dtype=sign_dtype)
 
             q = np.arange(len(idx_p), dtype=index_dtype)
-            orientation = -np.ones_like(idx_p, dtype=sign_dtype)
             # orientation = T[idx_n][:, q]
 
             I = scipy.sparse.coo_matrix(
@@ -117,13 +120,58 @@ class Dual(BaseTopology):
             return scipy.sparse.bmat(blocks)
 
         boundary = self.primal.boundary
-        cap = self.primal.chain(-1, fill=1)
-        T = self.primal.matrices
+
+        P = self.primal.matrices
         p_idx = boundary.parent_idx
 
-        # D01 =
+        if False:
+            # attempted special case logic for 2d case
+            P01, P12 = P
+            D01 = P12.T # D01 has shape [d_vertices, d_edges]
+            q = D01.sum(axis=0)  # sum over all dual vertices / primal faces per edge; shape [d_edges]
+            orientation = np.asarray(q[0, p_idx[1]]).flatten()
+            q = np.arange(len(p_idx[1]), dtype=index_dtype)
+            # add a closing vertex for each dual edge
+            I = scipy.sparse.coo_matrix((orientation * -1, (q, p_idx[1])), shape=(len(q), D01.shape[1]))
+            D01 = scipy.sparse.bmat([[D01], [I]]) # add dual vertices to close the edges
+            q = D01.sum(axis=0)     # sum over all dual vertices / primal faces per edge; shape [d_edges]
+            assert np.all(q==0)     # check that all edges are indeed closed
 
-        return [close_topology(t.T, b, b2) for t, b, b2 in zip(T, p_idx, p_idx[1:]+None)][::-1]
+            # hmm; if we want to be truly closed, we need the dual boundary element block in D01
+            # what are the implications of this? is an interaction term between 0 and 2 forms truly sound?
+            D02 = D01 * P01.T
+
+            import matplotlib.pyplot as plt
+            # plt.scatter(z.row, z.col, z.data)
+            plt.imshow(D02.todense(), cmap='bwr')
+            plt.show()
+
+
+            D12 = P01.T
+
+            # interior_edges = 1 - self.primal.chain(1, fill=p_idx[1])
+            # q = P01[p_idx[0], :][:, interior_edges.astype(np.bool)]
+            # orientation = np.asarray(q).flatten()
+
+            q = np.arange(len(p_idx[0]), dtype=index_dtype)
+            # add a closing egde for each dual face
+            I = scipy.sparse.coo_matrix((orientation * -1, (q, p_idx[0])), shape=(len(q), D12.shape[1]))
+
+            D12 = scipy.sparse.bmat([[D12], [I]]) # add dual edges to close the faces
+
+
+            q = D12.sum(axis=0)     # sum over all dual vertices / primal faces per edge; shape [d_edges]
+
+            q = np.arange(len(p_idx[0]), dtype=index_dtype)
+            I = scipy.sparse.coo_matrix((orientation * -1, (q, p_idx[0])), shape=(len(q), D12.shape[1]))
+            D12 = scipy.sparse.vstack([D12, I]) # add dual vertices to close the edges
+
+            q = D12.sum(axis=0)     # sum over all edges per dual face; shape [d_faces]
+
+            return [D01, D12]
+
+        return [close_topology(t.T, b, b2, i)
+                for i, (t, b, b2) in enumerate(zip(P, p_idx, p_idx[1:]+[None]))][::-1]
 
     @cached_property
     def selector(self):

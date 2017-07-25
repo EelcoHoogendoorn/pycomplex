@@ -6,8 +6,17 @@ from cached_property import cached_property
 
 from pycomplex.complex.base import BaseComplexEuclidian
 from pycomplex.geometry import euclidian
-from pycomplex.topology.simplicial import TopologyTriangular
+from pycomplex.topology.simplicial import TopologyTriangular, TopologySimplicial
 from pycomplex.topology import index_dtype, sign_dtype
+
+
+class ComplexSimplicial(BaseComplexEuclidian):
+
+    def __init__(self, vertices, simplices=None, topology=None):
+        self.vertices = np.asarray(vertices)
+        if topology is None:
+            topology = TopologySimplicial.from_simplices(simplices)
+        self.topology = topology
 
 
 class ComplexTriangular(BaseComplexEuclidian):

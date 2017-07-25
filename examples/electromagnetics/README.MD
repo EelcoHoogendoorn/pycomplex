@@ -1,14 +1,17 @@
 
 TODO
 ----
-- simple 2d magnetostatics example
-- include 2-1 spacetime magnetodynamics example with lorentzian metric
+- 2d magnetostatics example
+- 2d electrostatics example
+- 2d electrodynamics using 'staggered grids'
+    note that either E or B must revert to a scalar; and current or charge must disappear
+- 2-1 spacetime magnetodynamics example with lorentzian metric
 
 
 Thought of the day
 ------------------
 The often contentious vector vs scalar potential approach in EM field problems is
-every bit as much as artifact of mathemathical tools as the
+every bit as much as artifact of mathematical tools as the
 streamfunction/flow potential distinction is in fluid mechanics
 
 Physical governing equations of EM field theory are:
@@ -77,9 +80,11 @@ if magnetic flux is a primal 2-form:
 
 [[δ, 0, 0]]         [Ji]     curl; nothing to see here. rhs is
 [[δ, δ, I]]         [Jp]
-[[0, 0, b]]  [Bi]   [Jd]
+[[0, 0, b]]  [Bi]   [Jd]    does this row have physical meaning? jump in tangent flux over boundary is surface current?
              [Bp]
 [[d, d, 0]]  [Bd]   [0]     divergence; no dependence on dual boundary tangent flux; makes sense
 [[0, I, b]]         [bc]    implies normal flux constraint; ok. implied tangent flux change; antisymmetry if 0?
 
-we get another
+It is hardly directly evident to me what necessary or sufficient boundary conditions are from looking at this system.
+Do two rows of equations suggest two independent rows of boundary equations? Or does dual operator not count?
+Specifying normal everywhere does generally not suffice; leaves one open constraint per boundary contour.

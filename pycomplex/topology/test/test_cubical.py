@@ -1,8 +1,11 @@
 import numpy as np
+import numpy.testing as npt
+import pytest
 
-from pycomplex.synthetic import n_cube
-from pycomplex.topology.cubical import TopologyCubical, generate_boundary
+from pycomplex.synthetic import n_cube, n_cube_grid
+from pycomplex.topology.cubical import *
 from pycomplex.topology.test.test_base import basic_test
+from pycomplex.math import linalg
 
 
 def test_generate_boundary():
@@ -13,10 +16,30 @@ def test_generate_boundary():
         b = generate_boundary(cubes, degree=d)
 
 
+def test_cube_parity():
+    for n in [1, 2, 3]:
+        cubes = n_cube(n).topology.elements[-1]
+        npt.assert_array_equal(cube_parity(cubes), [0])
+
+    # test that diagonal flip is not a valid n-cube
+    cubes = n_cube(2).topology.elements[-1]
+    cubes = np.swapaxes(cubes, 1, 2)
+    with pytest.raises(ValueError):
+        cube_parity(cubes)
+
+
 def test_cube():
-    n_dim = 3
+    for n_dim in [1, 2, 3, 4]:
+        cube = n_cube(n_dim)
+        basic_test(cube.topology)
+
+
+def test_projected_hypercube():
+    n_dim = 4
     cube = n_cube(n_dim)
-    basic_test(cube.topology)
+    np.random.seed(1)
+    cube.vertices = np.dot(cube.vertices, linalg.orthonormalize(np.random.randn(n_dim, n_dim)))
+    cube.as_44().plot(plot_dual=True)
 
 
 def test_quads():
@@ -36,7 +59,7 @@ def test_quads():
 
     basic_test(topology)
     b = topology.boundary
-    dual = topology.dual()
+    dual = topology.dual
     assert topology.is_oriented
 
 
@@ -56,3 +79,4 @@ def test_to_simplicial():
     cube.topology = cube.topology.fix_orientation()
     assert cube.topology.is_oriented
     assert cube.as_23().to_simplicial().topology.is_oriented
+

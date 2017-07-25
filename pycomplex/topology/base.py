@@ -127,7 +127,11 @@ class BaseTopology(object):
     def chain(self, n, fill=1, dtype=sign_dtype):
         """Construct an n-chain"""
         c = np.empty(self.n_elements[n], dtype=dtype)
-        c.fill(fill)
+        if isinstance(fill, np.ndarray):
+            c.fill(0)
+            c[fill] = 1
+        else:
+            c.fill(fill)
         return c
     def range(self, n):
         """Construct an n-chain filled with an integer range"""

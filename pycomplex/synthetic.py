@@ -3,10 +3,19 @@
 import itertools
 import numpy as np
 
+
+from pycomplex.complex.simplicial import ComplexSimplicial
 from pycomplex.complex.cubical import ComplexCubical
 from pycomplex.complex.spherical import ComplexSpherical
 from pycomplex.topology import index_dtype
 from pycomplex.math import linalg
+
+
+def simplex(n_dim):
+    """Generate a single simplex"""
+    vertices = np.eye(n_dim + 1)[:, 1:]
+    corners = np.arange(n_dim + 1, dtype=index_dtype)
+    return ComplexSimplicial(vertices=vertices, simplices=corners[None, :])
 
 
 def icosahedron():
@@ -47,7 +56,7 @@ def icosphere(refinement=0):
     return sphere
 
 
-def n_cube(n_dim):
+def n_cube(n_dim, centering=False):
     """Generate a single n-cube in euclidian n-space
 
     Parameters
@@ -59,7 +68,7 @@ def n_cube(n_dim):
     -------
     ComplexCubical
     """
-    return n_cube_grid((1,) * n_dim)
+    return n_cube_grid((1,) * n_dim, centering=centering)
 
 
 def n_cube_grid(shape, centering=True):

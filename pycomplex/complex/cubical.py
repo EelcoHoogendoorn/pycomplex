@@ -105,6 +105,16 @@ class ComplexCubical(BaseComplexCubical):
             raise TypeError('invalid cast')
         return ComplexCubical3Euclidian3(vertices=self.vertices, topology=self.topology)
 
+    def as_44(self):
+        if not (self.n_dim == 4 and self.topology.n_dim == 4):
+            raise TypeError('invalid cast')
+        return ComplexCubical4Euclidian4(vertices=self.vertices, topology=self.topology)
+
+    def as_55(self):
+        if not (self.n_dim == 5 and self.topology.n_dim == 5):
+            raise TypeError('invalid cast')
+        return ComplexCubical4Euclidian4(vertices=self.vertices, topology=self.topology)
+
 
 class ComplexCubical2(ComplexCubical):
     """Specialization for 2d quads"""
@@ -246,7 +256,7 @@ class ComplexCubical3Euclidian3(ComplexCubical):
         if plot_dual:
             # plot dual cells
             dual_vertices, dual_edges = self.dual_position()[0:2]
-            dual_topology = self.topology.dual()
+            dual_topology = self.topology.dual
             from pycomplex.topology import sparse_to_elements
             de = sparse_to_elements(dual_topology[0].T)
 
@@ -266,3 +276,13 @@ class ComplexCubical3Euclidian3(ComplexCubical):
 
     def plot_slice(self, affine, ):
         pass
+
+
+class ComplexCubical4Euclidian4(ComplexCubical3Euclidian3):
+    """Projected plotting is infact the same as 3d case"""
+    pass
+
+
+class ComplexCubical5Euclidian5(ComplexCubical4Euclidian4):
+    """Projected plotting is infact the same as 3d case"""
+    pass

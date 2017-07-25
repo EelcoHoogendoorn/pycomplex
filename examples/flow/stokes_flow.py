@@ -17,14 +17,14 @@ we get stokes in first order form
 this makes bc's easiest to see; each dual boundary element introduces a new unknown, breaking our symmetry
 
 # we can split up each variable as originating in the interior, primal boundary, or dual boundary (i,p,d)
-[[I, 0], [d, 0, 0], [0, 0]] [Oi]   [0]
-[[0, I], [d, d, I], [0, 0]] [Op]   [0]
+[[I, 0], [δ, 0, 0], [0, 0]] [Oi]   [0]
+[[0, I], [δ, δ, I], [0, 0]] [Op]   [0]
 
-[[δ, δ], [0, 0, 0], [d, 0]] [vi]   [fi]
-[[0, δ], [0, 0, 0], [d, I]] [vp] = [fp]
+[[d, d], [0, 0, 0], [δ, 0]] [vi]   [fi]
+[[0, d], [0, 0, 0], [δ, I]] [vp] = [fp]
 [[0, I], [0, 0, J], [0, b]] [vd]   [fd]
 
-[[0, 0], [δ, δ, 0], [0, 0]] [Pi]   [0]
+[[0, 0], [d, d, 0], [0, 0]] [Pi]   [0]
 [[0, 0], [0, I, b], [0, J]] [Pd]   [0]
 
 we have a relation between [vp, Pd] and [Op, vd]
@@ -87,7 +87,16 @@ def debug_harmonics():
 
 
 def stokes_flow(complex2):
-    """Formulate stokes flow over a 2-complex"""
+    """Formulate stokes flow over a 2-complex
+
+    Note that this is incompressible time-invariant stokes flow
+    Compressible time-variant stokes flow would use every 'slot'
+    available on the 2d chain complex, and has the highest complexity,
+    as measured by the number of terms in our equations.
+    However, since it is mathematically more diagonally dominant,
+    and its physics more local, it should be numerically easier to solve.
+
+    """
 
     # grab the chain complex
     P01, P12 = complex2.topology.matrices
@@ -114,7 +123,7 @@ def stokes_flow(complex2):
 
     S = complex2.topology.dual.selector
 
-    vorticity  = [D2D2_1     , D2D1              , D2D0_0]
+    vorticity  = [-D2D2_1    , D2D1              , D2D0_0]
     momentum   = [P1P0 * P0D2, P1D1_0            , D1D0  ]  # P0D2 term primary source of scaling
     continuity = [P2D2_0     , P2P1 * P1D1 * S[1], P2D0_0]
     equations = [

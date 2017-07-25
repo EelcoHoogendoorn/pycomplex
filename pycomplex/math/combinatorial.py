@@ -1,3 +1,4 @@
+
 import numpy as np
 
 
@@ -78,12 +79,3 @@ def permutations(L):
         for par, p in permutations(t):
             for i in range(len(p) + 1):
                 yield (par + i) % 2, p[:i] + h + p[i:]
-
-
-def permutations_map(n):
-    l = list(np.arange(n))
-    from pycomplex.math.combinatorial import permutations
-    par, perm = zip(*permutations(l))
-    par = np.asarray(par, dtype=np.int8)
-    perm = np.asarray(perm, dtype=np.int8)
-    return par, perm

@@ -3,6 +3,7 @@ import numpy_indexed as npi
 import scipy
 import scipy.sparse
 from cached_property import cached_property
+from functools import lru_cache
 
 import pycomplex.math.combinatorial
 from pycomplex.topology.primal import PrimalTopology
@@ -25,6 +26,8 @@ def generate_boundary(cubes, degree=1):
 
     Returns
     -------
+    axes_parity : ndarray, [n_combinations], sign_type
+        parity of boundary element relative to parent element, along this axis
     boundary : ndarray, [n_elements, n_combinations, (2,)**d, (2,)**b]
         Vertex indices of 2**d * n_elements (n-d=b)-cubes
     """
@@ -34,7 +37,7 @@ def generate_boundary(cubes, degree=1):
     n_elements = cubes.shape[0]
 
     # axes to pull forward to generate all incident n-d-cubes
-    axes_list = list(zip(*pycomplex.math.combinatorial.combinations(np.arange(n_dim), degree)))[1]
+    axes_parity, axes_list = zip(*pycomplex.math.combinatorial.combinations(np.arange(n_dim), degree))
     n_combinations = len(axes_list)
 
     boundary = np.empty((n_elements, n_combinations) + (2,) * degree + (2,) * (b_dim), dtype=cubes.dtype)
@@ -44,7 +47,74 @@ def generate_boundary(cubes, degree=1):
         for j, axis in enumerate(axes):
             s_view = np.moveaxis(s_view, axis + 1, j + 1)
         boundary[:, i] = s_view
-    return boundary
+    return np.array(axes_parity, dtype=sign_dtype), boundary
+
+
+@lru_cache()
+def permutation_map(n_dim):
+    """Generate cubical permutation map
+
+    Parameters
+    ----------
+    n_dim : int
+
+    Returns
+    -------
+    parity : ndarray, [n_combinations], sign_dtype
+    permutation : ndarray, [n_combinations, n_corners], sign_dtype
+    """
+    n_corners = 2 ** n_dim
+    assert n_corners < 128  # if not, we need to increase our dtype; but yeah...
+    parity = []
+    permutation = []
+    # create canonical n-cube
+    cube = np.arange(n_corners, dtype=sign_dtype).reshape((2,) * n_dim)
+    # flip around each axis and flatten; xorred combination of flips is parity
+    # FIXME: add rotation transforms too?
+    # would we like to be able to read the rotation from the mapping?
+    # and doesnt this have a lot of overlap with escheresque symmetry groups too...? kinda does
+    for c in cube.flatten():
+        C = cube.copy()
+        idx = np.array(np.unravel_index(c, cube.shape))
+        # apply flips along all indicated axes
+        for i in np.flatnonzero(idx):
+            C = np.flip(C, axis=i)
+        permutation.append(C.flatten())
+        parity.append(idx.sum() % 2)
+    return np.array(parity, dtype=sign_dtype), np.array(permutation, dtype=sign_dtype)
+
+
+def cube_parity(cubes):
+    """Find the parity of a set of n-cubes
+
+    Parameters
+    ----------
+    cubes : ndarray, [n_cubes, 2 ** ndim], index_type
+        corners of a set of n-cubes
+
+    Returns
+    -------
+    parity : ndarray, [n_cubes], sign_dtype, {0, 1}
+        The parity of each n-cube, relative to a canonical one
+    """
+    cubes = np.asarray(cubes)
+    n_dim = cubes.ndim - 1
+    n_cubes = len(cubes)
+    corners = cubes.reshape(n_cubes, -1)
+
+    if n_dim == 0:
+        return np.zeros(n_cubes, dtype=sign_dtype)
+
+    parity, permutation = permutation_map(n_dim)
+
+    sorter = np.argsort(corners, axis=-1).astype(permutation.dtype)
+    try:
+        return parity[npi.indices(permutation, sorter)]
+    except KeyError as e:
+        # FIXME: now we work versus a reference cube that is sorted, but would like to generalize.
+        # Better to keep the notion of partiy always explicitly relative between two elements,
+        # so the argsorts always cancel
+        raise ValueError("Ceci n'est pas une n-cube")
 
 
 class TopologyCubical(PrimalTopology):
@@ -77,27 +147,39 @@ class TopologyCubical(PrimalTopology):
             b_dim = n_dim - 1
             n_elements = EN0.shape[0]
 
-            En0_all = generate_boundary(EN0, degree=1)
+            axes_parity, En0_all = generate_boundary(EN0, degree=1)
             En0_all = En0_all.reshape((-1,) + (2,) * (b_dim))
 
             # get mapping to unique set
             # FIXME: we need a sort to find uniqueness. see examples/subdivision_surface
             # not required if we stick to geometrically regular grids; add a flag?
+
+            # c_parity = cube_parity(En0_all)
+            # corners = En0_all.reshape((-1, 2**b_dim))
+            # corners = np.sort(corners, axis=1)
+
+            # index = npi.as_index(corners)
             index = npi.as_index(En0_all)
             En0 = index.unique
+            # En0 = En0_all[index.start]
             EnN = index.inverse
+
             EnN = EnN.reshape((n_elements,) + (n_dim, 2))
 
-            # set up connection parity
-            parity = np.zeros_like(EnN)
-            # alternate orientation on both ends
-            parity[..., 1] = 1
-            # alternate orientation over the axes
-            # FIXME: cant defend this choice and works only up to ndim=3
-            parity = np.logical_xor(parity, (np.arange(n_dim)[None, :, None] % 2))
+            # if b_dim == 0:
+            #     En0 = EnN
+            # set up parity
 
-            # create topology matrix
+            parity = np.zeros_like(EnN) # shape [n_elements, n_dim, 2]
+            # parity = c_parity.reshape(EnN.shape)
+            # alternate orientation on both ends of the cube
+            parity = np.logical_xor(parity, [[[0, 1]]])
+            # parity[..., 1] = 1
+            # alternate orientation depending on order of axes selection
+            parity = np.logical_xor(parity, axes_parity[None, :, None])
+            # map parity to orientation
             orientation = parity * 2 - 1
+
             return En0, EnN, orientation.astype(sign_dtype)
 
         EN0 = np.asarray(cubes)
@@ -144,7 +226,7 @@ class TopologyCubical(PrimalTopology):
         n_dim = self.n_dim
 
         # construct all levels of boundaries of cubes, plus their indices
-        B = [generate_boundary(cubes, d) for d in reversed(range(self.n_dim + 1))]
+        B = [generate_boundary(cubes, d)[1] for d in reversed(range(self.n_dim + 1))]
         # FIXME: do we always want to be doing this during construction to fill out our incidence matrix?
         I = [pycomplex.topology.generate_boundary_indices(e, b) for e, b in zip(E, B)]
 

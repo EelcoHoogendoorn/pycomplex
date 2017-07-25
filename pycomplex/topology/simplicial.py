@@ -1,4 +1,6 @@
 
+from functools import lru_cache
+
 import numpy as np
 import numpy_indexed as npi
 from cached_property import cached_property
@@ -7,25 +9,85 @@ from pycomplex.topology import topology_matrix, sign_dtype, index_dtype, transfe
 from pycomplex.topology.primal import PrimalTopology
 
 
-def combinations(arr, n, axis):
+def generate_boundary(arr, n, axis=-1):
+    """Generate boundary of a set of n-simplices by taking a set of combinations of degree n-1 from them
+
+    Parameters
+    ----------
+    arr : ndarray, [n_simplices, n+1], index_dtype
+        simplices in terms of corner vertex indices
+    n : int
+        dimension of the simplex to generate the boundary of
+    axis : int
+
+    Returns
+    -------
+    parity : ndarray, [n_combinations], sign_dtype, {0, 1}
+        parity of the n-th combination
+    result : ndarray, [n_simplices, n_combinations, n], index_dtype
+        set of n-1 simplices in terns of corner vertex indices,
+        for all input n-simplices
+    """
     from pycomplex.math.combinatorial import combinations
 
     arr = np.asarray(arr)
     idx = np.arange(arr.shape[axis], dtype=index_dtype)
     parity, comb = zip(*combinations(idx, n))
     comb = np.asarray((list(comb)))
-    return np.asarray(parity), arr.take(comb, axis=axis)
+    return np.asarray(parity).astype(sign_dtype), arr.take(comb, axis=axis)
+
+
+def generate_boundary_alt(simplices):
+    # FIXME: only in uneven n_corners is a roll not a swap
+    n_simplices, n_corners = simplices.shape
+    n_dim = n_corners - 1
+    parity = np.zeros(n_corners, dtype=sign_dtype)
+    b = np.empty((n_simplices, n_corners, n_dim), dtype=simplices.dtype)
+    for c in range(n_corners):
+        b[:, c] = np.roll(simplices, -c, axis=-1)[:, 1:]
+    return parity, b
+
+
+@lru_cache()
+def permutation_map(n_dim):
+    """Generate permutations map relative to a canonical n-simplex
+
+    Parameters
+    ----------
+    n_dim : int
+
+    Returns
+    -------
+    parity : ndarray, [n_combinations], sign_dtype
+    permutation : ndarray, [n_combinations, n_corners], sign_dtype
+    """
+    n_corners = n_dim + 1
+    l = list(np.arange(n_corners))
+    from pycomplex.math.combinatorial import permutations
+    par, perm = zip(*permutations(l))
+    par = np.array(par, dtype=sign_dtype)
+    perm = np.array(perm, dtype=sign_dtype)
+    return par, perm
 
 
 def simplex_parity(simplices):
-    """Compute parity for a set of simplices
-    result is 0 for sorted indices, 1 for a permutation thereof
+    """Compute parity for a set of simplices, relative to a canonical simplex
+
+    Parameters
+    ----------
+    simplices : ndarray, [n_simplices, n_corners], index_dtype
+
+    Returns
+    -------
+    parity : ndarray, [n_simplices], sign_dtype, {0, 1}
+        The parity of each n-simplex, relative to a canonical one
     """
-    n_simplices, n_dim = simplices.shape
-    from pycomplex.math.combinatorial import permutations_map
-    parity, permutation = permutations_map(n_dim)
-    sorter = np.argsort(simplices, axis=-1)
-    return parity[npi.indices(permutation.astype(sign_dtype), sorter.astype(sign_dtype))]
+    simplices = np.asarray(simplices)
+    n_simplices, n_corners = simplices.shape
+    n_dim = n_corners - 1
+    parity, permutation = permutation_map(n_dim)
+    sorter = np.argsort(simplices, axis=-1).astype(permutation.dtype)
+    return parity[npi.indices(permutation, sorter)]
 
 
 class TopologySimplicial(PrimalTopology):
@@ -58,22 +120,27 @@ class TopologySimplicial(PrimalTopology):
             n_simplices, n_pts = EN0.shape
             n_dim = n_pts - 1
 
-            b_parity, full_boundary = combinations(EN0, n_dim, axis=-1)
-            full_boundary = full_boundary.reshape(-1, n_dim)
+            # FIXME: do parity calculations better. that is, make them work...
+            # are simplical edges truly a special case?
+            b_parity, full_boundary = generate_boundary(EN0, n_dim)
+            # b_parity, full_boundary = generate_boundary_alt(EN0)
+            full_boundary = full_boundary.reshape(n_simplices * n_pts, n_dim)
+
+            P = simplex_parity(full_boundary)
 
             sorted_boundary = np.sort(full_boundary, axis=-1)
             index = npi.as_index(sorted_boundary)
 
             En0 = index.unique
             ENn = index.inverse
-            ENn = ENn.reshape(-1, n_pts).astype(index_dtype)
+            ENn = ENn.reshape(n_simplices, n_pts).astype(index_dtype)
 
-            # if n_dim == 1:
-            #     orientation = [-1, +1] * n_simplices
             # else:
-            s_parity = simplex_parity(EN0)
-            s_parity = np.zeros_like(s_parity)
-            parity = np.logical_xor(b_parity[None, :], s_parity[:, None])
+            # s_parity = simplex_parity(EN0)
+            s_parity = P.reshape(ENn.shape)
+            # s_parity = np.zeros_like(ENn, dtype=sign_dtype)
+            # parity = np.logical_xor(b_parity[None, :], s_parity)
+            parity = s_parity
             # parity = b_parity
 
             # b_parity = simplex_parity(full_boundary).reshape(parity.shape)
@@ -84,6 +151,9 @@ class TopologySimplicial(PrimalTopology):
             # orientation = parity[npi.indices(permutation.astype(np.int8), sorter.astype(np.int8))]
             # orientation = np.logical_xor(b_parity, np.repeat(s_parity, n_pts)) * 2 - 1
             # orientation = b_parity * 2 - 1
+
+            if n_dim == 1:
+                parity[...] = [[0, 1]]
 
             orientation = parity * 2 - 1
             return En0, ENn, orientation.astype(sign_dtype)
@@ -112,19 +182,6 @@ class TopologySimplicial(PrimalTopology):
                 break
 
         return cls(elements=E, orientation=O, boundary=B)
-
-    # @cached_property
-    # def boundary(self):
-    #     """Return n-1-topology representing the boundary"""
-    #     b_idx = self.boundary_indices()
-    #     if len(b_idx) == 0:
-    #         return None
-    #     # construct boundary
-    #     B = type(self).from_simplices(self.elements[-2][b_idx])
-    #     # compute correspondence idx for all parent and boundary elements
-    #     B.parent_idx = self.find_correspondence(B)
-    #     B.parent = self
-    #     return B
 
     def fix_orientation(self):
         """Try to find a consistent orientation for all simplices
@@ -408,3 +465,51 @@ class TopologyTriangular(TopologySimplicial):
     @property
     def n_triangles(self):
         return self.n_elements[2]
+
+
+class TopologyTetrahedral(TopologySimplicial):
+
+    @classmethod
+    def from_simplices(cls, simplices):
+        """Construct topology from tetrahedral description as sets of vertex indices
+
+        Note that this is quite a bit simpler than the general case
+
+        Also, we enforce a relation between I32 and I30;
+        that is, faces and vertices are always opposite
+        """
+        E30 = np.asarray(simplices, dtype=index_dtype)
+        if not E30.ndim==2 and E30.shape[1] == 4:
+            raise ValueError('Expected [n, 4] array')
+
+        E00 = np.unique(E30).reshape(-1, 1)
+
+        # P3, E320 = generate_boundary(E30, n=3, axis=-1)
+        P3, E320 = generate_boundary_alt(E30)
+        # A, B, C, D = [np.roll(E30, i+1, axis=1) for i in range(4)]
+        # E320 = np.concatenate([A[..., None], B[..., None], C[..., None], D[..., None]], axis=-1)
+
+        P = simplex_parity(E320.reshape(-1, 3))
+        E320 = np.sort(E320, axis=-1)
+
+
+        L = np.roll(E20, -1, axis=1)
+        R = np.roll(E20, +1, axis=1)
+        # I210 is triangles expressed as edges expressed as vertex indices; [n_triangles, 3, 2]
+        E210 = np.concatenate([L[..., None], R[..., None]], axis=-1)
+        E210 = np.sort(E210, axis=-1)
+
+        E10, E21 = npi.unique(E210.reshape(-1, 2), return_inverse=True)
+        E21 = E21.reshape(-1, 3).astype(index_dtype)
+
+        # special case rule for triangle orientations
+        O21 = ((L < R) * 2 - 1).astype(sign_dtype)
+        O10 = np.ones((len(E10), 2), sign_dtype)
+        O10[:, 0] *= -1
+
+        # construct grid of all element representations
+        E = [E00, E10, E20]
+        B = [E10, E21]
+        O = [O10, O21]
+
+        return cls(elements=E, orientation=O, boundary=B)

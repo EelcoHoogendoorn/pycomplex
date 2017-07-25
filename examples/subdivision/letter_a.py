@@ -40,14 +40,16 @@ if False:
         [[0, 1], [4, 5]],
         [[1, 2], [5, 6]],
         [[2, 3], [6, 7]],
-        [[5, 6], [9, 10]],
-        [[3, 15], [7, 11]],
+        [[5, 6], [9, 10]],      # mid piece
+        [[3, 15], [7, 11]],     # top piece
         [[0+8, 1+8], [4+8, 5+8]],
         [[1+8, 2+8], [5+8, 6+8]],
         [[2+8, 3+8], [6+8, 7+8]],
     ]
     quads = ComplexCubical(vertices=vertices, cubes=quads)
     # FIXME: construction isnt perfect; currently we fail to plot the dual on this
+    # FIXME: also, we have an extra face internally inserted at the weld-line
+    # problem originates already during quad construction
 
 else:
     quads = synthetic.n_cube_grid((3, 4))
@@ -56,8 +58,9 @@ else:
     quads = quads.select_subset(s.flatten())
 
 
-quads.as_22().plot(plot_dual=True)
-
+# quads = quads.subdivide(smooth=True)
+quads.as_22().plot(plot_dual=False)
+print(quads.topology.is_oriented)
 segment = synthetic.n_cube(1)
 
 grid = quads.product(segment)

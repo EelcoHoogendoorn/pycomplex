@@ -90,7 +90,8 @@ class BlockSystem(object):
             plt.gca().invert_yaxis()
         else:
             S = S.todense()
-            plt.imshow(S[::-1], cmap='seismic', vmin=-4, vmax=+4, origin='upper', extent=(0, S.shape[1], 0, S.shape[0]))
+            cmap = 'bwr'#''seismic'
+            plt.imshow(S[::-1], cmap=cmap, vmin=-4, vmax=+4, origin='upper', extent=(0, S.shape[1], 0, S.shape[0]))
             # plot block boundaries
             for l in np.cumsum([0] + self.rows):
                 plt.plot([0, S.shape[1]], [l, l], c='k')
