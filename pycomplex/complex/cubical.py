@@ -115,6 +115,43 @@ class ComplexCubical(BaseComplexCubical):
             raise TypeError('invalid cast')
         return ComplexCubical4Euclidian4(vertices=self.vertices, topology=self.topology)
 
+    def plot(self, plot_dual=True, plot_vertices=False):
+        """Generic 2d projected plotting of primal and dual lines and edges"""
+        import matplotlib.pyplot as plt
+        import matplotlib.collections
+
+        edges = self.topology.elements[1]
+        e = self.vertices[edges]
+
+        fig, ax = plt.subplots(1,1)
+        lc = matplotlib.collections.LineCollection(e[..., :2], color='b', alpha=0.5)
+        ax.add_collection(lc)
+        if plot_vertices:
+            ax.scatter(*self.vertices.T[:2], color='b')
+
+        # plot dual cells
+        if plot_dual:
+            dual_vertices, dual_edges = self.dual_position()[0:2]
+            dual_topology = self.topology.dual
+            from pycomplex.topology import sparse_to_elements
+            de = sparse_to_elements(dual_topology[0].T)
+
+            de = dual_vertices[de]
+            s, e = de[:,0], de[:,1]
+            s = np.moveaxis(np.array([dual_edges, s]), 0, 1)
+            lc = matplotlib.collections.LineCollection(s[...,:2], color='r', alpha=0.5)
+            ax.add_collection(lc)
+            e = np.moveaxis(np.array([dual_edges, e]), 0, 1)
+            lc = matplotlib.collections.LineCollection(e[...,:2], color='r', alpha=0.5)
+            ax.add_collection(lc)
+
+            if plot_vertices:
+                ax.scatter(*dual_vertices.T[:2], color='r')
+
+        plt.axis('equal')
+        plt.show()
+
+
 
 class ComplexCubical2(ComplexCubical):
     """Specialization for 2d quads"""
@@ -182,41 +219,6 @@ class ComplexCubical2Euclidian2(ComplexCubical2):
 class ComplexCubical2Euclidian3(ComplexCubical2):
     """2 dimensional topology (quadrilateral) with 3d euclidian embedding"""
 
-    def plot(self, plot_dual=True, plot_vertices=False):
-        import matplotlib.pyplot as plt
-        import matplotlib.collections
-
-        edges = self.topology.elements[1]
-        e = self.vertices[edges]
-
-        fig, ax = plt.subplots(1,1)
-        lc = matplotlib.collections.LineCollection(e[..., :2], color='b', alpha=0.5)
-        ax.add_collection(lc)
-        if plot_vertices:
-            ax.scatter(*self.vertices.T[:2], color='b')
-
-        # plot dual cells
-        if plot_dual:
-            dual_vertices, dual_edges = self.dual_position()[0:2]
-            dual_topology = self.topology.dual()
-            from pycomplex.topology import sparse_to_elements
-            de = sparse_to_elements(dual_topology[0].T)
-
-            de = dual_vertices[de]
-            s, e = de[:,0], de[:,1]
-            s = np.moveaxis(np.array([dual_edges, s]), 0, 1)
-            lc = matplotlib.collections.LineCollection(s[...,:2], color='r', alpha=0.5)
-            ax.add_collection(lc)
-            e = np.moveaxis(np.array([dual_edges, e]), 0, 1)
-            lc = matplotlib.collections.LineCollection(e[...,:2], color='r', alpha=0.5)
-            ax.add_collection(lc)
-
-            if plot_vertices:
-                ax.scatter(*dual_vertices.T[:2], color='r')
-
-        plt.axis('equal')
-        plt.show()
-
 
 class ComplexCubical1Euclidian2(ComplexCubical):
     """Line in 2d euclidian space"""
@@ -241,39 +243,6 @@ class ComplexCubical1Euclidian2(ComplexCubical):
 class ComplexCubical3Euclidian3(ComplexCubical):
     """3-Cubes in 3d euclidian space"""
 
-    def plot(self, plot_dual=False):
-        import matplotlib.pyplot as plt
-        import matplotlib.collections
-
-        edges = self.topology.elements[1]
-        e = self.vertices[edges]
-
-        fig, ax = plt.subplots(1,1)
-        lc = matplotlib.collections.LineCollection(e[..., :2], color='b', alpha=0.5)
-        ax.add_collection(lc)
-        ax.scatter(*self.vertices.T[:2], color='b')
-
-        if plot_dual:
-            # plot dual cells
-            dual_vertices, dual_edges = self.dual_position()[0:2]
-            dual_topology = self.topology.dual
-            from pycomplex.topology import sparse_to_elements
-            de = sparse_to_elements(dual_topology[0].T)
-
-            de = dual_vertices[de]
-            s, e = de[:, 0], de[:, 1]
-            s = np.moveaxis(np.array([dual_edges, s]), 0, 1)
-            lc = matplotlib.collections.LineCollection(s[..., :2], color='r', alpha=0.5)
-            ax.add_collection(lc)
-            e = np.moveaxis(np.array([dual_edges, e]), 0, 1)
-            lc = matplotlib.collections.LineCollection(e[..., :2], color='r', alpha=0.5)
-            ax.add_collection(lc)
-
-            ax.scatter(*dual_vertices.T[:2], color='r')
-
-        plt.axis('equal')
-        plt.show()
-
     def plot_slice(self, affine, ):
         pass
 
@@ -286,3 +255,7 @@ class ComplexCubical4Euclidian4(ComplexCubical3Euclidian3):
 class ComplexCubical5Euclidian5(ComplexCubical4Euclidian4):
     """Projected plotting is infact the same as 3d case"""
     pass
+
+
+class ComplexCubicalToroidal(ComplexCubical):
+    """Cubical complex with a toroidal topology, and corresponding metric"""

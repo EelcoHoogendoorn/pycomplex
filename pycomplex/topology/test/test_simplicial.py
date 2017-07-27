@@ -14,18 +14,16 @@ def test_permutation_map():
         parity, permutation = permutation_map(n)
         print(parity)
         print(permutation)
-# test_permutation_map()
-# quit()
+
 
 def test_simplex():
-    for n in [3]:
+    for n in [1, 2, 3, 4, 5]:
         print()
         print(n)
         print()
-        simplex = synthetic.simplex(n)
+        simplex = synthetic.n_simplex(n)
         basic_test(simplex.topology)
-#
-# test_simplex()
+
 
 def test_triangular():
     tris = [[0, 1, 2]]
@@ -36,18 +34,19 @@ def test_triangular():
 
 def test_tetrahedral():
     tets = [[0, 1, 2, 3]]
-    tet = TopologyTetrahedral.from_simplices(tets)
+    tet = TopologySimplicial.from_simplices(tets)
+    basic_test(tet)
 test_tetrahedral()
 quit()
 
 def test_simplex_parity():
     for n in [1, 2, 3]:
-        simplex = synthetic.simplex(n).topology.elements[-1]
-        npt.assert_array_equal(simplex_parity(simplex), [0])
+        simplex = synthetic.n_simplex(n).topology.elements[-1]
+        npt.assert_array_equal(relative_simplex_parity(simplex), [0])
 
 
 def test_boundary():
-    tet = synthetic.simplex(3)
+    tet = synthetic.n_simplex(3)
     tris = tet.boundary()
 
 

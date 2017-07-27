@@ -11,13 +11,6 @@ from pycomplex.topology import index_dtype
 from pycomplex.math import linalg
 
 
-def simplex(n_dim):
-    """Generate a single simplex"""
-    vertices = np.eye(n_dim + 1)[:, 1:]
-    corners = np.arange(n_dim + 1, dtype=index_dtype)
-    return ComplexSimplicial(vertices=vertices, simplices=corners[None, :])
-
-
 def icosahedron():
     """Generate an icosahedron.
 
@@ -54,6 +47,39 @@ def icosphere(refinement=0):
     for _ in range(refinement):
         sphere = sphere.subdivide()
     return sphere
+
+
+def n_simplex(n_dim, symmetric=True):
+    """Generate a single n-simplex
+
+    Parameters
+    ----------
+    n_dim : int
+    symmetric : bool
+
+    Returns
+    -------
+    ComplexSimplicial
+
+    """
+    def simplex_vertices(n):
+        """Recursively generate equidistant vertices on the n-sphere"""
+        if n == 1:
+            return np.array([[-1], [+1]])
+        depth = 1. / n
+        shrink = np.sqrt(1 - depth ** 2)
+        base = simplex_vertices(n - 1) * shrink
+        top = np.eye(n)[:1]
+        bottom = np.ones((n, 1)) * -depth
+        return np.block([[top], [bottom, base]])
+
+    if symmetric:
+        vertices = simplex_vertices(n_dim)
+    else:
+        vertices = np.eye(n_dim + 1)[:, 1:] # canonical simplex
+
+    corners = np.arange(n_dim + 1, dtype=index_dtype)
+    return ComplexSimplicial(vertices=vertices, simplices=corners[None, :])
 
 
 def n_cube(n_dim, centering=False):

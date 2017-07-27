@@ -31,11 +31,9 @@ Todo
 ----
 - Add hierarchy class, to manage all transfers across levels
 - Build up all different interpolation and restriction multigrid transfer operators over all topologies
-- Fix cubical meshes for n > 3; Fully n-dim cube subdivision; Correct relative orientation calculations for higher dims
-- Fix simplicial meshes for n > 3
+- Fully n-dim cube subdivision
 - Black box multigrid (at least for 0-forms)
-- Minres with constraints solver
-- multigrid eigen solver
+- Multigrid eigen solver
 - Add mesh picking functionality to complexes
 - Work out simple examples for pretty much all simple vector calculus problems
 

@@ -94,7 +94,7 @@ def generate_boundary_indices(this, that):
     n_vertices = this.size // n_elements
     # FIXME: would we like an optional sorting over n_vertices here?
     i = npi.indices(
-        this.reshape(n_elements, n_vertices),
-        that.reshape(-1, n_vertices)
+        np.sort(this.reshape(n_elements, n_vertices), axis=1),
+        np.sort(that.reshape(-1, n_vertices), axis=1),
     ).astype(index_dtype)
     return i.reshape(that.shape[:that.ndim - (this.ndim - 1)])

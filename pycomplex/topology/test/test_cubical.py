@@ -13,33 +13,50 @@ def test_generate_boundary():
     cube = n_cube(n_dim)
     cubes = cube.topology.elements[-1]
     for d in range(3):
-        b = generate_boundary(cubes, degree=d)
+        b = generate_cube_boundary(cubes, degree=d)
+
+
+def test_permutation_map():
+    a, b = permutation_map(2, rotations=True)
+    assert (len(npi.unique(b)) == 8)
+    a, b = permutation_map(2, rotations=False)
+    assert (len(npi.unique(b)) == 4)
+    a, b = permutation_map(3, rotations=True)
+    assert (len(npi.unique(b)) == 48)
+    a, b = permutation_map(3, rotations=False)
+    assert (len(npi.unique(b)) == 8)
 
 
 def test_cube_parity():
     for n in [1, 2, 3]:
         cubes = n_cube(n).topology.elements[-1]
-        npt.assert_array_equal(cube_parity(cubes), [0])
+        npt.assert_array_equal(relative_cube_parity(cubes), [0])
 
-    # test that diagonal flip is not a valid n-cube
-    cubes = n_cube(2).topology.elements[-1]
-    cubes = np.swapaxes(cubes, 1, 2)
+
+def test_cube_parity_raises():
+    # test that this is not a valid n-cube
+    cubes = [[[0, 1], [3, 2]]]
     with pytest.raises(ValueError):
-        cube_parity(cubes)
+        relative_cube_parity(cubes)
 
 
 def test_cube():
     for n_dim in [1, 2, 3, 4]:
+        print()
+        print(n_dim)
+        print()
         cube = n_cube(n_dim)
         basic_test(cube.topology)
 
 
-def test_projected_hypercube():
-    n_dim = 4
-    cube = n_cube(n_dim)
-    np.random.seed(1)
-    cube.vertices = np.dot(cube.vertices, linalg.orthonormalize(np.random.randn(n_dim, n_dim)))
-    cube.as_44().plot(plot_dual=True)
+def test_non_regular():
+    cubes = [
+        [[0, 1], [2, 3]],
+        # [[0, 4], [1, 5]],
+        [[5, 1], [4, 0]],
+    ]
+    t = TopologyCubical.from_elements(cubes)
+    basic_test(t)
 
 
 def test_quads():

@@ -16,7 +16,7 @@ from pycomplex import synthetic
 from pycomplex.math import linalg
 
 
-if False:
+if True:
     # handcrafted example from paper
     vertices = [
         [0, 0],
@@ -47,9 +47,6 @@ if False:
         [[2+8, 3+8], [6+8, 7+8]],
     ]
     quads = ComplexCubical(vertices=vertices, cubes=quads)
-    # FIXME: construction isnt perfect; currently we fail to plot the dual on this
-    # FIXME: also, we have an extra face internally inserted at the weld-line
-    # problem originates already during quad construction
 
 else:
     quads = synthetic.n_cube_grid((3, 4))
@@ -59,18 +56,19 @@ else:
 
 
 # quads = quads.subdivide(smooth=True)
-quads.as_22().plot(plot_dual=False)
+quads.as_22().plot(plot_dual=True)
+
 print(quads.topology.is_oriented)
+
+# extract quads to cubes
 segment = synthetic.n_cube(1)
-
 grid = quads.product(segment)
+# product perserves orientation
 print(grid.topology.is_oriented)
 
+# get boundary of cubes
 grid = grid.boundary()
-
-# fix the orientation of the resulting cubes
-print(grid.topology.is_oriented)
-# grid.topology = grid.topology.fix_orientation()
+# boundary preserves orientation
 print(grid.topology.is_oriented)
 
 # get bottom face chain
@@ -81,6 +79,7 @@ fc[fi] = 1
 c1 = grid.topology.matrix(1, 2) * fc
 
 # add random rotation
+np.random.seed(17)
 grid.vertices = np.dot(grid.vertices, linalg.orthonormalize(np.random.randn(3, 3)))
 
 # subdivide; propagate crease along the subdivision
@@ -95,7 +94,6 @@ c1 = grid.topology.transfer_matrices[1] * c1
 grid.as_23().plot(plot_dual=False, plot_vertices=False)
 
 grid = grid.as_23().to_simplicial()#.smooth().smooth()
-grid.topology = grid.topology.fix_orientation()
 
 
 grid.as_3().plot_3d(plot_dual=False, plot_vertices=False)

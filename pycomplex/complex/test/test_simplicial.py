@@ -31,3 +31,14 @@ def test_sphere():
         sphere = sphere.subdivide(smooth=True)
 
     sphere.plot_3d(backface_culling=True)
+
+
+def test_projected_hypersimplex():
+    n_dim = 4
+    simplex = synthetic.n_simplex(n_dim)
+    simplex.vertices = np.dot(simplex.vertices, linalg.orthonormalize(np.random.randn(n_dim, n_dim)))
+
+    simplex.plot(plot_dual=True)
+    # simplex.boundary().plot()
+
+test_projected_hypersimplex()

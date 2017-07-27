@@ -15,7 +15,6 @@ def test_regular_2():
 
 def test_quad_3():
     """test of three connected quads"""
-    n_dim = 2
     vertices = np.indices((3, 3))
     vertices = vertices.reshape(2, -1).T[:-1]
     quads = [
@@ -45,21 +44,22 @@ def test_2cube_3space():
 
     quads.vertices = np.dot(quads.vertices, linalg.orthonormalize(np.random.randn(3, 3)))
 
-    # triangular = cube.to_simplicial()
-    # triangular.plot_3d()
+    # FIXME: this does not yet work
+    # triangular = quads.to_simplicial()
+    # triangular.as_3().plot_3d()
     quads.plot()
-
+#
 
 def test_cube():
     """Test 3d cube embedded in 3-space"""
-    cube = n_cube(3).as_33()
+    cube = n_cube(3)
     # random rotation
     cube.vertices = np.dot(cube.vertices, linalg.orthonormalize(np.random.randn(3, 3)))
 
     cube.plot()
     for i in range(2):
         cube = cube.subdivide()
-    cube.plot(plot_dual=True)
+    cube.boundary().plot(plot_dual=True)
 
 
 def test_triangulated_cube():
@@ -75,22 +75,22 @@ def test_triangulated_cube():
     # map back to quads again
     surface = surface.to_cubical().smooth()
 
-    # surface = surface.subdivide()
+    surface = surface.subdivide()
     # surface = surface.subdivide()
 
-    surface.as_23().plot(plot_dual=False)
-    # assert surface.topology.is_oriented
+    surface.plot(plot_dual=False)
+    assert surface.topology.is_oriented
 
 
 def test_cube_grid_2():
     grid = n_cube_grid((2, 3))
-    grid.as_22().plot()
+    grid.plot()
 
 
 def test_cube_grid_3():
     grid = n_cube_grid((1, 2, 3))
     grid.vertices = np.dot(grid.vertices, linalg.orthonormalize(np.random.randn(3, 3)))
-    grid.as_33().plot(plot_dual=True)
+    grid.plot(plot_dual=True)
     assert grid.topology.is_oriented
 
 
@@ -99,17 +99,24 @@ def test_product_2():
     d2 = n_cube_grid((5,))
 
     grid = d1.product(d2)
-    grid.as_22().plot()
+    grid.plot()
 
 
 def test_product_2_1():
     d1 = n_cube_grid((3,))
-    d2 = n_cube_grid((5, 4))
+    d2 = n_cube_grid((2, 4))
 
     grid = d1.product(d2)
     grid.vertices = np.dot(grid.vertices, linalg.orthonormalize(np.random.randn(3, 3)))
 
-    grid.as_33().plot()
+    grid.plot()
 
 
-test_product_2_1()
+def test_projected_hypercube():
+    n_dim = 4
+    cube = n_cube(n_dim)
+    np.random.seed(1)
+    cube.vertices = np.dot(cube.vertices, linalg.orthonormalize(np.random.randn(n_dim, n_dim)))
+    cube.plot(plot_dual=True)
+
+# test_projected_hypercube()

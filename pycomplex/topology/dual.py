@@ -28,6 +28,10 @@ class ClosedDual(BaseTopology):
     def matrices(self):
         return [T.T for T in self.primal.matrices[::-1]]
 
+    def __getitem__(self, item):
+        """alias for matrix"""
+        return self.matrices[item]
+
 
 class Dual(BaseTopology):
     """Object to wrap dual topology logic

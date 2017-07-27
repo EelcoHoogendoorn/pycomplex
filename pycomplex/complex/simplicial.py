@@ -18,6 +18,37 @@ class ComplexSimplicial(BaseComplexEuclidian):
             topology = TopologySimplicial.from_simplices(simplices)
         self.topology = topology
 
+    def plot(self, plot_dual=True):
+        """Plot projection on plane"""
+        import matplotlib.pyplot as plt
+        import matplotlib.collections
+        edges = self.topology.elements[1]
+        e = self.vertices[edges]
+
+        fig, ax = plt.subplots(1, 1)
+        lc = matplotlib.collections.LineCollection(e[..., :2], color='b', alpha=0.5)
+        ax.add_collection(lc)
+        ax.scatter(*self.vertices.T[:2], color='b')
+
+        if plot_dual:
+            dual_vertices, dual_edges = self.dual_position()[0:2]
+            dual_topology = self.topology.dual
+            from pycomplex.topology import sparse_to_elements
+            de = sparse_to_elements(dual_topology[0].T)
+
+            de = dual_vertices[de]
+            s, e = de[:, 0], de[:, 1]
+            s = np.moveaxis(np.array([dual_edges, s]), 0, 1)
+            lc = matplotlib.collections.LineCollection(s[..., :2], color='r', alpha=0.5)
+            ax.add_collection(lc)
+            e = np.moveaxis(np.array([dual_edges, e]), 0, 1)
+            lc = matplotlib.collections.LineCollection(e[..., :2], color='r', alpha=0.5)
+            ax.add_collection(lc)
+
+            ax.scatter(*dual_vertices.T[:2], color='r')
+        plt.axis('equal')
+        plt.show()
+
 
 class ComplexTriangular(BaseComplexEuclidian):
     """Triangular simplicial complex"""
@@ -120,36 +151,6 @@ class ComplexTriangular(BaseComplexEuclidian):
 
 class ComplexTriangularEuclidian2(ComplexTriangular):
     """Triangular topology embedded in euclidian 2-space"""
-
-    def plot(self, plot_dual=True):
-        import matplotlib.pyplot as plt
-        import matplotlib.collections
-        edges = self.topology.elements[1]
-        e = self.vertices[edges]
-
-        fig, ax = plt.subplots(1, 1)
-        lc = matplotlib.collections.LineCollection(e[..., :2], color='b', alpha=0.5)
-        ax.add_collection(lc)
-        ax.scatter(*self.vertices.T[:2], color='b')
-
-        if plot_dual:
-            dual_vertices, dual_edges = self.dual_position()[0:2]
-            dual_topology = self.topology.dual()
-            from pycomplex.topology import sparse_to_elements
-            de = sparse_to_elements(dual_topology[0].T)
-
-            de = dual_vertices[de]
-            s, e = de[:, 0], de[:, 1]
-            s = np.moveaxis(np.array([dual_edges, s]), 0, 1)
-            lc = matplotlib.collections.LineCollection(s[..., :2], color='r', alpha=0.5)
-            ax.add_collection(lc)
-            e = np.moveaxis(np.array([dual_edges, e]), 0, 1)
-            lc = matplotlib.collections.LineCollection(e[..., :2], color='r', alpha=0.5)
-            ax.add_collection(lc)
-
-            ax.scatter(*dual_vertices.T[:2], color='r')
-        plt.axis('equal')
-        plt.show()
 
     def plot_primal_0_form(self, c0):
         """plot a primal 0-form
@@ -290,7 +291,7 @@ class ComplexTriangularEuclidian3(ComplexTriangular):
 
         if plot_dual:
             dual_vertices, dual_edges = self.dual_position()[0:2]
-            dual_topology = self.topology.dual()
+            dual_topology = self.topology.dual
 
             from pycomplex.topology import sparse_to_elements
             de = sparse_to_elements(dual_topology[0].T)

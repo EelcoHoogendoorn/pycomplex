@@ -1,9 +1,62 @@
 import numpy as np
+import numpy.testing as npt
 import numpy_indexed as npi
 from cached_property import cached_property
 
 from pycomplex.topology import index_dtype, sign_dtype, topology_matrix
 from pycomplex.topology.base import BaseTopology
+
+
+def indices(shape, dtype):
+    """mem-efficient version of np.indices"""
+    n_dim = len(shape)
+    idx = [np.arange(s, dtype=dtype) for s in shape]
+    for q, (i, s) in enumerate(zip(idx, shape)):
+        strides = [0] * n_dim
+        strides[q] = i.strides[0]
+        idx[q] = np.ndarray(buffer=i.data, shape=shape, strides=strides, dtype=i.dtype)
+    return idx
+
+
+def sort_and_argsort(arr, axis):
+    """Potentially faster method to sort and argsort; hasnt been profiled though
+
+    Parameters
+    ----------
+    arr : ndarray, [shape]
+    axis : int
+        axis to sort along
+
+    Returns
+    -------
+    sorted : ndarray, [shape]
+    argsort : ndarray, [shape], int
+        indices along axis of arr
+    """
+    argsort = np.argsort(arr, axis=axis)
+    I = indices(arr.shape, index_dtype)
+    I[axis] = argsort
+    return arr[I], argsort
+
+
+def relative_permutations(self, other):
+    """Combine two permutations of indices to get relative permutation
+
+    Parameters
+    ----------
+    self : ndarray, [n, m], int
+    other : ndarray, [n, m], int
+
+    Returns
+    -------
+    relative : ndarray, [n, m], int
+    """
+    assert self.shape == other.shape
+    assert self.ndim == 2
+    I = np.indices(self.shape)
+    relative = np.empty_like(self)
+    relative[I[0], other] = self
+    return relative
 
 
 class PrimalTopology(BaseTopology):
@@ -37,6 +90,9 @@ class PrimalTopology(BaseTopology):
         strict : bool, optional
             if True, strict checking for manifoldness is performed
         """
+        if not np.array_equiv(elements[0].flatten(), np.arange(len(elements[0]))):
+            raise ValueError
+
         self.strict = strict
         self._elements = elements
         self._orientation = orientation
@@ -179,17 +235,18 @@ class PrimalTopology(BaseTopology):
         chain_N = self.chain(-1, fill=1)
         chain_n = self.matrix(-1) * chain_N
         b_idx = np.flatnonzero(chain_n)
-        orientation = chain_n[b_idx]
         if len(b_idx) == 0:
             # topology is closed
             return None
         # construct boundary
         elements = self.elements[-2][b_idx]
 
-        # FIXME: enabling this orientation logic breaks subdivision\letter example; need to figure out why
-        # shape = np.asarray(elements.shape)
-        # shape[1:] = 1
-        # elements = np.where(orientation.reshape(shape)==1, elements, elements[:, ::-1])
+        # flip the elements around depending on the sign of the boundary chain
+        orientation = chain_n[b_idx]
+        shape = np.asarray(elements.shape)
+        shape[1:] = 1
+        elements = np.where(orientation.reshape(shape) == 1, elements, elements[:, ::-1])
+
         mapping, inverse = np.unique(elements.flatten(), return_inverse=True)
         elements = inverse.reshape(elements.shape).astype(index_dtype)
 

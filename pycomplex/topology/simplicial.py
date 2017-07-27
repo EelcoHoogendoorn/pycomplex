@@ -6,45 +6,33 @@ import numpy_indexed as npi
 from cached_property import cached_property
 
 from pycomplex.topology import topology_matrix, sign_dtype, index_dtype, transfer_matrix
-from pycomplex.topology.primal import PrimalTopology
+from pycomplex.topology.primal import *
 
 
-def generate_boundary(arr, n, axis=-1):
-    """Generate boundary of a set of n-simplices by taking a set of combinations of degree n-1 from them
+def generate_simplex_boundary(simplices):
+    """
 
     Parameters
     ----------
-    arr : ndarray, [n_simplices, n+1], index_dtype
-        simplices in terms of corner vertex indices
-    n : int
-        dimension of the simplex to generate the boundary of
-    axis : int
+    simplices : ndarray, [n_simplices, n_corners], index_dtype
 
     Returns
     -------
-    parity : ndarray, [n_combinations], sign_dtype, {0, 1}
-        parity of the n-th combination
-    result : ndarray, [n_simplices, n_combinations, n], index_dtype
-        set of n-1 simplices in terns of corner vertex indices,
-        for all input n-simplices
+    parity : ndarray, [n_corners], sign_dtype
+    boundary : ndarray, [n_simplices, n_corners, n_dim], index_dtype
+
+    Notes
+    -----
+    Only in uneven ndim is a roll not a parity change!
+
     """
-    from pycomplex.math.combinatorial import combinations
-
-    arr = np.asarray(arr)
-    idx = np.arange(arr.shape[axis], dtype=index_dtype)
-    parity, comb = zip(*combinations(idx, n))
-    comb = np.asarray((list(comb)))
-    return np.asarray(parity).astype(sign_dtype), arr.take(comb, axis=axis)
-
-
-def generate_boundary_alt(simplices):
-    # FIXME: only in uneven n_corners is a roll not a swap
     n_simplices, n_corners = simplices.shape
     n_dim = n_corners - 1
-    parity = np.zeros(n_corners, dtype=sign_dtype)
+    parity = np.ones(n_corners, dtype=sign_dtype) * (n_dim % 2)
     b = np.empty((n_simplices, n_corners, n_dim), dtype=simplices.dtype)
     for c in range(n_corners):
         b[:, c] = np.roll(simplices, -c, axis=-1)[:, 1:]
+        parity[c] *= c % 2
     return parity, b
 
 
@@ -70,12 +58,13 @@ def permutation_map(n_dim):
     return par, perm
 
 
-def simplex_parity(simplices):
+def relative_simplex_parity(simplices):
     """Compute parity for a set of simplices, relative to a canonical simplex
 
     Parameters
     ----------
-    simplices : ndarray, [n_simplices, n_corners], index_dtype
+    simplices : ndarray, [n_simplices, n_corners], sign_dtype
+        permutation of a set of simplices relative to a canonical simplex
 
     Returns
     -------
@@ -86,8 +75,7 @@ def simplex_parity(simplices):
     n_simplices, n_corners = simplices.shape
     n_dim = n_corners - 1
     parity, permutation = permutation_map(n_dim)
-    sorter = np.argsort(simplices, axis=-1).astype(permutation.dtype)
-    return parity[npi.indices(permutation, sorter)]
+    return parity[npi.indices(permutation, simplices.astype(permutation.dtype))]
 
 
 class TopologySimplicial(PrimalTopology):
@@ -117,43 +105,44 @@ class TopologySimplicial(PrimalTopology):
         EN0 = np.asarray(simplices)
 
         def construct_lower(EN0):
-            n_simplices, n_pts = EN0.shape
-            n_dim = n_pts - 1
-
-            # FIXME: do parity calculations better. that is, make them work...
-            # are simplical edges truly a special case?
-            b_parity, full_boundary = generate_boundary(EN0, n_dim)
-            # b_parity, full_boundary = generate_boundary_alt(EN0)
-            full_boundary = full_boundary.reshape(n_simplices * n_pts, n_dim)
-
-            P = simplex_parity(full_boundary)
-
-            sorted_boundary = np.sort(full_boundary, axis=-1)
-            index = npi.as_index(sorted_boundary)
-
-            En0 = index.unique
-            ENn = index.inverse
-            ENn = ENn.reshape(n_simplices, n_pts).astype(index_dtype)
-
-            # else:
-            # s_parity = simplex_parity(EN0)
-            s_parity = P.reshape(ENn.shape)
-            # s_parity = np.zeros_like(ENn, dtype=sign_dtype)
-            # parity = np.logical_xor(b_parity[None, :], s_parity)
-            parity = s_parity
-            # parity = b_parity
-
-            # b_parity = simplex_parity(full_boundary).reshape(parity.shape)
-            # parity = np.logical_xor(parity, b_parity)
-
-            # from pycomplex.combinatorial import permutations_map
-            # parity, permutation = permutations_map(n_dim)
-            # orientation = parity[npi.indices(permutation.astype(np.int8), sorter.astype(np.int8))]
-            # orientation = np.logical_xor(b_parity, np.repeat(s_parity, n_pts)) * 2 - 1
-            # orientation = b_parity * 2 - 1
+            n_simplices, n_corners = EN0.shape
+            n_dim = n_corners - 1
+            b_corners = n_corners - 1
 
             if n_dim == 1:
-                parity[...] = [[0, 1]]
+                # FIXME: does this special case add much at all?
+                EnN = EN0
+                En0 = np.unique(EN0).reshape(-1, 1)
+                EnN = EnN.reshape((n_simplices,) + (n_dim, 2))
+                parity = np.zeros_like(EnN)
+                parity = np.logical_xor(parity, [[[0, 1]]])
+                orientation = parity * 2 - 1
+                return En0.astype(index_dtype), EnN.astype(index_dtype), orientation.astype(sign_dtype)
+
+            b_parity, full_boundary = generate_simplex_boundary(EN0)
+            boundary_corners = full_boundary.reshape(n_simplices * n_corners, b_corners)
+            sorted_boundary_corners, permutation = sort_and_argsort(boundary_corners, axis=1)
+            permutation = permutation.astype(sign_dtype)
+
+            index = npi.as_index(sorted_boundary_corners)
+
+            # this is the easy one
+            ENn = index.inverse
+            ENn = ENn.reshape(n_simplices, n_corners).astype(index_dtype)
+
+            # pick a convention for the boundary element for each group of identical corners
+            En0 = boundary_corners[index.index]
+            canonical_permutation = permutation[index.index]
+
+            # broadcast that picked value to the group
+            canonical_permutation = canonical_permutation[index.inverse]
+            # find relative permutation of vertices of each element
+            relative_permutation = relative_permutations(permutation, canonical_permutation)
+            # derive relative parity of each n-cube to the one picked as defining neutral convention in En0
+            relative_parity = relative_simplex_parity(relative_permutation)
+
+            parity = relative_parity.reshape(ENn.shape)
+            parity = np.logical_xor(b_parity[None, :], parity)
 
             orientation = parity * 2 - 1
             return En0, ENn, orientation.astype(sign_dtype)
@@ -216,7 +205,7 @@ class TopologyTriangular(TopologySimplicial):
         """
         E20 = np.asarray(triangles, dtype=index_dtype)
         if not E20.ndim==2 and E20.shape[1] == 3:
-            raise ValueError('Expectect integer triples')
+            raise ValueError('Expected integer triples')
 
         E00 = np.unique(E20).reshape(-1, 1)
 
@@ -485,11 +474,11 @@ class TopologyTetrahedral(TopologySimplicial):
         E00 = np.unique(E30).reshape(-1, 1)
 
         # P3, E320 = generate_boundary(E30, n=3, axis=-1)
-        P3, E320 = generate_boundary_alt(E30)
+        P3, E320 = generate_simplex_boundary(E30)
         # A, B, C, D = [np.roll(E30, i+1, axis=1) for i in range(4)]
         # E320 = np.concatenate([A[..., None], B[..., None], C[..., None], D[..., None]], axis=-1)
 
-        P = simplex_parity(E320.reshape(-1, 3))
+        P = relative_simplex_parity(E320.reshape(-1, 3))
         E320 = np.sort(E320, axis=-1)
 
 
