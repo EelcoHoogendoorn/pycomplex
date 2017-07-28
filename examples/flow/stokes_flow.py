@@ -18,13 +18,13 @@ this makes bc's easiest to see; each dual boundary element introduces a new unkn
 
 # we can split up each variable as originating in the interior, primal boundary, or dual boundary (i,p,d)
 [[I, 0], [δ, 0, 0], [0, 0]] [Oi]   [0]
-[[0, I], [δ, δ, I], [0, 0]] [Op]   [0]
+[[0, I], [δ, b, I], [0, 0]] [Op]   [0]      b I = I b
 
 [[d, d], [0, 0, 0], [δ, 0]] [vi]   [fi]
-[[0, d], [0, 0, 0], [δ, I]] [vp] = [fp]
+[[0, b], [0, 0, 0], [I, I]] [vp] = [fp]
 [[0, I], [0, 0, J], [0, b]] [vd]   [fd]
 
-[[0, 0], [d, d, 0], [0, 0]] [Pi]   [0]
+[[0, 0], [d, I, 0], [0, 0]] [Pi]   [0]
 [[0, 0], [0, I, b], [0, J]] [Pd]   [0]
 
 we have a relation between [vp, Pd] and [Op, vd]

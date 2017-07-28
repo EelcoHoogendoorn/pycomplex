@@ -40,3 +40,9 @@ def test_subdivide():
     sphere = sphere.subdivide()
     sphere = sphere.subdivide()
     sphere.plot(plot_dual=True)
+
+
+def test_tetra():
+    tet = synthetic.n_simplex(3)
+    tet.as_spherical().boundary().as_3().as_spherical()
+test_ico_subset()

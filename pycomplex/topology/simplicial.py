@@ -126,7 +126,7 @@ class TopologySimplicial(PrimalTopology):
 
             index = npi.as_index(sorted_boundary_corners)
 
-            # this is the easy one
+            # this is the easy one; identical sorted corners are a single boundary
             ENn = index.inverse
             ENn = ENn.reshape(n_simplices, n_corners).astype(index_dtype)
 
@@ -259,29 +259,26 @@ class TopologyTriangular(TopologySimplicial):
 
         fine = type(coarse).from_simplices(I20s.reshape(-1, 3))
 
-        # build up transfer operators; only edge-edge has some nontrivial logic
-        I10f = np.sort(fine.corners[1], axis=1)
-        # filter down edges for those having connection with original vertices
-        fine_idx = np.flatnonzero(I10f[:, 0] < coarse.n_elements[0])
-        I10f = I10f[fine_idx]
-        # highest vertex; translate to corresponding n-cube on the coarse level
-        coarse_idx = I10f[:, -1] - coarse.n_elements[0]
-
-        transfers = [
-            (coarse.range(0), coarse.range(0)),
-            (fine_idx, coarse_idx),
-            (fine.range(2), np.repeat(coarse.range(2), 4)),
-        ]
-        # transfers is a list of arrays
-        # where each entry i is an ndarray, [sub.n_elements[i]], index_dtype, referring to the parent element
-        fine.transfers = transfers
-        fine.transfer_matrices = [transfer_matrix(*t, shape=(fine.n_elements[n], coarse.n_elements[n]))
-                                 for n, t in enumerate(transfers)]
+        # # build up transfer operators; only edge-edge has some nontrivial logic
+        # I10f = np.sort(fine.corners[1], axis=1)
+        # # filter down edges for those having connection with original vertices
+        # fine_idx = np.flatnonzero(I10f[:, 0] < coarse.n_elements[0])
+        # I10f = I10f[fine_idx]
+        # # highest vertex; translate to corresponding n-cube on the coarse level
+        # coarse_idx = I10f[:, -1] - coarse.n_elements[0]
+        #
+        # transfers = [
+        #     (coarse.range(0), coarse.range(0)),
+        #     (fine_idx, coarse_idx),
+        #     (fine.range(2), np.repeat(coarse.range(2), 4)),
+        # ]
+        # # transfers is a list of arrays
+        # # where each entry i is an ndarray, [sub.n_elements[i]], index_dtype, referring to the parent element
+        fine.transfer_matrices = coarse.subdivide_transfer(fine)
         fine.parent = coarse
 
         return fine
 
-    @staticmethod
     def subdivide_transfer(coarse, fine):
         # build up transfer operators; only edge-edge has some nontrivial logic
         I10f = np.sort(fine.corners[1], axis=1)

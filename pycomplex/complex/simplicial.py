@@ -367,3 +367,6 @@ class ComplexTriangularEuclidian3(ComplexTriangular):
 
         plt.axis('equal')
         plt.show()
+
+    def as_spherical(self):
+        return ComplexTriangular(vertices=self.vertices, topology=self.topology)

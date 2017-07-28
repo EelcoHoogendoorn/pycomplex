@@ -231,6 +231,8 @@ class PrimalTopology(BaseTopology):
         self.boundary_type
             Boundary topology, with attribute parent_idx referring back to the parent elements
         """
+        # FIXME: rather than using from_elements, a direct subset selection would be preferable
+        # should be too hard; just find chains on all elements, select subsets, and remap vertex indices
 
         chain_N = self.chain(-1, fill=1)
         chain_n = self.matrix(-1) * chain_N
@@ -242,6 +244,7 @@ class PrimalTopology(BaseTopology):
         elements = self.elements[-2][b_idx]
 
         # flip the elements around depending on the sign of the boundary chain
+        # not sure if this is desirable, but results in an oriented boundary
         orientation = chain_n[b_idx]
         shape = np.asarray(elements.shape)
         shape[1:] = 1

@@ -8,7 +8,7 @@ from pycomplex.topology import sign_dtype, index_dtype
 
 
 class ClosedDual(BaseTopology):
-    """dual for closed primal. should be rather boring"""
+    """Dual to a closed primal. should be rather boring"""
 
     def __init__(self, primal):
         # bind primal; all internals are lazily computed
@@ -87,6 +87,33 @@ class Dual(BaseTopology):
     @cached_property
     def matrices(self):
         """Construct dual topology matrices
+
+        How to determine sign of dual boundary-interior connection?
+        primal boundary elements contribute dual elements shifted to the left
+        in 2d
+        how a dual boundary edge sticks to the dual face seems hard
+        how primal vertex sticks to edges appears not to inform us; two edges anyway
+        dual boundary vertex to dual interior edge has a simple rule;
+        just take open dual edge and ensure its closed
+        dual faces are not closed since boundary of boundary results in two added vertices
+        until i get a better idea; can guess positive orientation
+
+        General structure:
+         0i.0p.0d
+        [d, 0, 0] 1i
+        [d, d, I] 1p
+        [0, 0, b] 1d
+
+         1i.1p.1d
+        [d, 0, 0] 2i
+        [d, d, I] 2p
+        [0, 0, b] 2d
+
+        I-terms obey => b I == I b. find n-1 flips that neutralize n-flips
+        alternatively, make sure sign plays no role
+        that requires that both the interior and boundary are oriented
+        can we adjust 'generate_boundary' such that this holds? think so...
+        yes we can, except for P01; is a special case, just like D01
 
         Returns
         -------
@@ -205,7 +232,9 @@ class Dual(BaseTopology):
             also would be cleaner to split primal topology in interior/boundary blocks first
 
             To what extent do we care about relations between dual boundary elements?
-            only really care about the caps to close the dual; interrelations appear irrelevant
+            only really care about the caps to close the dual; interrelations appear irrelevant as far as i can tell so far
+
+            However, may play an important part in constructing the connection?
             """
 
             orientation = np.ones_like(idx) # FIXME: this is obviously nonsense; need to work out signs
@@ -225,7 +254,7 @@ class Dual(BaseTopology):
                     [T, None],
                     [I, B]      # its far from obvious any application actually needs this term...
                 ]
-            return scipy.sparse.bmat(blocks)
+            return (blocks)
 
         boundary = self.primal.boundary
         CBT = []
@@ -242,11 +271,16 @@ class Dual(BaseTopology):
                     boundary.parent_idx[::-1][d]
                 )
             )
-        return CBT
 
+        for i in range(len(CBT)):
+            # patch up connection signs
+            pass
+
+        return [scipy.sparse.bmat(t) for t in CBT]
 
     def __getitem__(self, item):
-        """alias for matrix"""
+        """Given that the topology matrices are really the thing of interest of our dual object,
+        we make them easily accessible"""
         return self.matrix[item]
 
     def form(self, n):

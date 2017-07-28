@@ -14,6 +14,7 @@ class ComplexCircular(BaseComplexSpherical):
 
 class ComplexSpherical(BaseComplexSpherical):
     """Simplicial complex on the surface of a 2-sphere"""
+    # FIXME: general concept is not hard to generalize to n-dim; and simplex or hypercube could be remapped
 
     def __init__(self, vertices, triangles=None, topology=None):
         self.vertices = np.asarray(vertices)
@@ -150,7 +151,7 @@ class ComplexSpherical(BaseComplexSpherical):
         if plot_dual:
             # plot dual edges
             dual_vertices, dual_edges, dual_faces = self.dual_position()
-            dual_topology = self.topology.dual()
+            dual_topology = self.topology.dual
             from pycomplex.topology import sparse_to_elements
             de = sparse_to_elements(dual_topology[0].T)
 
