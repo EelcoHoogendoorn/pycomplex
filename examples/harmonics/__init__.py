@@ -1,12 +1,6 @@
-"""Example script to compute and visualize spherical harmonics
-
-This is a simple sanity check of a complex and its metrics
-"""
-
 import numpy as np
-import scipy.sparse.linalg
-
-import pycomplex.synthetic
+import scipy.sparse
+scipy.sparse.diags()
 
 
 def sparse_diag(diag):
@@ -43,18 +37,3 @@ def get_harmonics_2(complex2):
     w, v = scipy.sparse.linalg.eigsh(laplacian, M=sparse_diag(mass), which='SA', k=20)
     print(w)
     return v
-
-
-if __name__=='__main__':
-    # construct a spherical complex
-    sphere = pycomplex.synthetic.icosphere(refinement=4)
-    sphere.metric()
-
-    v = get_harmonics_0(sphere)
-    # plot a spherical harmonic
-    sphere.as_euclidian().plot_primal_0_form(v[:, -1])
-
-    assert sphere.topology.is_oriented
-    v = get_harmonics_2(sphere)
-    # plot a spherical harmonic
-    sphere.as_euclidian().plot_primal_2_form(v[:, -1])

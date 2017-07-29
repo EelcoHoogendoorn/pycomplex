@@ -1,5 +1,6 @@
 
 import numpy as np
+import numpy.testing as npt
 
 from pycomplex import synthetic
 from pycomplex.complex.simplicial import ComplexTriangularEuclidian2, ComplexTriangularEuclidian3
@@ -40,11 +41,3 @@ def test_projected_hypersimplex():
 
     simplex.plot(plot_dual=True)
     # simplex.boundary().plot()
-
-
-def test_icositetrachoron():
-    complex = synthetic.icositetrachoron()
-    n_dim = complex.n_dim
-    complex.vertices = np.dot(complex.vertices, linalg.orthonormalize(np.random.randn(n_dim, n_dim)))
-
-    complex.plot(plot_dual=False)

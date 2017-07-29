@@ -187,8 +187,14 @@ class TopologySimplicial(PrimalTopology):
         """
         orientation = self.relative_orientation()
         E = self.elements[-1]
-        return type(self).from_simplices(np.where(orientation, E, E[:, ::-1]))
+        F = E.copy()
+        F[:, [1, 0]] = F[:, [0, 1]]
+        return type(self).from_simplices(np.where(orientation, E, F))
 
+    def as_2(self):
+        if not self.n_dim == 2:
+            raise ValueError
+        return TopologyTriangular(elements=self.elements, boundary=self._boundary, orientation=self._orientation)
 
 class TopologyTriangular(TopologySimplicial):
 

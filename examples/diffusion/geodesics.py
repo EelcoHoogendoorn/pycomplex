@@ -17,7 +17,7 @@ class MyComplex(ComplexTriangularEuclidian3):
     """Subclass that implements the divergence and gradient operators specific to the paper"""
 
     def remap_edges(self, field):
-        """given a quantity computed on each triangle-edge, sum the contributions from each adjecent triangle
+        """Given a quantity computed on each triangle-edge, sum the contributions from each adjecent triangle
 
         Parameters
         ----------
@@ -32,39 +32,40 @@ class MyComplex(ComplexTriangularEuclidian3):
         return field
 
     def hodge_edge(self):
-        """Compute edge hodge based on cotan formula; corresponds to circumcentric calcs"""
+        """Compute primal/dual edge hodge based on cotan formula"""
         cotan = 1 / np.tan(self.compute_face_angles)
         return self.remap_edges(cotan) / 2
 
     def laplacian_vertex(self):
-        """Compute cotan/area gradient based laplacian, mapping primal 0-forms to dual n-forms"""
-        hodge = self.hodge_edge()
-        hodge = scipy.sparse.dia_matrix((hodge, 0), shape=(len(hodge),) * 2)
+        """Compute cotan/area gradient based Laplacian, mapping primal 0-forms to dual 2-forms"""
+        hodge = scipy.sparse.diags(self.hodge_edge())
         grad = self.topology.matrices[0].T
         div = grad.T
         return div * hodge * grad
 
-    def triangle_edge_vectors(self, O):
+    def triangle_edge_vectors(self, oriented):
         """
         Parameters
         ----------
-
+        oriented : bool
+            If true, edge vectors on the same edge have opposing signs on both triangles
 
         Returns
         -------
         ndarray, [n_triangles, 3, 3], float
+
         """
         grad = self.topology.matrices[0].T
         vecs = grad * self.vertices
         B21 = self.topology._boundary[1]
         O21 = self.topology._orientation[1]
         vecs = vecs[B21]
-        if O:
+        if oriented:
             vecs *= O21[..., None]
         return vecs
 
     def compute_gradient(self, field):
-        """compute gradient of scalar function on vertices, evaluated on faces
+        """Compute gradient of scalar function on vertices, evaluated on faces
 
         Parameters
         ----------
@@ -74,12 +75,11 @@ class MyComplex(ComplexTriangularEuclidian3):
         Returns
         -------
         gradient : ndarray, [n_triangles, 3], float
-            triplet of dual 0-forms
+            a vector in 3-space on each triangle
         """
         E20 = self.topology.incidence[2, 0]
 
-        vecs = self.triangle_edge_vectors(True)
-
+        vecs = self.triangle_edge_vectors(oriented=True)
         normals, triangle_area = linalg.normalized(self.triangle_normals(), return_norm=True)
         gradient = (field[E20][:, :, None] * np.cross(normals[:, None, :], vecs)).sum(axis=1)
         return gradient / (2 * triangle_area[:, None])
@@ -89,21 +89,23 @@ class MyComplex(ComplexTriangularEuclidian3):
 
         Parameters
         ----------
-        field : ndarray, [n_faces, 3], float
+        field : ndarray, [n_triangles, 3], float
+            a flux vector in 3-space on each triangle
 
         Returns
         -------
         ndarray, [n_vertices], float
-
+            Corresponding notion of divergence on each vertex
         """
         T01, T12 = self.topology.matrices
         div = T01
 
-        vecs = self.triangle_edge_vectors(False)
-        inner = linalg.dot(vecs, field[:, None, :])
-        cotan = 1 / np.tan(self.compute_face_angles)
+        vecs = self.triangle_edge_vectors(oriented=False)
+        primal_tangent_flux = linalg.dot(vecs, field[:, None, :])   # [n_triangles, 3]
 
-        return div * self.remap_edges(inner * cotan) / 2
+        cotan = 1 / np.tan(self.compute_face_angles)
+        dual_normal_flux = self.remap_edges(primal_tangent_flux * cotan) / 2
+        return div * dual_normal_flux
 
     def geodesic(self, seed, m=1):
         """Compute geodesic distance map
@@ -121,11 +123,13 @@ class MyComplex(ComplexTriangularEuclidian3):
         Notes
         -----
         http://www.multires.caltech.edu/pubs/GeodesicsInHeat.pdf
+
         """
         laplacian = self.laplacian_vertex()
         mass = self.vertex_areas()
         t = self.edge_lengths().mean() ** 2 * m
 
+        # FIXME: this diffusion sucks; solve it properly in a different class
         diffused = seed * 1.0
         for i in range(1000):
             diffused -= laplacian * diffused / mass / 2000

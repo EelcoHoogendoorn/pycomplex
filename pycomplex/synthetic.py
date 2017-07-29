@@ -2,13 +2,13 @@
 
 import itertools
 import numpy as np
-
+import scipy.spatial
 
 from pycomplex.complex.simplicial import ComplexSimplicial
 from pycomplex.complex.cubical import ComplexCubical
-from pycomplex.complex.spherical import ComplexSpherical2
+from pycomplex.complex.spherical import ComplexSpherical2, ComplexSpherical
 from pycomplex.topology import index_dtype
-from pycomplex.topology.simplicial import TopologyTriangular
+from pycomplex.topology.simplicial import TopologyTriangular, TopologySimplicial
 from pycomplex.math import linalg
 
 
@@ -137,20 +137,38 @@ def n_cube_grid(shape, centering=True):
 
 def hexacosichoron():
     """Biggest symmetry group on the 4-sphere"""
-    pass
+    phi = (1 + np.sqrt(5)) / 2
+
+    b = [phi, 1, 1/phi, 0]
+    from pycomplex.math.combinatorial import permutations
+    par, perm = zip(*permutations(list(range(4))))
+    par, perm = np.array(par), np.array(perm)
+    perm = perm[par==0]
+
+    flips = np.indices((2,2,2,1)) - 0.5
+    flips = flips.T.reshape(-1, 4)
+
+    q = []
+    for flip in flips:
+        for p in perm:
+            q.append((flip * b)[p])
+
+    q = np.asarray(q)
+
+    # grid = np.array(np.meshgrid([+phi, -phi], [+1, -1], [+1/phi, -1/phi], [0])).T
+    # grid = grid.reshape(-1, 4) / 2
 
 
-def icositetrachoron():
-    """Surface of icositetrachoron; tets in 4-space"""
     a = np.indices((2,2,2,2)) - 0.5
     a = np.moveaxis(a, 0, -1)
-    I = np.eye(4)
-    v = np.concatenate([a.reshape(16, 4), I, -I], axis=0)
-    import scipy.spatial
-    import numpy_indexed as npi
-    # this is cheating a little bit... but if it works...
-    c = scipy.spatial.ConvexHull(v)
-    complex = ComplexSimplicial(vertices=v, simplices=npi.unique(c.simplices))
 
-    complex.topology = complex.topology.fix_orientation()
-    return complex
+    I = np.eye(4)
+    v = np.concatenate([a.reshape(16, 4), I, -I, q], axis=0)
+    print(v)
+    v = linalg.normalized(v)
+
+    c = scipy.spatial.ConvexHull(v)
+    tets = c.simplices
+    assert len(tets) == 600
+    topology = TopologySimplicial.from_simplices(tets).fix_orientation()
+    return ComplexSpherical(vertices=v, topology=topology)

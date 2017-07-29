@@ -47,8 +47,8 @@ also, letting go of unphysical potentials might make unspecified boundary condit
 minimizing potential is meaningless, but minimizing velocity is not
 
 """
-import numpy as np
 import scipy.sparse
+
 from examples.linear_system import *
 
 
@@ -75,7 +75,8 @@ mesh.metric()
 
 def debug_harmonics():
     """test that our grid works"""
-    from examples.spherical_harmonics import get_harmonics_0, get_harmonics_2
+    from examples.harmonics import get_harmonics_2
+    from examples.harmonics import get_harmonics_0
     v = get_harmonics_2(mesh)
     q = mesh.to_simplicial_transfer_2(v[:, -10])
     mesh.to_simplicial().as_2().plot_primal_2_form(q)

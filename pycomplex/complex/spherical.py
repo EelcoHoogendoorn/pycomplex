@@ -81,6 +81,8 @@ class ComplexSpherical(BaseComplexSpherical):
         plt.axis('equal')
         plt.show()
 
+    def as_2(self):
+        return ComplexSpherical2(vertices=self.vertices, topology=self.topology.as_2())
 
 class ComplexCircular(ComplexSpherical):
     """Simplicial complex on the surface of a 1-sphere; cant really think of any applications"""

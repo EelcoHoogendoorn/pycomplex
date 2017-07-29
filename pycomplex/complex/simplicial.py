@@ -332,7 +332,7 @@ class ComplexTriangularEuclidian3(ComplexTriangular):
         plt.axis('equal')
         plt.show()
 
-    def plot_primal_0_form(self, c0, backface_culling=True):
+    def plot_primal_0_form(self, c0, backface_culling=True, plot_contour=True):
         """plot a primal 0-form
 
         Parameters
@@ -353,10 +353,10 @@ class ComplexTriangularEuclidian3(ComplexTriangular):
         triang = tri.Triangulation(*self.vertices[:, :2].T, triangles=self.topology.triangles, mask=visible)
 
         fig, ax = plt.subplots(1, 1)
-
         plt.tricontourf(triang, c0, cmap='terrain')
         # plt.colorbar()
-        plt.tricontour(triang, c0, colors='k')
+        if plot_contour:
+            plt.tricontour(triang, c0, colors='k')
 
         plt.axis('equal')
         plt.show()

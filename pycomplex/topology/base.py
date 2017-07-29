@@ -20,10 +20,8 @@ class BaseTopology(object):
     def vertex_degree(self):
         """Compute the degree of each vertex; or the number of adjecent n-elements"""
         IN0 = self.incidence[-1, 0]
-        vertex_idx, count = npi.count(IN0.flatten())
-        c = np.zeros(self.n_vertices)
-        c[vertex_idx] = count
-        return c
+        _, count = npi.count(IN0.flatten())
+        return count
 
     @cached_property
     def regions_per_vertex(self):

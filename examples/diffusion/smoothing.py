@@ -1,0 +1,1 @@
+"""Showcase smoothing of a mesh itself by means of diffusion"""
