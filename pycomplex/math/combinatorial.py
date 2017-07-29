@@ -1,6 +1,4 @@
 
-import numpy as np
-
 
 def combinations(L, n):
     """Generate combinations from a sequence of elements.

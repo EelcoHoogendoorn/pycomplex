@@ -152,7 +152,6 @@ class ComplexCubical(BaseComplexCubical):
         plt.show()
 
 
-
 class ComplexCubical2(ComplexCubical):
     """Specialization for 2d quads"""
 
@@ -163,7 +162,7 @@ class ComplexCubical2(ComplexCubical):
         from pycomplex.complex.simplicial import ComplexTriangular  # Triangular and Quadrilateral or Simplical2 and Cubical2; pick one...
         return ComplexTriangular(
             vertices=np.concatenate([v, f], axis=0),
-            topology=self.topology.as_2().to_simplicial()
+            topology=self.topology.as_2().to_simplicial().as_2()
         )
 
     def to_simplicial_transfer_0(self, c0):
@@ -172,48 +171,16 @@ class ComplexCubical2(ComplexCubical):
         return s0
 
     def to_simplicial_transfer_2(self, c2):
-        """map 0 form from cubical to simplical"""
+        """map 2 form from cubical to simplical"""
         s0 = np.repeat(c2, 4)
         return s0
+
 
 class ComplexCubical2Euclidian2(ComplexCubical2):
 
     def as_regular(self):
         from pycomplex.complex.regular import ComplexRegular2
         return ComplexRegular2(vertices=self.vertices, topology=self.topology)
-    def plot(self, plot_dual=True, plot_vertices=True):
-        import matplotlib.pyplot as plt
-        import matplotlib.collections
-
-        edges = self.topology.elements[1]
-        e = self.vertices[edges]
-
-        fig, ax = plt.subplots(1,1)
-        lc = matplotlib.collections.LineCollection(e, color='b', alpha=0.5)
-        ax.add_collection(lc)
-        if plot_vertices:
-            ax.scatter(*self.vertices.T, color='b')
-
-        if plot_dual:
-            # plot dual cells
-            dual_vertices, dual_edges = self.dual_position()[0:2]
-            dual = self.topology.dual
-            from pycomplex.topology import sparse_to_elements
-            de = sparse_to_elements(dual.matrix[0].T)
-
-            de = dual_vertices[de]
-            s, e = de[:,0], de[:,1]
-            s = np.moveaxis(np.array([dual_edges, s]), 0, 1)
-            lc = matplotlib.collections.LineCollection(s, color='r', alpha=0.5)
-            ax.add_collection(lc)
-            e = np.moveaxis(np.array([dual_edges, e]), 0, 1)
-            lc = matplotlib.collections.LineCollection(e, color='r', alpha=0.5)
-            ax.add_collection(lc)
-            if plot_vertices:
-                ax.scatter(*dual_vertices.T, color='r')
-
-        plt.axis('equal')
-        plt.show()
 
 
 class ComplexCubical2Euclidian3(ComplexCubical2):

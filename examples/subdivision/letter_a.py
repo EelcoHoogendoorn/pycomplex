@@ -84,7 +84,7 @@ def create_letter_3d(quads, subdivisions=2):
         grid = grid.subdivide(smooth=True, creases={1:c1})
         c1 = grid.topology.transfer_matrices[1] * c1
 
-    return grid
+    return grid.as_23()
 
 
 def create_letter(subdivisions):
@@ -103,7 +103,7 @@ if __name__ == '__main__':
 
     letter.plot(plot_dual=False, plot_vertices=False)
 
-    letter = letter.as_23().to_simplicial()#.smooth().smooth()
+    letter = letter.to_simplicial()#.smooth().smooth()
 
     letter.as_3().plot_3d(plot_dual=False, plot_vertices=False)
 

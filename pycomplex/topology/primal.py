@@ -159,6 +159,9 @@ class PrimalTopology(BaseTopology):
         if m == n + 1:
             i = self._boundary[n]
             o = self._orientation[n]
+        if m == n:
+            i = np.arange(self.n_elements[n], dtype=index_dtype).reshape(-1, 1)
+            o = np.ones_like(i)
 
         return topology_matrix(i, o)
 

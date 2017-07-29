@@ -9,8 +9,6 @@ import numpy as np
 class ReactionDiffusion(object):
 
     # Diffusion constants for u and v. Probably best not to touch these
-##    ru = 0.2*1.5
-##    rv = 0.1*1.5
     ru = 1
     rv = 0.5
 
@@ -41,17 +39,16 @@ class ReactionDiffusion(object):
         trippy_chaos        = (0.025, 0.075),
     )
 
-    def __init__(self, complex, key='swimming_medusae'):
+    def __init__(self, complex, key='fingerprints'):
         self.complex = complex
 
-        self.dt = 0.015
+        self.dt = 1 # timestep is limited by diffusion, which is constrained by eigenvalue
 
         # this is important for initialization! right initial conditions matter a lot
         self.state   = np.zeros((2, self.size), np.float)
         self.state[0] = 1
         # add seeds
         self.state[1,np.random.randint(self.size, size=10)] = 1
-
 
         self.coefficients = self.params[key]
 
@@ -62,26 +59,29 @@ class ReactionDiffusion(object):
         return self.complex.topology.n_elements[0]
 
     def vertex_laplacian(self):
-        """Laplacian mapping from"""
+        """Laplacian mapping from primal 0 form to primal 0 form"""
         import scipy.sparse
-        T01 = self.complex.topology.matrices[0]
+        complex = self.complex
+        T01 = complex.topology.matrices[0]
         grad = T01.T
         div = T01
 
-        D1P1 = scipy.sparse.diags(self.complex.D1P1)
-        P0D2 = scipy.sparse.diags(self.complex.P0D2)
+        D1P1 = scipy.sparse.diags(complex.D1P1)
+        D2P0 = scipy.sparse.diags(complex.D2P0)
+        P0D2 = scipy.sparse.diags(complex.P0D2)
+
         # construct our laplacian
         laplacian = div * D1P1 * grad
-        # solve for some eigenvectors
-        # w, v = scipy.sparse.linalg.eigsh(laplacian, M=sparse_diag(mass), which='SA', k=20)
 
-        s, V = scipy.sparse.linalg.eigsh(laplacian, mass=P0D2, k=1, which='LR', tol=1e-5)
-        self.largest_eigenvalue = s
+        largest_eigenvalue = scipy.sparse.linalg.eigsh(laplacian, M=D2P0, k=1, which='LM', tol=1e-6,
+                                                       return_eigenvectors=False)
+
+        self.largest_eigenvalue = largest_eigenvalue
+        print('eig', largest_eigenvalue)
         return P0D2 * laplacian
 
     def diffuse(self, state, mu):
-##        return self.complex.diffuse(state) * (mu / -self.complex.largest * 3)
-        return self.laplacian * (state * (-mu * 2))
+        return self.laplacian * (state * (-mu / self.largest_eigenvalue))
 
     def gray_scott_derivatives(self, u, v):
         """the gray-scott equation; calculate the time derivatives, given a state (u,v)"""
@@ -103,35 +103,49 @@ class ReactionDiffusion(object):
             s += d * self.dt
 
     def simulate(self, iterations):
-        """
-        generator function to do the time integration, to be used inside the animation
-        rather than computing all the image frames before starting the animation,
-        the frames are computed 'on demand' by this function, returning/yielding
-        the image frames one by one
-        """
-        #repeat 'frames' times
+        """Generator function to do the time integration"""
         for i in range(iterations):
-            #make 20 timesteps per frame; we dont need to show every one of them,
-            #since the change from the one to the next is barely perceptible
+            # make 20 timesteps per frame; we dont need to show every one of them,
+            # since the change from the one to the next is barely perceptible
             for r in range(20):
-                #update the chemical concentrations
+                # update the chemical concentrations
                 self.integrate(self.gray_scott_derivatives(*self.state))
-
-            #every 20 iterations, yield output
-            #the v field is what we yield to be plotted
-            #we might as well plot u, as it visualizes the dynamics just as well
-##            yield v
 
 
 if __name__ == '__main__':
-    from pycomplex import synthetic
-    sphere = synthetic.icosphere(refinement=5)
-    sphere.metric()
+    kind = 'letter'
+    if kind == 'sphere':
+        from pycomplex import synthetic
+        surface = synthetic.icosphere(refinement=5)
+        surface.metric()
+    if kind == 'letter':
+        from examples.subdivision import letter_a
+        surface = letter_a.create_letter(4).to_simplicial().as_3()
+        surface.vertices *= 10
+        surface.metric()
+    if kind == 'regular':
+        from pycomplex import synthetic
+        surface = synthetic.n_cube_grid((128, 128)).as_22().as_regular()
+        surface.metric()
 
-    rd = ReactionDiffusion(sphere)
+    assert surface.topology.is_oriented
+    print(surface.topology.n_elements)
+    if False:
+        surface.plot(plot_dual=False, plot_vertices=False)
+
+    rd = ReactionDiffusion(surface)
     print('starting sim')
-    rd.simulate(1)
+    rd.simulate(50)
     print('done with sim')
 
-    # plot a spherical harmonic
-    sphere.as_euclidian().plot_primal_0_form(rd.state[1])
+    form = rd.state[0]
+
+    # plot the resulting pattern
+
+    if kind == 'sphere':
+        surface = surface.as_euclidian()
+    if kind == 'regular':
+        surface = surface.to_simplicial().as_2()
+        form = surface.topology.transfer_operators[0] * form
+
+    surface.plot_primal_0_form(form, plot_contour=False)

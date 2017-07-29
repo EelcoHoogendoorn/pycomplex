@@ -17,7 +17,7 @@ class ComplexSpherical(BaseComplexSpherical):
             assert topology.is_oriented
         self.topology = topology
 
-    def plot(self, plot_dual=True, backface_culling=False):
+    def plot(self, plot_dual=True, backface_culling=False, plot_vertices=True):
         """Visualize a complex on a 2-sphere; a little more involved than the other 2d cases"""
         import matplotlib.pyplot as plt
         import matplotlib.collections
@@ -36,7 +36,7 @@ class ComplexSpherical(BaseComplexSpherical):
             edges = edges.reshape(-1, 2, edges.shape[-1])
             return linalg.normalized(edges)
 
-        def plot_edges(ax, lines, **kwargs):
+        def plot_edge(ax, lines, **kwargs):
             if backface_culling:
                 z = lines[..., 2]
                 drawn = (z > 0).all(axis=1)
@@ -44,7 +44,7 @@ class ComplexSpherical(BaseComplexSpherical):
             lc = matplotlib.collections.LineCollection(lines[..., :2], **kwargs)
             ax.add_collection(lc)
 
-        def plot_vertices(ax, points, **kwargs):
+        def plot_vertex(ax, points, **kwargs):
             if backface_culling:
                 z = points[..., 2]
                 drawn = z > 0
@@ -59,8 +59,9 @@ class ComplexSpherical(BaseComplexSpherical):
         # plot primal edges
         edges = self.topology.corners[1]
         e = subdivide(self.vertices[edges], steps=20)
-        plot_edges(ax, e, color='b', alpha=0.5)
-        plot_vertices(ax, self.vertices, color='b')
+        plot_edge(ax, e, color='b', alpha=0.5)
+        if plot_vertices:
+            plot_vertex(ax, self.vertices, color='b')
 
         if plot_dual:
             # plot dual edges
@@ -72,11 +73,11 @@ class ComplexSpherical(BaseComplexSpherical):
             de = dual_vertices[de]
             s, e = de[:, 0], de[:, 1]
             s = subdivide(from_se(dual_edges, s))
-            plot_edges(ax, s, color='r', alpha=0.5)
+            plot_edge(ax, s, color='r', alpha=0.5)
             e = subdivide(from_se(dual_edges, e))
-            plot_edges(ax, e, color='r', alpha=0.5)
-
-            plot_vertices(ax, dual_vertices, color='r')
+            plot_edge(ax, e, color='r', alpha=0.5)
+            if plot_vertices:
+                plot_vertex(ax, dual_vertices, color='r')
 
         plt.axis('equal')
         plt.show()
@@ -84,10 +85,10 @@ class ComplexSpherical(BaseComplexSpherical):
     def as_2(self):
         return ComplexSpherical2(vertices=self.vertices, topology=self.topology.as_2())
 
+
 class ComplexCircular(ComplexSpherical):
     """Simplicial complex on the surface of a 1-sphere; cant really think of any applications"""
     pass
-
 
 
 class ComplexSpherical2(ComplexSpherical):

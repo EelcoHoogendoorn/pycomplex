@@ -39,9 +39,9 @@ def normalized(array_of_vectors, axis=-1, ord=2, ignore_zeros=False, return_norm
 
     Returns
     -------
-    normalized : ndarray, [n_vectors, n_dim]
+    normalized : ndarray, [..., n_dim]
         normalized values; same shape as input array
-    norms : ndarray, [n_vectors], float, optional
+    norms : ndarray, [...], float, optional
         the norms of the input vectors
 
     See Also
@@ -88,3 +88,26 @@ def orthonormalize(axes, demirror=True):
         det = np.linalg.det(axes)
         v[0] *= np.sign(det)
     return u.dot(np.eye(*axes.shape)).dot(v)
+
+
+def power(m, p):
+    """Raise an square matrix to a (fractional) power
+
+    Parameters
+    ----------
+    m : ndarray, [..., n, n], float
+    p : ndarray, [...], float
+
+    Returns
+    -------
+    ndarray, [..., n, n], float
+        input matrices raised to the power p
+
+    References
+    ----------
+    [1] https://en.wikipedia.org/wiki/Eigendecomposition_of_a_matrix#Functional_calculus
+
+    """
+    p = np.expand_dims(np.asarray(p), -1)
+    w, v = np.linalg.eig(m)
+    return np.einsum('ij,...j,kj->...ik', v, w ** p, v.conj()).real

@@ -61,16 +61,16 @@ class ComplexTriangular(ComplexSimplicial):
         self.vertices = np.asarray(vertices)
         if topology is None:
             topology = TopologyTriangular.from_simplices(triangles)
-        self.topology = topology #topology.fix_orientation()
+        self.topology = topology
 
     @cached_property
-    def compute_face_angles(self):
+    def compute_triangle_angles(self):
         """Compute interior angles for each triangle-vertex
 
         Returns
         -------
-        ndarray, [n_faces, 3], float, radians
-            interior angle of each vertex of each face
+        ndarray, [n_triangles, 3], float, radians
+            interior angle of each vertex of each triangle
             the ith vertex-angle is the angle opposite from the ith edge of the face
         """
         return euclidian.triangle_angles(self.vertices[self.topology.triangles])
@@ -78,16 +78,16 @@ class ComplexTriangular(ComplexSimplicial):
     @cached_property
     def compute_vertex_areas(self):
         # FIXME: this corresponds to barycentric dual, not circumcentric!
-        _, vertex_areas = npi.group_by(self.topology.triangles.flatten()).sum(np.repeat(self.compute_face_areas, 3))
+        _, vertex_areas = npi.group_by(self.topology.triangles.flatten()).sum(np.repeat(self.compute_triangle_areas, 3))
         return vertex_areas / 3
 
     @cached_property
     def compute_edge_ratio(self):
-        """Relates primal 1-forms to their dual
+        """Relates primal 1-forms to their dual 1-forms
 
-        compute edge hodge based on cotan formula;
-        This can be shown to be equavalent to a hodge defined as the ratio of the length of primal and dual edges,
-        where the dual mesh is the circumcentric dual; the nice thing is however that in this form we dont actually
+        Compute edge hodge based on cotan formula;
+        This can be shown to be equivalent to a hodge defined as the ratio of the length of primal and dual edges,
+        where the dual mesh is the circumcentric dual. The nice thing is however that in this form we dont actually
         need to construct the geometry of the dual mesh explicitly, which is a major complexity-win
 
         Returns
@@ -99,22 +99,37 @@ class ComplexTriangular(ComplexSimplicial):
         ----------
         http://ddg.cs.columbia.edu/SGP2014/LaplaceBeltrami.pdf
         """
-        cotan = 1 / np.tan(self.compute_face_angles())
+        cotan = 1. / np.tan(self.compute_triangle_angles)
         # sum the contribution for all faces incident to each edge
-        I21 = self.topology.incidence[2, 1]
-        edges, hodge = npi.group_by(I21.flatten()).sum(cotan.flatten())
+        B21 = self.topology._boundary[1]
+        _, hodge = npi.group_by(B21.flatten()).sum(cotan.flatten())
         return hodge / 2
 
     @cached_property
-    def compute_face_areas(self):
+    def compute_triangle_areas(self):
         """Compute area associated with each face
 
         Returns
         -------
-        vertex_area : ndarray, [n_faces], float
+        triangle_area : ndarray, [n_triangles], float
             vertex area per vertex
         """
-        return euclidian.unsigned_volume(self.vertices[self.topology.faces])
+        return euclidian.unsigned_volume(self.vertices[self.topology.triangles])
+
+    def metric(self):
+
+        self.hodge_from_metric()
+
+    def hodge_from_metric(self):
+        # hodge operators
+        self.D2P0 = self.compute_vertex_areas
+        self.P0D2 = 1. / self.D2P0
+
+        self.D1P1 = self.compute_edge_ratio
+        self.P1D1 = 1. / self.D1P1
+
+        self.P2D0 = self.compute_triangle_areas
+        self.D0P2 = 1. / self.P2D0
 
     def subdivide(coarse, smooth=False, creases=None):
         """Loop subdivision
@@ -157,7 +172,7 @@ class ComplexTriangular(ComplexSimplicial):
 class ComplexTriangularEuclidian2(ComplexTriangular):
     """Triangular topology embedded in euclidian 2-space"""
 
-    def plot_primal_0_form(self, c0):
+    def plot_primal_0_form(self, c0, plot_contour=True):
         """plot a primal 0-form
 
         Parameters
@@ -176,7 +191,8 @@ class ComplexTriangularEuclidian2(ComplexTriangular):
 
         plt.tricontourf(triang, c0)
         # plt.colorbar()
-        plt.tricontour(triang, c0, colors='k')
+        if plot_contour:
+            plt.tricontour(triang, c0, colors='k')
 
         plt.axis('equal')
         plt.show()
@@ -353,7 +369,7 @@ class ComplexTriangularEuclidian3(ComplexTriangular):
         triang = tri.Triangulation(*self.vertices[:, :2].T, triangles=self.topology.triangles, mask=visible)
 
         fig, ax = plt.subplots(1, 1)
-        plt.tricontourf(triang, c0, cmap='terrain')
+        plt.tricontourf(triang, c0, cmap='jet')
         # plt.colorbar()
         if plot_contour:
             plt.tricontour(triang, c0, colors='k')

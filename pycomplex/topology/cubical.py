@@ -431,8 +431,19 @@ class TopologyCubical2(TopologyCubical):
         T20[:, :, 2] = self.range(2)[:, None] + n_e[0]
 
         from pycomplex.topology.simplicial import TopologyTriangular
-        return TopologyTriangular.from_simplices(T20.reshape(-1, 3))
+        simplicial = TopologyTriangular.from_simplices(T20.reshape(-1, 3))
+        self.to_simplicial_transfer(simplicial)
+        return simplicial
 
     def to_simplicial_transfer(cubical, simplicial):
-        pass
-        # need to be able to interpolate 0-forms for many purposes... stack E00 and E20
+        """Construct transfer operators from cubical to simplicial"""
+        import scipy.sparse
+        # FIXME: implement other operators
+        simplicial.transfer_operators = [
+            scipy.sparse.vstack([
+                cubical.matrix(0, 0),
+                cubical.matrix(2, 0).T / 4
+            ]),
+            None,
+            None
+        ]

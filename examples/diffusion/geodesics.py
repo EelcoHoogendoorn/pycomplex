@@ -33,7 +33,7 @@ class MyComplex(ComplexTriangularEuclidian3):
 
     def hodge_edge(self):
         """Compute primal/dual edge hodge based on cotan formula"""
-        cotan = 1 / np.tan(self.compute_face_angles)
+        cotan = 1 / np.tan(self.compute_triangle_angles)
         return self.remap_edges(cotan) / 2
 
     def laplacian_vertex(self):
@@ -103,7 +103,7 @@ class MyComplex(ComplexTriangularEuclidian3):
         vecs = self.triangle_edge_vectors(oriented=False)
         primal_tangent_flux = linalg.dot(vecs, field[:, None, :])   # [n_triangles, 3]
 
-        cotan = 1 / np.tan(self.compute_face_angles)
+        cotan = 1 / np.tan(self.compute_triangle_angles)
         dual_normal_flux = self.remap_edges(primal_tangent_flux * cotan) / 2
         return div * dual_normal_flux
 
@@ -132,7 +132,7 @@ class MyComplex(ComplexTriangularEuclidian3):
         # FIXME: this diffusion sucks; solve it properly in a different class
         diffused = seed * 1.0
         for i in range(1000):
-            diffused -= laplacian * diffused / mass / 2000
+            diffused -= (laplacian * diffused) / mass / 2000
         print(diffused.min(), diffused.max())
         # return diffused
 
@@ -157,10 +157,11 @@ assert letter.topology.is_oriented
 letter = MyComplex(vertices=letter.vertices, topology=letter.topology)
 
 seed = letter.topology.chain(0, fill=0, dtype=np.float)
-idx = np.argmin(np.linalg.norm(letter.vertices - [2, 2, -3], axis=1))
+idx = np.argmin(np.linalg.norm(letter.vertices - [2, 2, 3], axis=1))
 print(idx)
 seed[idx] = 10
 geo = letter.geodesic(seed)
 
-# letter.plot_3d(plot_dual=False, backface_culling=True, plot_vertices=False)
+letter.vertices = np.dot(letter.vertices, linalg.power(linalg.orthonormalize(np.random.randn(3, 3)), 0.2))
+letter.plot_3d(plot_dual=False, backface_culling=True, plot_vertices=False)
 letter.plot_primal_0_form(geo)
