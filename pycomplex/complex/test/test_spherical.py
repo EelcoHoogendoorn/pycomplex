@@ -17,7 +17,8 @@ def test_icosahedron():
     """Test a full icosahedron"""
     sphere = synthetic.icosahedron()
     sphere.vertices = np.dot(sphere.vertices, linalg.orthonormalize(np.random.randn(3, 3)))
-    sphere = sphere.subdivide()
+    for i in range(0):
+        sphere = sphere.subdivide()
     sphere.plot(backface_culling=True)
 
 
@@ -67,6 +68,7 @@ def test_hexacosichoron():
     deg = complex.topology.vertex_degree()
     npt.assert_equal(deg, 20)
     assert complex.topology.is_oriented
+    assert complex.topology.n_elements == [120, 720, 1200, 600]
 
     edges = complex.topology.elements[1]
     edges = complex.vertices[edges]
@@ -76,3 +78,11 @@ def test_hexacosichoron():
     n_dim = complex.n_dim
     complex.vertices = np.dot(complex.vertices, linalg.orthonormalize(np.random.randn(n_dim, n_dim)))
     complex.plot(plot_dual=True, backface_culling=False)
+
+
+def test_n_cube_dual():
+    for n_dim in [2, 3, 4, 5]:
+        complex = synthetic.n_cube_dual(n_dim)
+
+        complex.vertices = np.dot(complex.vertices, linalg.orthonormalize(np.random.randn(n_dim, n_dim)))
+        complex.plot(plot_dual=True, backface_culling=n_dim==3)

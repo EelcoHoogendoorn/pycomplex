@@ -21,7 +21,7 @@ def icosahedron():
     """
     phi = (1 + np.sqrt(5)) / 2
     Q = np.array(list(itertools.product([0], [-1, +1], [-phi, +phi])))
-    vertices = np.vstack([np.roll(Q, r, axis=1) for r in range(3)])
+    vertices = np.vstack([np.roll(Q, r, axis=1) for r in range(3)])     # even permutations
 
     triangles = np.array([t for t in itertools.combinations(range(12), 3)])
     corners = vertices[triangles]
@@ -33,7 +33,6 @@ def icosahedron():
         vertices=linalg.normalized(vertices),
         topology=TopologyTriangular.from_simplices(triangles).fix_orientation()
     )
-
 
 
 def icosphere(refinement=0):
@@ -54,13 +53,14 @@ def icosphere(refinement=0):
     return sphere
 
 
-def n_simplex(n_dim, symmetric=True):
+def n_simplex(n_dim, equilateral=True):
     """Generate a single n-simplex
 
     Parameters
     ----------
     n_dim : int
-    symmetric : bool
+    equilateral : bool
+        If False, canonical vertices are generated instead
 
     Returns
     -------
@@ -69,7 +69,7 @@ def n_simplex(n_dim, symmetric=True):
     """
     def simplex_vertices(n):
         """Recursively generate equidistant vertices on the n-sphere"""
-        if n == 1:
+        if n == 1:  # terminating special case; a line-segment
             return np.array([[-1], [+1]])
         depth = 1. / n
         shrink = np.sqrt(1 - depth ** 2)
@@ -78,7 +78,7 @@ def n_simplex(n_dim, symmetric=True):
         bottom = np.ones((n, 1)) * -depth
         return np.block([[top], [bottom, base]])
 
-    if symmetric:
+    if equilateral:
         vertices = simplex_vertices(n_dim)
     else:
         vertices = np.eye(n_dim + 1)[:, 1:] # canonical simplex
@@ -125,7 +125,7 @@ def n_cube_grid(shape, centering=True):
     idx = np.arange(np.prod(vshape), dtype=index_dtype).reshape(vshape)
     cubes = np.ndarray(
         buffer=idx,
-        strides=idx.strides + idx.strides,  # step along the grid is the same as a step to a new cube
+        strides=idx.strides + idx.strides,  # step along the grid is the same as a step to the other side of the cube
         shape=tuple(shape) + cube_shape,
         dtype=idx.dtype
     )
@@ -135,40 +135,51 @@ def n_cube_grid(shape, centering=True):
     )
 
 
+def n_cube_dual(n_dim):
+    """Dual of n-cube boundary
+
+    Returns
+    -------
+    ComplexSpherical
+        consists of regular simplices on the surface of an n-sphere
+
+    Notes
+    -----
+    quad, octahedron, hexadecachoron for 2,3,4 resp.
+    """
+    cube = n_cube(n_dim, centering=True).boundary()
+    dual_cube = linalg.normalized(cube.dual_position()[0])
+
+    # grab simplices from cube corners
+    from pycomplex.topology import sparse_to_elements
+    cubes = cube.topology.matrix(n_dim - 1, 0)
+    simplices = sparse_to_elements(cubes)
+
+    topology = TopologySimplicial.from_simplices(simplices).fix_orientation()
+    return ComplexSpherical(vertices=dual_cube, topology=topology)
+
+
 def hexacosichoron():
-    """Biggest symmetry group on the 4-sphere"""
+    """Biggest symmetry group on the 4-sphere, analogous to the icosahedron on the 3-sphere"""
     phi = (1 + np.sqrt(5)) / 2
 
     b = [phi, 1, 1/phi, 0]
     from pycomplex.math.combinatorial import permutations
     par, perm = zip(*permutations(list(range(4))))
     par, perm = np.array(par), np.array(perm)
-    perm = perm[par==0]
+    perm = perm[par==0]     # get only even permutations
 
     flips = np.indices((2,2,2,1)) - 0.5
     flips = flips.T.reshape(-1, 4)
 
-    q = []
-    for flip in flips:
-        for p in perm:
-            q.append((flip * b)[p])
+    snub_24 = np.asarray([(flip * b)[p] for flip in flips for p in perm])
 
-    q = np.asarray(q)
+    vertices = np.concatenate([
+        n_cube(4, centering=True).vertices,
+        n_cube_dual(4).vertices,
+        snub_24
+    ], axis=0)
 
-    # grid = np.array(np.meshgrid([+phi, -phi], [+1, -1], [+1/phi, -1/phi], [0])).T
-    # grid = grid.reshape(-1, 4) / 2
-
-
-    a = np.indices((2,2,2,2)) - 0.5
-    a = np.moveaxis(a, 0, -1)
-
-    I = np.eye(4)
-    v = np.concatenate([a.reshape(16, 4), I, -I, q], axis=0)
-    print(v)
-    v = linalg.normalized(v)
-
-    c = scipy.spatial.ConvexHull(v)
-    tets = c.simplices
-    assert len(tets) == 600
+    tets = scipy.spatial.ConvexHull(vertices).simplices
     topology = TopologySimplicial.from_simplices(tets).fix_orientation()
-    return ComplexSpherical(vertices=v, topology=topology)
+    return ComplexSpherical(vertices=vertices, topology=topology)
