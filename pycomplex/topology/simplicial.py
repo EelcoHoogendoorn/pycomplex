@@ -259,21 +259,6 @@ class TopologyTriangular(TopologySimplicial):
 
         fine = type(coarse).from_simplices(I20s.reshape(-1, 3))
 
-        # # build up transfer operators; only edge-edge has some nontrivial logic
-        # I10f = np.sort(fine.corners[1], axis=1)
-        # # filter down edges for those having connection with original vertices
-        # fine_idx = np.flatnonzero(I10f[:, 0] < coarse.n_elements[0])
-        # I10f = I10f[fine_idx]
-        # # highest vertex; translate to corresponding n-cube on the coarse level
-        # coarse_idx = I10f[:, -1] - coarse.n_elements[0]
-        #
-        # transfers = [
-        #     (coarse.range(0), coarse.range(0)),
-        #     (fine_idx, coarse_idx),
-        #     (fine.range(2), np.repeat(coarse.range(2), 4)),
-        # ]
-        # # transfers is a list of arrays
-        # # where each entry i is an ndarray, [sub.n_elements[i]], index_dtype, referring to the parent element
         fine.transfer_matrices = coarse.subdivide_transfer(fine)
         fine.parent = coarse
 
@@ -451,51 +436,3 @@ class TopologyTriangular(TopologySimplicial):
     @property
     def n_triangles(self):
         return self.n_elements[2]
-
-
-class TopologyTetrahedral(TopologySimplicial):
-
-    @classmethod
-    def from_simplices(cls, simplices):
-        """Construct topology from tetrahedral description as sets of vertex indices
-
-        Note that this is quite a bit simpler than the general case
-
-        Also, we enforce a relation between I32 and I30;
-        that is, faces and vertices are always opposite
-        """
-        E30 = np.asarray(simplices, dtype=index_dtype)
-        if not E30.ndim==2 and E30.shape[1] == 4:
-            raise ValueError('Expected [n, 4] array')
-
-        E00 = np.unique(E30).reshape(-1, 1)
-
-        # P3, E320 = generate_boundary(E30, n=3, axis=-1)
-        P3, E320 = generate_simplex_boundary(E30)
-        # A, B, C, D = [np.roll(E30, i+1, axis=1) for i in range(4)]
-        # E320 = np.concatenate([A[..., None], B[..., None], C[..., None], D[..., None]], axis=-1)
-
-        P = relative_simplex_parity(E320.reshape(-1, 3))
-        E320 = np.sort(E320, axis=-1)
-
-
-        L = np.roll(E20, -1, axis=1)
-        R = np.roll(E20, +1, axis=1)
-        # I210 is triangles expressed as edges expressed as vertex indices; [n_triangles, 3, 2]
-        E210 = np.concatenate([L[..., None], R[..., None]], axis=-1)
-        E210 = np.sort(E210, axis=-1)
-
-        E10, E21 = npi.unique(E210.reshape(-1, 2), return_inverse=True)
-        E21 = E21.reshape(-1, 3).astype(index_dtype)
-
-        # special case rule for triangle orientations
-        O21 = ((L < R) * 2 - 1).astype(sign_dtype)
-        O10 = np.ones((len(E10), 2), sign_dtype)
-        O10[:, 0] *= -1
-
-        # construct grid of all element representations
-        E = [E00, E10, E20]
-        B = [E10, E21]
-        O = [O10, O21]
-
-        return cls(elements=E, orientation=O, boundary=B)

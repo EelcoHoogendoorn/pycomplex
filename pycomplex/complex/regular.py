@@ -7,12 +7,14 @@ class ComplexRegular2(ComplexCubical2Euclidian2):
     """
 
     def metric(self):
-        """calc metric properties and hodges for a 2d regular cubical complex
-        sum over subdomains.
-        should be relatively easy to generalize to n-dimensions
-        are we interested in computing dual boundary metric too?
+        """Calc metric properties and hodges for a 2d regular cubical complex
+
+        Notes
+        -----
+        Should be relatively easy to generalize to n-dimensions
+        Are we interested in computing dual boundary metric too? Or just leave that to the boundaty complex?
         """
-        from pycomplex.geometry import cubical
+        from pycomplex.geometry import regular
 
         def gather(idx, vals):
             """return vals[idx]. return.shape = idx.shape + vals.shape[1:]"""
@@ -49,17 +51,17 @@ class ComplexRegular2(ComplexCubical2Euclidian2):
         for d1 in range(2):
             for d2 in range(2):
                 # this is the area of one fundamental domain, assuming regular coords
-                areas = cubical.hypervolume(PP20[:,d1,d2,:], PP2)
+                areas = regular.hypervolume(PP20[:, d1, d2, :], PP2)
                 MP2 += areas                    # add contribution to primal face
                 scatter(E20[:,d1,d2], areas, MD2)
 
         # calc edge lengths
-        MP1 += cubical.edge_length(PP10[:, 0, :], PP10[:, 1, :])
+        MP1 += regular.edge_length(PP10[:, 0, :], PP10[:, 1, :])
         for d1 in range(2):
             for d2 in range(2):
                 scatter(
                     E21[:,d1,d2],
-                    cubical.edge_length(PP21[:,d1,d2,:], PP2),
+                    regular.edge_length(PP21[:, d1, d2, :], PP2),
                     MD1)
 
         self.primal_metric = [MP0, MP1, MP2]

@@ -74,12 +74,12 @@ def circumcenter_barycentric(pts, ratio=1e6):
 
 
 def circumcenter(pts):
-    """Circumcenter and circumradius of a set of points in euclidian space.
+    """Circumcenter of a set of points in Euclidian space.
 
     Parameters
     ----------
     pts : ndarray. [..., n_pts, n_dim], float
-        set of points euclidian space.
+        set of points Euclidian space.
 
     Returns
     -------

@@ -1,0 +1,1 @@
+"""This module contains geometrical calculations over a variety of types of metric spaces"""

@@ -41,4 +41,10 @@ def test_projected_hypersimplex():
     simplex.plot(plot_dual=True)
     # simplex.boundary().plot()
 
-test_projected_hypersimplex()
+
+def test_icositetrachoron():
+    complex = synthetic.icositetrachoron()
+    n_dim = complex.n_dim
+    complex.vertices = np.dot(complex.vertices, linalg.orthonormalize(np.random.randn(n_dim, n_dim)))
+
+    complex.plot(plot_dual=False)

@@ -1,5 +1,5 @@
 
-from pycomplex.math.combinatorial import permutations, permutations_map, combinations
+from pycomplex.math.combinatorial import permutations, combinations
 
 def test_parmutation_parity():
 
@@ -8,11 +8,6 @@ def test_parmutation_parity():
     r = list(permutations(l))
 
     print(r)
-
-
-def test_permutations_map():
-    par, perm = permutations_map(4)
-    print(par, perm)
 
 
 def test_combinations():

@@ -2,13 +2,13 @@
 import numpy as np
 
 from pycomplex import synthetic
-from pycomplex.complex.spherical import ComplexSpherical
+from pycomplex.complex.spherical import ComplexSpherical2
 from pycomplex.math import linalg
 
 
 def test_single():
     """Test a single spherical triangle"""
-    sphere = ComplexSpherical(vertices=np.eye(3), triangles=[[0, 1, 2]])
+    sphere = ComplexSpherical2(vertices=np.eye(3), simplices=[[0, 1, 2]])
     sphere.plot()
 
 
@@ -30,12 +30,12 @@ def test_ico_subset():
     sphere = sphere.subdivide()
     sphere = sphere.subdivide()
 
-    sphere.plot(plot_dual=True)
+    sphere.plot(plot_dual=True, backface_culling=True)
 
 
 def test_subdivide():
     """Test if subdivision works well for big triangles up to 90deg angle too"""
-    sphere = ComplexSpherical(vertices=linalg.normalized(np.eye(3)), triangles=[[0, 1, 2]])
+    sphere = ComplexSpherical2(vertices=linalg.normalized(np.eye(3)), simplices=[[0, 1, 2]])
     sphere = sphere.subdivide()
     sphere = sphere.subdivide()
     sphere = sphere.subdivide()
@@ -43,6 +43,9 @@ def test_subdivide():
 
 
 def test_tetra():
-    tet = synthetic.n_simplex(3)
-    tet.as_spherical().boundary().as_3().as_spherical()
-test_ico_subset()
+    n_dim = 4
+    tet = synthetic.n_simplex(n_dim)
+    tet.vertices = np.dot(tet.vertices, linalg.orthonormalize(np.random.randn(n_dim, n_dim)))
+
+    tet.boundary().as_spherical().plot(backface_culling=False, plot_dual=False)
+    print(np.linalg.norm(tet.vertices, axis=1))

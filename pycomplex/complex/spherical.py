@@ -3,31 +3,99 @@ import numpy as np
 from pycomplex.complex.base import BaseComplexSpherical
 from pycomplex.geometry import spherical
 from pycomplex.math import linalg
-from pycomplex.topology.simplicial import TopologyTriangular
+from pycomplex.topology.simplicial import TopologyTriangular, TopologySimplicial
 from pycomplex.topology import index_dtype
 
 
-class ComplexCircular(BaseComplexSpherical):
+class ComplexSpherical(BaseComplexSpherical):
+    """Complex on an n-sphere"""
+
+    def __init__(self, vertices, simplices=None, topology=None):
+        self.vertices = np.asarray(vertices)
+        if topology is None:
+            topology = TopologySimplicial.from_simplices(simplices).fix_orientation()
+            assert topology.is_oriented
+        self.topology = topology
+
+    def plot(self, plot_dual=True, backface_culling=False):
+        """Visualize a complex on a 2-sphere; a little more involved than the other 2d cases"""
+        import matplotlib.pyplot as plt
+        import matplotlib.collections
+
+        def from_se(s, e):
+            return np.concatenate([s[:, None, :], e[:, None, :]], axis=1)
+
+        def subdivide(edges, steps=10):
+            f = np.linspace(0, 1, steps)
+            i = np.array([f, 1-f])
+            edges = edges[:, :, None, :] * i[None, :, :, None]
+            edges = edges.sum(axis=1)
+            s = edges[:, :-1, None, :]
+            e = edges[:, +1:, None, :]
+            edges = np.concatenate([s, e], axis=2)
+            edges = edges.reshape(-1, 2, edges.shape[-1])
+            return linalg.normalized(edges)
+
+        def plot_edges(ax, lines, **kwargs):
+            if backface_culling:
+                z = lines[..., 2]
+                drawn = (z > 0).all(axis=1)
+                lines = lines[drawn]
+            lc = matplotlib.collections.LineCollection(lines[..., :2], **kwargs)
+            ax.add_collection(lc)
+
+        def plot_vertices(ax, points, **kwargs):
+            if backface_culling:
+                z = points[..., 2]
+                drawn = z > 0
+                points = points[drawn]
+            ax.scatter(*points.T[:2], **kwargs)
+
+        fig, ax = plt.subplots(1, 1)
+        # plot outline of embedding space
+        angles = np.linspace(0, 2*np.pi, 1000)
+        ax.plot(np.cos(angles), np.sin(angles), color='k')
+
+        # plot primal edges
+        edges = self.topology.corners[1]
+        e = subdivide(self.vertices[edges], steps=20)
+        plot_edges(ax, e, color='b', alpha=0.5)
+        plot_vertices(ax, self.vertices, color='b')
+
+        if plot_dual:
+            # plot dual edges
+            dual_vertices, dual_edges = self.dual_position()[:2]
+            dual_topology = self.topology.dual
+            from pycomplex.topology import sparse_to_elements
+            de = sparse_to_elements(dual_topology[0].T)
+
+            de = dual_vertices[de]
+            s, e = de[:, 0], de[:, 1]
+            s = subdivide(from_se(dual_edges, s))
+            plot_edges(ax, s, color='r', alpha=0.5)
+            e = subdivide(from_se(dual_edges, e))
+            plot_edges(ax, e, color='r', alpha=0.5)
+
+            plot_vertices(ax, dual_vertices, color='r')
+
+        plt.axis('equal')
+        plt.show()
+
+
+class ComplexCircular(ComplexSpherical):
     """Simplicial complex on the surface of a 1-sphere; cant really think of any applications"""
     pass
 
 
-class ComplexSpherical(BaseComplexSpherical):
-    """Simplicial complex on the surface of a 2-sphere"""
-    # FIXME: general concept is not hard to generalize to n-dim; and simplex or hypercube could be remapped
 
-    def __init__(self, vertices, triangles=None, topology=None):
+class ComplexSpherical2(ComplexSpherical):
+    """Simplicial complex on the surface of a 2-sphere"""
+
+    def __init__(self, vertices, simplices=None, topology=None):
         self.vertices = np.asarray(vertices)
 
         if topology is None:
-            # fix orientation in an absolute sense
-            triangles = np.asarray(triangles, dtype=index_dtype)
-            bc = vertices[triangles].mean(axis=1)
-            cc = spherical.circumcenter(vertices[triangles])
-            orientation = linalg.dot(bc, cc) > 0
-            triangles = np.where(orientation[:, None], triangles, triangles[:, ::-1])
-            topology = TopologyTriangular.from_simplices(triangles)
-            assert topology.is_oriented
+            topology = TopologyTriangular.from_simplices(simplices)
 
         self.topology = topology
 
@@ -105,68 +173,6 @@ class ComplexSpherical(BaseComplexSpherical):
         self.D0P2 = MD[0] / MP[2]
         self.P2D0 = MP[2] / MD[0]
 
-    def plot(self, plot_dual=True):
-        """Visualize a complex on a 2-sphere; a little more involved than the other 2d cases"""
-        import matplotlib.pyplot as plt
-        import matplotlib.collections
-
-        def from_se(s, e):
-            return np.concatenate([s[:, None, :], e[:, None, :]], axis=1)
-
-        def subdivide(edges, steps=10):
-            f = np.linspace(0, 1, steps)
-            i = np.array([f, 1-f])
-            edges = edges[:, :, None, :] * i[None, :, :, None]
-            edges = edges.sum(axis=1)
-            s = edges[:, :-1, None, :]
-            e = edges[:, +1:, None, :]
-            edges = np.concatenate([s, e], axis=2)
-            edges = edges.reshape(-1, 2, 3)
-            return linalg.normalized(edges)
-
-        def plot_edges(ax, lines, **kwargs):
-            z = lines[..., 2]
-            drawn = (z > 0).any(axis=1)
-            lines = lines[drawn]
-            lc = matplotlib.collections.LineCollection(lines[..., :2], **kwargs)
-            ax.add_collection(lc)
-
-        def plot_vertices(ax, points, **kwargs):
-            z = points[..., 2]
-            drawn = z > 0
-            points = points[drawn]
-            ax.scatter(*points.T[:2], **kwargs)
-
-        fig, ax = plt.subplots(1, 1)
-        # plot outline of embedding space
-        angles = np.linspace(0, 2*np.pi, 1000)
-        ax.plot(np.cos(angles), np.sin(angles), color='k')
-
-        # plot primal edges
-        edges = self.topology.corners[1]
-        e = subdivide(self.vertices[edges], steps=20)
-        plot_edges(ax, e, color='b', alpha=0.5)
-        plot_vertices(ax, self.vertices, color='b')
-
-        if plot_dual:
-            # plot dual edges
-            dual_vertices, dual_edges, dual_faces = self.dual_position()
-            dual_topology = self.topology.dual
-            from pycomplex.topology import sparse_to_elements
-            de = sparse_to_elements(dual_topology[0].T)
-
-            de = dual_vertices[de]
-            s, e = de[:, 0], de[:, 1]
-            s = subdivide(from_se(dual_edges, s))
-            plot_edges(ax, s, color='r', alpha=0.5)
-            e = subdivide(from_se(dual_edges, e))
-            plot_edges(ax, e, color='r', alpha=0.5)
-
-            plot_vertices(ax, dual_vertices, color='r')
-
-        plt.axis('equal')
-        plt.show()
-
     def subdivide(self):
         """Subdivide the complex, returning a refined complex where each edge inserts a vertex
 
@@ -174,7 +180,7 @@ class ComplexSpherical(BaseComplexSpherical):
 
         """
         pp = self.primal_position()
-        return ComplexSpherical(
+        return ComplexSpherical2(
             vertices=np.concatenate([pp[0], pp[1]], axis=0),
             topology=self.topology.subdivide()
         )

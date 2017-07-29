@@ -49,8 +49,12 @@ class ComplexSimplicial(BaseComplexEuclidian):
         plt.axis('equal')
         plt.show()
 
+    def as_spherical(self):
+        from pycomplex.complex.spherical import ComplexSpherical
+        return ComplexSpherical(vertices=self.vertices, topology=self.topology)
 
-class ComplexTriangular(BaseComplexEuclidian):
+
+class ComplexTriangular(ComplexSimplicial):
     """Triangular simplicial complex"""
 
     def __init__(self, vertices, triangles=None, topology=None):
@@ -59,6 +63,7 @@ class ComplexTriangular(BaseComplexEuclidian):
             topology = TopologyTriangular.from_simplices(triangles)
         self.topology = topology #topology.fix_orientation()
 
+    @cached_property
     def compute_face_angles(self):
         """Compute interior angles for each triangle-vertex
 
@@ -68,12 +73,12 @@ class ComplexTriangular(BaseComplexEuclidian):
             interior angle of each vertex of each face
             the ith vertex-angle is the angle opposite from the ith edge of the face
         """
-        return euclidian.triangle_angles(self.vertices[self.topology.faces])
+        return euclidian.triangle_angles(self.vertices[self.topology.triangles])
 
     @cached_property
     def compute_vertex_areas(self):
         # FIXME: this corresponds to barycentric dual, not circumcentric!
-        _, vertex_areas = npi.group_by(self.topology.faces.flatten()).sum(np.repeat(self.compute_face_areas, 3))
+        _, vertex_areas = npi.group_by(self.topology.triangles.flatten()).sum(np.repeat(self.compute_face_areas, 3))
         return vertex_areas / 3
 
     @cached_property
@@ -236,7 +241,23 @@ class ComplexTriangularEuclidian3(ComplexTriangular):
 
     def vertex_areas(self):
         """Compute circumcentric area here"""
+        # FIXME: this is not a circumcentric area! wil do for now...
+        I20 = self.topology.incidence[2, 0]
+        t_a = np.linalg.norm(self.triangle_normals(), axis=1)
+        vertex_idx, v_a = npi.group_by(I20.flatten()).sum(np.repeat(t_a, 3, axis=0))
+        return v_a
         raise NotImplementedError()
+
+    def edge_lengths(self):
+        """Compute primal edge lengths
+
+        Returns
+        -------
+        ndarray, [n_edges], float
+        """
+        grad = self.topology.matrices[0].T
+        return np.linalg.norm(grad * self.vertices, axis=1)
+
 
     def volume(self):
         """Return the volume enclosed by this complex

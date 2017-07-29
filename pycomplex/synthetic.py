@@ -6,8 +6,9 @@ import numpy as np
 
 from pycomplex.complex.simplicial import ComplexSimplicial
 from pycomplex.complex.cubical import ComplexCubical
-from pycomplex.complex.spherical import ComplexSpherical
+from pycomplex.complex.spherical import ComplexSpherical2
 from pycomplex.topology import index_dtype
+from pycomplex.topology.simplicial import TopologyTriangular
 from pycomplex.math import linalg
 
 
@@ -16,7 +17,7 @@ def icosahedron():
 
     Returns
     -------
-    ComplexSpherical
+    ComplexSpherical2
     """
     phi = (1 + np.sqrt(5)) / 2
     Q = np.array(list(itertools.product([0], [-1, +1], [-phi, +phi])))
@@ -28,7 +29,11 @@ def icosahedron():
     d = np.linalg.norm(corners - centers, axis=-1).sum(axis=1)
     triangles = triangles[d < 4]
 
-    return ComplexSpherical(linalg.normalized(vertices), triangles)
+    return ComplexSpherical2(
+        vertices=linalg.normalized(vertices),
+        topology=TopologyTriangular.from_simplices(triangles).fix_orientation()
+    )
+
 
 
 def icosphere(refinement=0):
@@ -41,7 +46,7 @@ def icosphere(refinement=0):
 
     Returns
     -------
-    ComplexSpherical
+    ComplexSpherical2
     """
     sphere = icosahedron()
     for _ in range(refinement):
@@ -128,3 +133,24 @@ def n_cube_grid(shape, centering=True):
         vertices=vertices,
         cubes=cubes.reshape((-1,) + cube_shape)
     )
+
+
+def hexacosichoron():
+    """Biggest symmetry group on the 4-sphere"""
+    pass
+
+
+def icositetrachoron():
+    """Surface of icositetrachoron; tets in 4-space"""
+    a = np.indices((2,2,2,2)) - 0.5
+    a = np.moveaxis(a, 0, -1)
+    I = np.eye(4)
+    v = np.concatenate([a.reshape(16, 4), I, -I], axis=0)
+    import scipy.spatial
+    import numpy_indexed as npi
+    # this is cheating a little bit... but if it works...
+    c = scipy.spatial.ConvexHull(v)
+    complex = ComplexSimplicial(vertices=v, simplices=npi.unique(c.simplices))
+
+    complex.topology = complex.topology.fix_orientation()
+    return complex

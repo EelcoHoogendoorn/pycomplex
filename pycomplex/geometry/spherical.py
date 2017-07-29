@@ -138,13 +138,18 @@ def circumcenter(pts):
     -------
     circumcenters : ndarray, [..., n_dim], float
 
+    Notes
+    -----
+    This can be computed as a renormalzied version of the euclidian case
     """
     pts = np.asarray(pts)
     n_pts, n_dim = pts.shape[-2:]
-    if n_pts == 3:
-        return triangle_circumcenter(pts)
+    # if n_pts == 3 and n_dim == 3:
+    #     return triangle_circumcenter(pts)
     if n_pts == 2:
         return edge_circumcenter(pts)
     if n_pts == 1:
         return pts[:, 0, :]
-    raise ValueError()
+    from pycomplex.geometry import euclidian
+    return linalg.normalized(euclidian.circumcenter(pts))
+
