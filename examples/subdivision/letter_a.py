@@ -87,8 +87,8 @@ def create_letter_3d(quads, subdivisions=2):
     return grid
 
 
-def create_letter():
-    return create_letter_3d(create_letter_2d())
+def create_letter(subdivisions):
+    return create_letter_3d(create_letter_2d(), subdivisions=subdivisions)
 
 
 if __name__ == '__main__':

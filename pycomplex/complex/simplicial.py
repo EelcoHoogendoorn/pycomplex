@@ -245,7 +245,7 @@ class ComplexTriangularEuclidian3(ComplexTriangular):
         I20 = self.topology.incidence[2, 0]
         t_a = np.linalg.norm(self.triangle_normals(), axis=1)
         vertex_idx, v_a = npi.group_by(I20.flatten()).sum(np.repeat(t_a, 3, axis=0))
-        return v_a
+        return v_a / 3
         raise NotImplementedError()
 
     def edge_lengths(self):
@@ -354,7 +354,7 @@ class ComplexTriangularEuclidian3(ComplexTriangular):
 
         fig, ax = plt.subplots(1, 1)
 
-        plt.tricontourf(triang, c0)#, cmap='terrain')
+        plt.tricontourf(triang, c0, cmap='terrain')
         # plt.colorbar()
         plt.tricontour(triang, c0, colors='k')
 

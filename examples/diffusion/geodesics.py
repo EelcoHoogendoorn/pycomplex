@@ -1,8 +1,8 @@
-"""Implements a geodesic solver
+"""Implements a geodesic solver on triangular meshes
 
 References
 ----------
-http://www.multires.caltech.edu/pubs/GeodesicsInHeat.pdf
+[1] http://www.multires.caltech.edu/pubs/GeodesicsInHeat.pdf
 
 """
 import numpy as np
@@ -14,15 +14,7 @@ from pycomplex.complex.simplicial import ComplexTriangularEuclidian3
 
 
 class MyComplex(ComplexTriangularEuclidian3):
-
-    # def edges(self):
-    #     E20 = self.topology.incidence[2, 0]
-    #     E10 = self.topology.incidence[1, 0]
-    #     E21 = self.topology.incidence[2, 1]
-    #
-    #     edges = E10[E21]
-    #     # edges = edges.reshape(-1, 3, 2)
-    #     return edges
+    """Subclass that implements the divergence and gradient operators specific to the paper"""
 
     def remap_edges(self, field):
         """given a quantity computed on each triangle-edge, sum the contributions from each adjecent triangle
@@ -52,6 +44,25 @@ class MyComplex(ComplexTriangularEuclidian3):
         div = grad.T
         return div * hodge * grad
 
+    def triangle_edge_vectors(self, O):
+        """
+        Parameters
+        ----------
+
+
+        Returns
+        -------
+        ndarray, [n_triangles, 3, 3], float
+        """
+        grad = self.topology.matrices[0].T
+        vecs = grad * self.vertices
+        B21 = self.topology._boundary[1]
+        O21 = self.topology._orientation[1]
+        vecs = vecs[B21]
+        if O:
+            vecs *= O21[..., None]
+        return vecs
+
     def compute_gradient(self, field):
         """compute gradient of scalar function on vertices, evaluated on faces
 
@@ -66,11 +77,8 @@ class MyComplex(ComplexTriangularEuclidian3):
             triplet of dual 0-forms
         """
         E20 = self.topology.incidence[2, 0]
-        E21 = self.topology.incidence[2, 1]
 
-        grad = self.topology.matrices[0].T
-        vecs = grad * self.vertices
-        vecs = vecs[E21]
+        vecs = self.triangle_edge_vectors(True)
 
         normals, triangle_area = linalg.normalized(self.triangle_normals(), return_norm=True)
         gradient = (field[E20][:, :, None] * np.cross(normals[:, None, :], vecs)).sum(axis=1)
@@ -88,14 +96,10 @@ class MyComplex(ComplexTriangularEuclidian3):
         ndarray, [n_vertices], float
 
         """
-        E21 = self.topology.incidence[2, 1]
         T01, T12 = self.topology.matrices
+        div = T01
 
-        grad = T01.T
-        div = grad.T
-
-        vecs = grad * self.vertices
-        vecs = vecs[E21]    # [n_faces, 3, 3]
+        vecs = self.triangle_edge_vectors(False)
         inner = linalg.dot(vecs, field[:, None, :])
         cotan = 1 / np.tan(self.compute_face_angles)
 
@@ -121,12 +125,19 @@ class MyComplex(ComplexTriangularEuclidian3):
         laplacian = self.laplacian_vertex()
         mass = self.vertex_areas()
         t = self.edge_lengths().mean() ** 2 * m
-        heat = lambda x : mass * x - laplacian * (x * t / 1000)
-        operator = scipy.sparse.linalg.LinearOperator(shape=laplacian.shape, matvec=heat)
 
-        diffused = scipy.sparse.linalg.minres(operator, seed.astype(np.float64), tol=1e-12)[0]
+        diffused = seed * 1.0
+        for i in range(1000):
+            diffused -= laplacian * diffused / mass / 2000
         print(diffused.min(), diffused.max())
-        return diffused
+        # return diffused
+
+        # heat = lambda x : mass * x - laplacian * (x * t /1000)
+        # operator = scipy.sparse.linalg.LinearOperator(shape=laplacian.shape, matvec=heat)
+        # diffused = scipy.sparse.linalg.minres(operator, diffused.astype(np.float64), tol=1e-12)[0]
+        print(diffused.min(), diffused.max())
+        # return np.log(diffused + 1e-9)
+
         gradient = -linalg.normalized(self.compute_gradient(diffused))
         # self.plot(facevec=gradient)
         rhs = self.compute_divergence(gradient)
@@ -136,13 +147,15 @@ class MyComplex(ComplexTriangularEuclidian3):
 
 from examples.subdivision.letter_a import create_letter
 
-letter = create_letter().as_23().to_simplicial().as_3()
+letter = create_letter(3).as_23().to_simplicial().as_3()
 assert letter.topology.is_oriented
 
 letter = MyComplex(vertices=letter.vertices, topology=letter.topology)
 
-seed = letter.topology.chain(0)
-seed[0] = 1
+seed = letter.topology.chain(0, fill=0, dtype=np.float)
+idx = np.argmin(np.linalg.norm(letter.vertices - [2, 2, -3], axis=1))
+print(idx)
+seed[idx] = 10
 geo = letter.geodesic(seed)
 
 # letter.plot_3d(plot_dual=False, backface_culling=True, plot_vertices=False)
