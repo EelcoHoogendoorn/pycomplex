@@ -64,10 +64,11 @@ class BaseComplex(object):
     def fix_orientation(self):
         return self.copy(topology=self.topology.fix_orientation())
 
-    def copy(self, vertices=None, topology=None):
+    def copy(self, vertices=None, topology=None, **kwargs):
         c = type(self)(
             vertices=self.vertices if vertices is None else vertices,
-            topology=self.topology if topology is None else topology
+            topology=self.topology if topology is None else topology,
+            **kwargs
         )
         c.parent = self
         return c
@@ -139,6 +140,24 @@ class BaseComplex(object):
                 vertices[vertex_i] = vertex_p
 
         return self.copy(vertices=vertices)
+
+    @cached_property
+    def primal_metric(self):
+        return self.metric[0]
+    @cached_property
+    def dual_metric(self):
+        return self.metric[1]
+
+    @cached_property
+    def hodge_PD(self):
+        """Hodges that map dual to primal forms. Indexed by primal element."""
+        P, D = self.metric
+        return [p / d for p, d in zip(P, D[::-1])]
+    @cached_property
+    def hodge_DP(self):
+        """Hodges that map primal to dual forms. Indexed by primal element."""
+        P, D = self.metric
+        return [d / p for p, d in zip(P, D[::-1])]
 
 
 class BaseComplexEuclidian(BaseComplex):

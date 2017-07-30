@@ -10,7 +10,6 @@ from examples.harmonics import get_harmonics_0, get_harmonics_2
 if __name__=='__main__':
     # construct a spherical complex
     sphere = pycomplex.synthetic.icosphere(refinement=4)
-    sphere.metric()
 
     v = get_harmonics_0(sphere)
     # plot a spherical harmonic

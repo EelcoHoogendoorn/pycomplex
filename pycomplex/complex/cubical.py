@@ -161,18 +161,8 @@ class ComplexCubical2(ComplexCubical):
         from pycomplex.complex.simplicial import ComplexTriangular  # Triangular and Quadrilateral or Simplical2 and Cubical2; pick one...
         return ComplexTriangular(
             vertices=np.concatenate(self.primal_position[::2], axis=0),
-            topology=self.topology.as_2().to_simplicial().as_2()
+            topology=self.topology.as_2().to_simplicial()
         )
-
-    def to_simplicial_transfer_0(self, c0):
-        """map 0 form from cubical to simplical"""
-        s0 = np.concatenate([c0, c0[self.topology.corners[2]].mean(axis=1)])
-        return s0
-
-    def to_simplicial_transfer_2(self, c2):
-        """map 2 form from cubical to simplical"""
-        s0 = np.repeat(c2, 4)
-        return s0
 
 
 class ComplexCubical2Euclidian2(ComplexCubical2):

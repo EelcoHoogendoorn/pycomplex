@@ -135,7 +135,6 @@ if __name__ == '__main__':
     letter = create_letter(3).as_23().to_simplicial().as_3()
 
     letter = MyComplex(vertices=letter.vertices, topology=letter.topology)
-    letter.metric()
 
     seed = letter.topology.chain(0, dtype=np.float)
     # pick a point on the surface and give it a seed

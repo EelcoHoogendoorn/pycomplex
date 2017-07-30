@@ -1,4 +1,6 @@
+
 import numpy as np
+from cached_property import cached_property
 
 from pycomplex.complex.base import BaseComplexSpherical
 from pycomplex.geometry import spherical
@@ -10,12 +12,13 @@ from pycomplex.topology import index_dtype
 class ComplexSpherical(BaseComplexSpherical):
     """Complex on an n-sphere"""
 
-    def __init__(self, vertices, simplices=None, topology=None):
+    def __init__(self, vertices, simplices=None, topology=None, radius=1):
         self.vertices = np.asarray(vertices)
         if topology is None:
             topology = TopologySimplicial.from_simplices(simplices).fix_orientation()
             assert topology.is_oriented
         self.topology = topology
+        self.radius = radius
 
     def plot(self, plot_dual=True, backface_culling=False, plot_vertices=True):
         """Visualize a complex on a 2-sphere; a little more involved than the other 2d cases"""
@@ -95,15 +98,18 @@ class ComplexCircular(ComplexSpherical):
 class ComplexSpherical2(ComplexSpherical):
     """Simplicial complex on the surface of a 2-sphere"""
 
-    def __init__(self, vertices, simplices=None, topology=None):
+    def __init__(self, vertices, simplices=None, topology=None, radius=1):
         self.vertices = np.asarray(vertices)
 
         if topology is None:
             topology = TopologyTriangular.from_simplices(simplices)
 
+        assert isinstance(topology, TopologyTriangular)
         self.topology = topology
+        self.radius = radius
 
-    def metric(self, radius=1):
+    @cached_property
+    def metric(self):
         """Calc metric properties of a spherical complex
 
         Parameters
@@ -124,63 +130,47 @@ class ComplexSpherical2(ComplexSpherical):
             np.add.at(target.ravel(), idx.ravel(), vals.ravel())
 
         topology = self.topology
-        PP0, PP1, PP2 = self.primal_position
+        PP = self.primal_position
 
         #metrics
-        P0, P1, P2 = topology.n_elements
-        D0, D1, D2 = P2, P1, P0
-        MP0 = np.ones (P0)
-        MP1 = np.zeros(P1)
-        MP2 = np.zeros(P2)
-        MD0 = np.ones (D0)
-        MD1 = np.zeros(D1)
-        MD2 = np.zeros(D2)
+        PN = topology.n_elements
+        DN = PN[::-1]
+
+        PM = [np.zeros(n) for n in PN]
+        PM[0][...] = 1
+        DM = [np.zeros(n) for n in DN]
+        DM[0][...] = 1
 
         # precomputations
         E21  = topology.incidence[2, 1]  # [faces, e3]
         E10  = topology.incidence[1, 0]  # [edges, v2]
         E210 = E10[E21]                  # [faces, e3, v2]
 
-        PP10  = PP0[E10]                 # [edges, v2, c3]
-        PP210 = PP10[E21]                # [faces, e3, v2, c3]
-        PP21  = PP1[E21]                 # [faces, e3, c3] ; face-edge midpoints
+        PP10  = PP[0][E10]                 # [edges, v2, c3]
+        PP210 = PP10[E21]                  # [faces, e3, v2, c3]
+        PP21  = PP[1][E21]                 # [faces, e3, c3] ; face-edge midpoints
 
         # calculate areas; devectorization over e makes things a little more elegant, by avoiding superfluous stacking
         for e in range(3):
             # this is the area of two fundamental domains
             # note that it is assumed here that the primal face center lies within the triangle
             # could we just compute a signed area and would it generalize?
-            areas = spherical.triangle_area_from_corners(PP210[:,e,0,:], PP210[:,e,1,:], PP2)
-            MP2 += areas                    # add contribution to primal face
-            scatter(E210[:,e,0], areas/2, MD2)
-            scatter(E210[:,e,1], areas/2, MD2)
+            areas = spherical.triangle_area_from_corners(PP210[:,e,0,:], PP210[:,e,1,:], PP[2])
+            PM[2] += areas                    # add contribution to primal face
+            scatter(E210[:,e,0], areas/2, DM[2])
+            scatter(E210[:,e,1], areas/2, DM[2])
 
         # calc edge lengths
-        MP1 += spherical.edge_length(PP10[:,0,:], PP10[:,1,:])
+        PM[1] += spherical.edge_length(PP10[:,0,:], PP10[:,1,:])
         for e in range(3):
             # note: this calc would need to be signed too, to support external circumcenters
             scatter(
                 E21[:,e],
-                spherical.edge_length(PP21[:,e,:], PP2),
-                MD1)
+                spherical.edge_length(PP21[:,e,:], PP[2]),
+                DM[1])
 
-        self.primal_metric = [MP0, MP1 * radius, MP2 * radius ** 2]
-        self.dual_metric = [MD0, MD1 * radius, MD2 * radius ** 2]
-
-        self.hodge_from_metric()
-
-    def hodge_from_metric(self):
-        MP = self.primal_metric
-        MD = self.dual_metric
-        #hodge operators
-        self.D2P0 = MD[2] / MP[0]
-        self.P0D2 = MP[0] / MD[2]
-
-        self.D1P1 = MD[1] / MP[1]
-        self.P1D1 = MP[1] / MD[1]
-
-        self.D0P2 = MD[0] / MP[2]
-        self.P2D0 = MP[2] / MD[0]
+        return ([m * (self.radius ** i) for i, m in enumerate(PM)],
+                [m * (self.radius ** i) for i, m in enumerate(DM)])
 
     def subdivide(self):
         """Subdivide the complex, returning a refined complex where each edge inserts a vertex

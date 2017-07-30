@@ -101,25 +101,21 @@ if __name__ == '__main__':
     kind = 'sphere'
     if kind == 'sphere':
         from pycomplex import synthetic
-        surface = synthetic.icosphere(refinement=5)
-        surface.metric(radius=50)
+        surface = synthetic.icosphere(refinement=5).copy(radius=50)
     if kind == 'letter':
         from examples.subdivision import letter_a
         surface = letter_a.create_letter(4).to_simplicial().as_3()
-        surface.vertices *= 30
-        surface.metric()
+        surface = surface.copy(vertices=surface.vertices * 30)
     if kind == 'regular':
         from pycomplex import synthetic
         if True:
             surface = synthetic.n_cube_grid((64, 64))
         else:
             surface = synthetic.n_cube(2)
-            surface.vertices *= 128
+            surface = surface.copy(vertices=surface.vertices * 128)
             for i in range(1):
                 surface = surface.subdivide()
-        # surface.topology = surface.topology.fix_orientation()
         surface = surface.as_22().as_regular()
-        surface.metric()
 
 
     assert surface.topology.is_oriented
@@ -140,9 +136,9 @@ if __name__ == '__main__':
         surface = surface.as_euclidian()
         surface.plot_primal_0_form(form, plot_contour=False)
     if kind == 'regular':
-        tris = surface.to_simplicial().as_2()
-        form = surface.as_22().to_simplicial_transfer_0(form)
-        tris.plot_primal_0_form(form, plot_contour=False)
+        tris = surface.to_simplicial()
+        form = tris.topology.transfer_operators[0] * form
+        tris.as_2().plot_primal_0_form(form, plot_contour=False)
     if kind == 'letter':
         for i in range(100):
             surface.vertices = np.dot(surface.vertices, linalg.power(linalg.orthonormalize(np.random.randn(3, 3)), 0.2))

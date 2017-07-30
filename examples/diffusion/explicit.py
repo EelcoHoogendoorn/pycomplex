@@ -19,13 +19,12 @@ class Diffusor(object):
         grad = T01.T
         div = T01
 
-        # FIXME: give complex PD and DP operators as lists, for greater nd-flexibility
-        D1P1 = scipy.sparse.diags(complex.D1P1)
-        P0D2 = scipy.sparse.diags(complex.P0D2)
+        D1P1 = scipy.sparse.diags(complex.hodge_DP[1])
+        P0D2 = scipy.sparse.diags(complex.hodge_PD[0])
 
         # construct our laplacian
         laplacian = div * D1P1 * grad
-        mass = complex.D2P0
+        mass = complex.hodge_DP[0]
         return laplacian, mass, P0D2
 
     def precompute(self):
@@ -83,18 +82,20 @@ if __name__ == '__main__':
     if kind == 'sphere':
         from pycomplex import synthetic
         complex = synthetic.icosphere(refinement=6)
-        complex.metric()
+        complex = complex.copy(radius=16)
+        # complex.metric(radius=16)
     if kind == 'regular':
         from pycomplex import synthetic
         complex = synthetic.n_cube_grid((32, 32)).as_22().as_regular()
         for i in range(2):
             complex = complex.subdivide()
-        complex.metric()
+        # complex.metric()
     if kind == 'letter':
         from examples.subdivision import letter_a
         complex = letter_a.create_letter(4).to_simplicial().as_3()
-        complex.vertices *= 10
-        complex.metric()
+        complex = complex.copy(vertices=complex.vertices * 10)
+        # complex.metric()
+        # complex.plot_3d(plot_dual=False, plot_vertices=False)
 
     print(complex.box)
     assert complex.topology.is_oriented
@@ -102,17 +103,19 @@ if __name__ == '__main__':
     diffusor = Diffusor(complex)
     field = np.random.rand(complex.topology.n_elements[0])
     field = complex.topology.chain(0, dtype=np.float)
+    # idx = 0
     idx = np.argmin(np.linalg.norm(complex.vertices - [0, 0], axis=1))
     field[idx] = 1
     # field = diffusor.integrate_explicit(field, 1)
     field = diffusor.integrate_explicit_sigma(field, 1.5)
+    print(field.min(), field.max())
 
     if kind == 'sphere':
         complex = complex.as_euclidian()
         complex.plot_primal_0_form(field)
     if kind == 'regular':
-        tris = complex.to_simplicial().as_2()
-        field = complex.as_22().to_simplicial_transfer_0(field)
-        tris.plot_primal_0_form(field)
+        tris = complex.to_simplicial()
+        field = tris.topology.transfer_operators[0] * field
+        tris.as_2().plot_primal_0_form(field)
     if kind == 'letter':
-        complex.plot_primal_0_form(field, plot_contour=True)
+        complex.plot_primal_0_form(field, plot_contour=False)

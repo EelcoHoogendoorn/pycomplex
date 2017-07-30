@@ -55,6 +55,9 @@ class ComplexSimplicial(BaseComplexEuclidian):
         from pycomplex.complex.spherical import ComplexSpherical
         return ComplexSpherical(vertices=self.vertices, topology=self.topology)
 
+    def as_2(self):
+        return ComplexTriangular(vertices=self.vertices, topology=self.topology.as_2())
+
 
 class ComplexTriangular(ComplexSimplicial):
     """Triangular simplicial complex"""
@@ -118,28 +121,28 @@ class ComplexTriangular(ComplexSimplicial):
         """
         return euclidian.unsigned_volume(self.vertices[self.topology.triangles])
 
+    @cached_property
     def metric(self):
+        # FIXME: implement edge metrics; should not be hard
+        # FIXME: implement true circumcentric-dual vertex areas
+        PM = [self.topology.chain(0, fill=1), None, self.compute_triangle_areas]
+        DM = [self.topology.chain(2, fill=1), None, 1 / self.compute_vertex_areas]
+        return PM, DM
 
-        self.hodge_from_metric()
-
-    def hodge_from_metric(self):
-        # hodge operators
-        self.D2P0 = self.compute_vertex_areas
-        self.P0D2 = 1. / self.D2P0
-
-        self.D1P1 = self.compute_edge_ratio
-        self.P1D1 = 1. / self.D1P1
-
-        self.P2D0 = self.compute_triangle_areas
-        self.D0P2 = 1. / self.P2D0
+    @cached_property
+    def hodge_DP(self):
+        """Triangular complex overloads these for the time being"""
+        return [self.compute_vertex_areas, self.compute_edge_ratio, 1 / self.compute_triangle_areas]
+    @cached_property
+    def hodge_PD(self):
+        return [1 / h for h in self.hodge_DP]
 
     def subdivide(coarse, smooth=False, creases=None):
         """Loop subdivision
 
         """
-        pp = coarse.primal_position
         fine = type(coarse)(
-            vertices=np.concatenate([pp[0], pp[1]], axis=0),
+            vertices=np.concatenate(coarse.primal_position[:2], axis=0),
             topology=coarse.topology.subdivide()
         )
 
@@ -275,7 +278,6 @@ class ComplexTriangularEuclidian3(ComplexTriangular):
         """
         grad = self.topology.matrices[0].T
         return np.linalg.norm(grad * self.vertices, axis=1)
-
 
     def volume(self):
         """Return the volume enclosed by this complex
