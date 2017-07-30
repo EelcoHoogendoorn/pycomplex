@@ -14,7 +14,7 @@ from pycomplex.complex.simplicial import ComplexTriangularEuclidian3
 
 
 class MyComplex(ComplexTriangularEuclidian3):
-    """Subclass that implements the divergence and gradient operators specific to the paper"""
+    """Subclass that implements the divergence and gradient operators specific to the paper 'Geodesics In Heat'"""
 
     def remap_edges(self, field):
         """Given a quantity computed on each triangle-edge, sum the contributions from each adjecent triangle
@@ -31,20 +31,9 @@ class MyComplex(ComplexTriangularEuclidian3):
         _, field = npi.group_by(B12.flatten()).sum(field.flatten())
         return field
 
-    def hodge_edge(self):
-        """Compute primal/dual edge hodge based on cotan formula"""
-        cotan = 1 / np.tan(self.compute_triangle_angles)
-        return self.remap_edges(cotan) / 2
-
-    def laplacian_vertex(self):
-        """Compute cotan/area gradient based Laplacian, mapping primal 0-forms to dual 2-forms"""
-        hodge = scipy.sparse.diags(self.hodge_edge())
-        grad = self.topology.matrices[0].T
-        div = grad.T
-        return div * hodge * grad
-
     def triangle_edge_vectors(self, oriented):
-        """
+        """Compute geometrical edge vectors of each edge of all triangles
+
         Parameters
         ----------
         oriented : bool
@@ -107,7 +96,7 @@ class MyComplex(ComplexTriangularEuclidian3):
         dual_normal_flux = self.remap_edges(primal_tangent_flux * cotan) / 2
         return div * dual_normal_flux
 
-    def geodesic(self, seed, m=1):
+    def geodesic(self, seed, scale=None):
         """Compute geodesic distance map
 
         Parameters
@@ -125,43 +114,35 @@ class MyComplex(ComplexTriangularEuclidian3):
         http://www.multires.caltech.edu/pubs/GeodesicsInHeat.pdf
 
         """
-        laplacian = self.laplacian_vertex()
-        mass = self.vertex_areas()
-        t = self.edge_lengths().mean() ** 2 * m
+        # diffuse seed to get gradient map of. paper uses implicit method, but this is fine here
+        from examples.diffusion.explicit import Diffusor
+        D = Diffusor(self)
+        if scale is None:
+            scale = np.linalg.norm(np.diff(self.box, axis=0)) / 10  # pretty sensible default guess
+        diffused = D.integrate_explicit_sigma(seed * 1.0, scale)
 
-        # FIXME: this diffusion sucks; solve it properly in a different class
-        diffused = seed * 1.0
-        for i in range(1000):
-            diffused -= (laplacian * diffused) / mass / 2000
-        print(diffused.min(), diffused.max())
-        # return diffused
-
-        # heat = lambda x : mass * x - laplacian * (x * t /1000)
-        # operator = scipy.sparse.linalg.LinearOperator(shape=laplacian.shape, matvec=heat)
-        # diffused = scipy.sparse.linalg.minres(operator, diffused.astype(np.float64), tol=1e-12)[0]
-        print(diffused.min(), diffused.max())
-        # return np.log(diffused + 1e-9)
-
+        # now try and find a potential that has the same normalized gradient as the diffusion equation
         gradient = -linalg.normalized(self.compute_gradient(diffused))
-        # self.plot(facevec=gradient)
         rhs = self.compute_divergence(gradient)
-        phi = scipy.sparse.linalg.minres(laplacian, rhs)[0]
+        phi = scipy.sparse.linalg.minres(D.laplacian, rhs)[0]
         return phi - phi.min()
 
 
-from examples.subdivision.letter_a import create_letter
+if __name__ == '__main__':
+    from examples.subdivision.letter_a import create_letter
 
-letter = create_letter(3).as_23().to_simplicial().as_3()
-assert letter.topology.is_oriented
+    letter = create_letter(3).as_23().to_simplicial().as_3()
+    assert letter.topology.is_oriented
 
-letter = MyComplex(vertices=letter.vertices, topology=letter.topology)
+    letter = MyComplex(vertices=letter.vertices, topology=letter.topology)
+    letter.metric()
 
-seed = letter.topology.chain(0, fill=0, dtype=np.float)
-idx = np.argmin(np.linalg.norm(letter.vertices - [2, 2, 3], axis=1))
-print(idx)
-seed[idx] = 10
-geo = letter.geodesic(seed)
+    seed = letter.topology.chain(0, dtype=np.float)
+    # pick a point on the surface and give it a seed
+    idx = np.argmin(np.linalg.norm(letter.vertices - [2, 2, -3], axis=1))
+    seed[idx] = 1
+    geo = letter.geodesic(seed)
 
-letter.vertices = np.dot(letter.vertices, linalg.power(linalg.orthonormalize(np.random.randn(3, 3)), 0.2))
-letter.plot_3d(plot_dual=False, backface_culling=True, plot_vertices=False)
-letter.plot_primal_0_form(geo)
+    letter.vertices = np.dot(letter.vertices, linalg.power(linalg.orthonormalize(np.random.randn(3, 3)), 0.2))
+    letter.plot_3d(plot_dual=False, backface_culling=True, plot_vertices=False)
+    letter.plot_primal_0_form(geo)

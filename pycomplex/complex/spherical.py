@@ -102,8 +102,13 @@ class ComplexSpherical2(ComplexSpherical):
 
         self.topology = topology
 
-    def metric(self):
+    def metric(self, radius=1):
         """Calc metric properties of a spherical complex
+
+        Parameters
+        ----------
+        radius : float
+            The radius of the n-sphere
 
         Notes
         -----
@@ -158,8 +163,8 @@ class ComplexSpherical2(ComplexSpherical):
                 spherical.edge_length(PP21[:,e,:], PP2),
                 MD1)
 
-        self.primal_metric = [MP0, MP1, MP2]
-        self.dual_metric = [MD0, MD1, MD2]
+        self.primal_metric = [MP0, MP1 * radius, MP2 * radius ** 2]
+        self.dual_metric = [MD0, MD1 * radius, MD2 * radius ** 2]
 
         self.hodge_from_metric()
 

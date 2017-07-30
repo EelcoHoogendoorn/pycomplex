@@ -149,7 +149,7 @@ potential_system.plot()
 
 S = mesh.topology.dual.selector
 # all normal fluxes zero, except the ends
-bc_rhs = mesh.topology.chain(1, fill=0)
+bc_rhs = mesh.topology.chain(1)
 bc_rhs[left] = 1
 bc_rhs[right] = -1
 bc_eq = [[S[1]]]

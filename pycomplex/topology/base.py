@@ -122,7 +122,7 @@ class BaseTopology(object):
         except ManifoldException:
             return False
 
-    def chain(self, n, fill=1, dtype=sign_dtype):
+    def chain(self, n, fill=0, dtype=sign_dtype):
         """Construct an n-chain"""
         c = np.empty(self.n_elements[n], dtype=dtype)
         if isinstance(fill, np.ndarray):
@@ -157,7 +157,7 @@ class BaseTopology(object):
         if not len(clauses):
             # FIXME: this is needed for loose triangles; but what about loose disjoint triangle plus other connection component?
             # would prob fail; need to handle remapping back from tris lost in interior filtering
-            return self.chain(-1, fill=0)
+            return self.chain(-1)
         orientation = pycosat.solve(clauses.tolist() + (-clauses).tolist())
         if orientation == 'UNSAT':
             raise ValueError('Topology is a non-orientable manifold.')

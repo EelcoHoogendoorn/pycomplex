@@ -18,7 +18,7 @@ class ComplexSimplicial(BaseComplexEuclidian):
             topology = TopologySimplicial.from_simplices(simplices)
         self.topology = topology
 
-    def plot(self, plot_dual=True):
+    def plot(self, plot_dual=True, plot_vertices=False):
         """Plot projection on plane"""
         import matplotlib.pyplot as plt
         import matplotlib.collections
@@ -28,7 +28,8 @@ class ComplexSimplicial(BaseComplexEuclidian):
         fig, ax = plt.subplots(1, 1)
         lc = matplotlib.collections.LineCollection(e[..., :2], color='b', alpha=0.5)
         ax.add_collection(lc)
-        ax.scatter(*self.vertices.T[:2], color='b')
+        if plot_vertices:
+            ax.scatter(*self.vertices.T[:2], color='b')
 
         if plot_dual:
             dual_vertices, dual_edges = self.dual_position()[0:2]
@@ -45,7 +46,8 @@ class ComplexSimplicial(BaseComplexEuclidian):
             lc = matplotlib.collections.LineCollection(e[..., :2], color='r', alpha=0.5)
             ax.add_collection(lc)
 
-            ax.scatter(*dual_vertices.T[:2], color='r')
+            if plot_vertices:
+                ax.scatter(*dual_vertices.T[:2], color='r')
         plt.axis('equal')
         plt.show()
 
@@ -172,7 +174,7 @@ class ComplexTriangular(ComplexSimplicial):
 class ComplexTriangularEuclidian2(ComplexTriangular):
     """Triangular topology embedded in euclidian 2-space"""
 
-    def plot_primal_0_form(self, c0, plot_contour=True):
+    def plot_primal_0_form(self, c0, plot_contour=True, cmap='viridis'):
         """plot a primal 0-form
 
         Parameters
@@ -189,7 +191,7 @@ class ComplexTriangularEuclidian2(ComplexTriangular):
 
         fig, ax = plt.subplots(1, 1)
 
-        plt.tricontourf(triang, c0)
+        plt.tricontourf(triang, c0, cmap=cmap)
         # plt.colorbar()
         if plot_contour:
             plt.tricontour(triang, c0, colors='k')
@@ -348,7 +350,7 @@ class ComplexTriangularEuclidian3(ComplexTriangular):
         plt.axis('equal')
         plt.show()
 
-    def plot_primal_0_form(self, c0, backface_culling=True, plot_contour=True):
+    def plot_primal_0_form(self, c0, backface_culling=True, plot_contour=True, cmap='viridis'):
         """plot a primal 0-form
 
         Parameters
@@ -369,7 +371,7 @@ class ComplexTriangularEuclidian3(ComplexTriangular):
         triang = tri.Triangulation(*self.vertices[:, :2].T, triangles=self.topology.triangles, mask=visible)
 
         fig, ax = plt.subplots(1, 1)
-        plt.tricontourf(triang, c0, cmap='jet')
+        plt.tricontourf(triang, c0, cmap=cmap)
         # plt.colorbar()
         if plot_contour:
             plt.tricontour(triang, c0, colors='k')

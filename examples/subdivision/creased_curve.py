@@ -5,7 +5,7 @@ from pycomplex import synthetic
 quad = synthetic.n_cube(2)
 curve = quad.boundary()
 # make one vertex a crease vertex
-crease = curve.topology.chain(0, fill=0)
+crease = curve.topology.chain(0)
 crease[0] = 1
 for i in range(5):
     curve = curve.subdivide(smooth=True, creases={0: crease})
