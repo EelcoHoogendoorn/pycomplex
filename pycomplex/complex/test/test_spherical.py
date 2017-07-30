@@ -26,7 +26,7 @@ def test_icosahedron_subset():
     """Test that a concave boundary works just the same on a sphere"""
     sphere = synthetic.icosahedron()
     sphere.vertices = np.dot(sphere.vertices, linalg.orthonormalize(np.random.randn(3, 3)))
-    triangle_position = sphere.primal_position()[2]
+    triangle_position = sphere.primal_position[2]
     selection = triangle_position[:, 2] != triangle_position[:,2].max()
     sphere = sphere.select_subset(selection)
     sphere = sphere.subdivide()
@@ -46,8 +46,8 @@ def test_subdivide():
 
 def test_tetrahedron():
     n_dim = 3
-    tet = synthetic.n_simplex(n_dim).boundary().as_spherical().as_2()
-    tet.topology = tet.topology.fix_orientation()
+    tet = synthetic.n_simplex(n_dim).boundary.as_spherical().as_2()
+    tet = tet.fix_orientation()
     tet.vertices = np.dot(tet.vertices, linalg.orthonormalize(np.random.randn(n_dim, n_dim)))
     for i in range(0):      # subdivision on a tet gives rather ugly tris
         tet = tet.subdivide()
@@ -56,7 +56,7 @@ def test_tetrahedron():
 
 def test_circle():
     n_dim = 2
-    circle = synthetic.n_simplex(n_dim).boundary().as_spherical()
+    circle = synthetic.n_simplex(n_dim).boundary.as_spherical()
     # circle.topology = circle.topology.fix_orientation()
     circle.plot(backface_culling=False, plot_dual=True)
 

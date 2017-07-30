@@ -36,8 +36,7 @@ def test_tetrahedral():
     tets = [[0, 1, 2, 3]]
     tet = TopologySimplicial.from_simplices(tets)
     basic_test(tet)
-test_tetrahedral()
-quit()
+
 
 def test_simplex_parity():
     for n in [1, 2, 3]:
@@ -47,7 +46,8 @@ def test_simplex_parity():
 
 def test_boundary():
     tet = synthetic.n_simplex(3)
-    tris = tet.boundary()
+    tris = tet.boundary
+    assert tris.topology.is_closed
 
 
 def test_simplicial_2():
@@ -55,13 +55,6 @@ def test_simplicial_2():
     topology = TopologySimplicial.from_simplices(faces)
     assert topology.is_oriented
     assert not topology.is_closed
-
-
-def test_simplicial_2_delauney():
-    faces = [[0, 1, 2], [3, 2, 1]]
-    import scipy.spatial
-    hull = scipy.spatial.ConvexHull(np.random.randn(10, 3))
-    topology = TopologySimplicial.from_simplices(hull.simplices)
 
 
 def test_simplicial_3():

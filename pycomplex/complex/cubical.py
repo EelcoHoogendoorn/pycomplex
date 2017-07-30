@@ -43,7 +43,7 @@ class ComplexCubical(BaseComplexCubical):
         """
 
         fine = type(coarse)(
-            vertices=np.concatenate(coarse.primal_position(), axis=0),    # every n-element spawns a new vertex
+            vertices=np.concatenate(coarse.primal_position, axis=0),    # every n-element spawns a new vertex
             topology=coarse.topology.subdivide()
         )
 
@@ -131,7 +131,7 @@ class ComplexCubical(BaseComplexCubical):
 
         # plot dual cells
         if plot_dual:
-            dual_vertices, dual_edges = self.dual_position()[0:2]
+            dual_vertices, dual_edges = self.dual_position[0:2]
             dual_topology = self.topology.dual
             from pycomplex.topology import sparse_to_elements
             de = sparse_to_elements(dual_topology[0].T)
@@ -158,10 +158,9 @@ class ComplexCubical2(ComplexCubical):
     def to_simplicial(self):
         """Convert the cubical complex into a simplicial complex,
         by forming 4 tris from each quad and its dual position"""
-        v, e, f = self.primal_position()
         from pycomplex.complex.simplicial import ComplexTriangular  # Triangular and Quadrilateral or Simplical2 and Cubical2; pick one...
         return ComplexTriangular(
-            vertices=np.concatenate([v, f], axis=0),
+            vertices=np.concatenate(self.primal_position[::2], axis=0),
             topology=self.topology.as_2().to_simplicial().as_2()
         )
 

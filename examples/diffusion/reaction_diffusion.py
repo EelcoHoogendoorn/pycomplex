@@ -1,6 +1,10 @@
 """Gray-Scott Reaction-Diffusion example
 
+This example should work on any complex, although only 2d complexes are supported at the moment
 
+TODO
+----
+Add animated results
 """
 
 import numpy as np
@@ -42,11 +46,13 @@ class ReactionDiffusion(object):
         from examples.diffusion.explicit import Diffusor
         self.diffusor = Diffusor(complex)
 
+        size = self.complex.topology.n_elements[0]
+
         # this is important for initialization! right initial conditions matter a lot
-        self.state = np.zeros((2, self.size), np.float32)
+        self.state = np.zeros((2, size), np.float32)
         self.state[0] = 1
         # add seeds
-        self.state[1, np.random.randint(self.size, size=10)] = 1
+        self.state[1, np.random.randint(size, size=10)] = 1
 
         self.coefficients = self.params[key]
 
@@ -59,11 +65,6 @@ class ReactionDiffusion(object):
         rv = 0.5 / 8
         self.mu = ru, rv
 
-    @property
-    def size(self):
-        return self.complex.topology.n_elements[0]
-
-
     def gray_scott_derivatives(self, u, v):
         """the gray-scott equation; calculate the time derivatives, given a state (u,v)"""
         f, g = self.coefficients
@@ -73,9 +74,6 @@ class ReactionDiffusion(object):
         udt = - reaction + source           # time derivative of u
         vdt = + reaction - sink             # time derivative of v
         return udt, vdt                     # return both rates of change
-
-    def diffuse(self, state, dt):
-        return self.diffusor.integrate_explicit(state, dt)
 
     def integrate(self, derivative):
         """
@@ -100,7 +98,7 @@ class ReactionDiffusion(object):
 
 
 if __name__ == '__main__':
-    kind = 'regular'
+    kind = 'sphere'
     if kind == 'sphere':
         from pycomplex import synthetic
         surface = synthetic.icosphere(refinement=5)
@@ -112,15 +110,24 @@ if __name__ == '__main__':
         surface.metric()
     if kind == 'regular':
         from pycomplex import synthetic
-        surface = synthetic.n_cube_grid((128, 128)).as_22().as_regular()
+        if True:
+            surface = synthetic.n_cube_grid((64, 64))
+        else:
+            surface = synthetic.n_cube(2)
+            surface.vertices *= 128
+            for i in range(1):
+                surface = surface.subdivide()
+        # surface.topology = surface.topology.fix_orientation()
+        surface = surface.as_22().as_regular()
         surface.metric()
 
-    rd = ReactionDiffusion(surface)
+
     assert surface.topology.is_oriented
     print(surface.topology.n_elements)
-    if False:
+    if True:
         surface.plot(plot_dual=False, plot_vertices=False)
 
+    rd = ReactionDiffusion(surface)
     print('starting sim')
     rd.simulate(200)
     print('done with sim')

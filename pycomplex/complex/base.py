@@ -50,15 +50,29 @@ class BaseComplex(object):
         if not len(n_chain) == self.topology.n_elements[-1]:
             raise ValueError
         subset_topology = self.topology.select_subset(n_chain)
-        return type(self)(topology=subset_topology, vertices=self.vertices[subset_topology.parent_idx[0]])
+        return self.copy(topology=subset_topology, vertices=self.vertices[subset_topology.parent_idx[0]])
 
+    @cached_property
     def boundary(self):
         B = self.topology.boundary
         if B is None:
             return None
         else:
+            # FIXME: type self should be boundary_type
             return type(self)(vertices=self.vertices[B.parent_idx[0]], topology=B)
 
+    def fix_orientation(self):
+        return self.copy(topology=self.topology.fix_orientation())
+
+    def copy(self, vertices=None, topology=None):
+        c = type(self)(
+            vertices=self.vertices if vertices is None else vertices,
+            topology=self.topology if topology is None else topology
+        )
+        c.parent = self
+        return c
+
+    @cached_property
     def dual_position(self):
         """Positions of all dual elements; primal elements with boundary elements appended where required
 
@@ -70,7 +84,7 @@ class BaseComplex(object):
 
         """
         # interior dual elements are located at their corresponding primal
-        pp = self.primal_position()
+        pp = self.primal_position
 
         # location of dual boundary element is location of corresponding primal boundary element
         boundary = self.topology.boundary
@@ -116,7 +130,7 @@ class BaseComplex(object):
         # accumulate new vertex positions
         vertices = self.vertices.copy()
         # start with n-elements, working backwards to vertices
-        for corners, cr, centroids in reversed(list(zip(self.topology.corners, C, self.primal_position()))):
+        for corners, cr, centroids in reversed(list(zip(self.topology.corners, C, self.primal_position))):
             if cr is not None:
                 n_pts = corners.shape[1]
                 corners = corners[cr].flatten()
@@ -124,11 +138,12 @@ class BaseComplex(object):
                 vertex_i, vertex_p = npi.group_by(corners).mean(centroids)
                 vertices[vertex_i] = vertex_p
 
-        return type(self)(vertices=vertices, topology=self.topology)
+        return self.copy(vertices=vertices)
 
 
 class BaseComplexEuclidian(BaseComplex):
 
+    @cached_property
     def primal_position(self):
         """positions of all primal elements
 
@@ -141,6 +156,8 @@ class BaseComplexEuclidian(BaseComplex):
 
 
 class BaseComplexCubical(BaseComplex):
+
+    @cached_property
     def primal_position(self):
         """positions of all primal elements
 
@@ -152,6 +169,8 @@ class BaseComplexCubical(BaseComplex):
 
 
 class BaseComplexSpherical(BaseComplex):
+
+    @cached_property
     def primal_position(self):
         """positions of all primal elements, determined as spherical circumcenters
 

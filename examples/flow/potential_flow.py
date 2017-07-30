@@ -85,7 +85,7 @@ def concave():
     mesh = mesh.select_subset([1, 1, 0, 1])
 
     # identify two boundaries
-    edge_position = mesh.primal_position()[1]
+    edge_position = mesh.primal_position[1]
     left = edge_position[:, 0] == edge_position[:, 0].min()
     right = edge_position[:, 0] == edge_position[:, 0].max()
 

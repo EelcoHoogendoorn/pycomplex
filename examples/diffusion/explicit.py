@@ -67,12 +67,12 @@ class Diffusor(object):
         steps = int(np.ceil(distance))
         fraction = distance / steps
         for i in range(steps):
-            # print(i)
             field = self.explicit_step(field, fraction)
         return field
 
     def integrate_explicit_sigma(self, field, sigma):
-        """Integrate for such a length as to be equivalent to a gaussian blur with the given sigma"""
+        """Integrate for such a length of time,
+         as to be equivalent to a gaussian blur with the given sigma"""
         dt = sigma ** 2 / np.sqrt(np.pi)
         return self.integrate_explicit(field, dt)
 

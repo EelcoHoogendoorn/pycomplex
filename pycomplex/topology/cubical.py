@@ -41,13 +41,17 @@ def generate_cube_boundary(cubes, degree=1):
 
     boundary = np.empty((n_elements, n_combinations) + (2,) * degree + (2,) * (b_dim), dtype=cubes.dtype)
 
-    for i, axes in enumerate(axes_list):
+    for i, (p, axes) in enumerate(zip(axes_parity, axes_list)):
         s_view = cubes
-        for j, axis in enumerate(axes):
+        for j, axis in enumerate(axes): # permute the relevant subrange of axes
             s_view = np.moveaxis(s_view, axis + 1, j + 1)
+        if p:
+            s_view = np.flip(s_view, axis=-1)
         boundary[:, i] = s_view
 
-    parity = np.logical_xor(np.array(axes_parity)[:, None], [[0, 1]])
+    parity = np.logical_xor(np.array(axes_parity)[:, None] * 0, [[0, 1]])
+    # boundary[:, :, 0] = np.flip(boundary[:, :, 0], axis=-1)
+
     return parity.astype(sign_dtype), boundary
 
 
@@ -321,6 +325,8 @@ class TopologyCubical(PrimalTopology):
         # for d in range(n_dim+1):
         #     axes_list = list(zip(*dec.combinatorial.combinations(np.arange(n_dim), d)))[1]
         #     print(axes_list)
+        # FIXME: subdivision fails with alternative generate_boundaries
+        # quite unsure yet why
 
         if n_dim == 1:
             for c in corners:
@@ -333,10 +339,12 @@ class TopologyCubical(PrimalTopology):
             for c in corners:
                 C = 1 - c   # corner and Complement
                 corner = new_cubes[:, c[0], c[1]]
-
+                # verts
                 corner[..., c[0], c[1]] = I[0][:, 0, c[0], c[1]]
+                # edges
                 corner[..., c[0], C[1]] = I[1][:, 0, c[0]]  # edges along 0-axis
                 corner[..., C[0], c[1]] = I[1][:, 1, c[1]]
+                # faces
                 corner[..., C[0], C[1]] = I[2][:, 0]
 
         elif n_dim == 3:

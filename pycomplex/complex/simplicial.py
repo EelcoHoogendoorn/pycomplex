@@ -32,7 +32,7 @@ class ComplexSimplicial(BaseComplexEuclidian):
             ax.scatter(*self.vertices.T[:2], color='b')
 
         if plot_dual:
-            dual_vertices, dual_edges = self.dual_position()[0:2]
+            dual_vertices, dual_edges = self.dual_position[0:2]
             dual_topology = self.topology.dual
             from pycomplex.topology import sparse_to_elements
             de = sparse_to_elements(dual_topology[0].T)
@@ -137,7 +137,7 @@ class ComplexTriangular(ComplexSimplicial):
         """Loop subdivision
 
         """
-        pp = coarse.primal_position()
+        pp = coarse.primal_position
         fine = type(coarse)(
             vertices=np.concatenate([pp[0], pp[1]], axis=0),
             topology=coarse.topology.subdivide()
@@ -329,7 +329,7 @@ class ComplexTriangularEuclidian3(ComplexTriangular):
             ax.scatter(*vertex_positions.T[:2], color='b')
 
         if plot_dual:
-            dual_vertices, dual_edges = self.dual_position()[0:2]
+            dual_vertices, dual_edges = self.dual_position[0:2]
             dual_topology = self.topology.dual
 
             from pycomplex.topology import sparse_to_elements

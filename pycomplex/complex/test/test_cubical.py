@@ -5,7 +5,7 @@ from pycomplex.synthetic import n_cube, n_cube_grid
 
 def test_regular_2():
     complex = n_cube(3)
-    dp = complex.dual_position()
+    dp = complex.dual_position
 
     for p in dp:
         print()
@@ -36,7 +36,7 @@ def test_quad_3():
 def test_2cube_3space():
     """Test the surface of a cube embedded in 3-space"""
     # we grab the boundary of the cube
-    quads = n_cube(3).boundary().as_23()
+    quads = n_cube(3).boundary.as_23()
     for i in range(2):
         quads = quads.subdivide(smooth=True)
         if i == 0:
@@ -66,7 +66,7 @@ def test_triangulated_cube():
     cube = n_cube(3)
     # cube.vertices = np.dot(cube.vertices, linalg.orthonormalize(np.random.randn(3, 3)))
 
-    surface = cube.boundary().as_23()
+    surface = cube.boundary.as_23()
     # surface = surface.subdivide(smooth=True)
     surface = surface.to_simplicial().smooth()
     surface = surface.subdivide(smooth=True)
@@ -107,16 +107,21 @@ def test_product_2_1():
     d2 = n_cube_grid((2, 4))
 
     grid = d1.product(d2)
-    grid.vertices = np.dot(grid.vertices, linalg.orthonormalize(np.random.randn(3, 3)))
 
+    assert grid.topology.is_oriented
+    assert grid.boundary.topology.is_oriented
+
+    grid.vertices = np.dot(grid.vertices, linalg.orthonormalize(np.random.randn(3, 3)))
     grid.plot()
 
 
-def test_projected_hypercube():
-    n_dim = 4
-    cube = n_cube(n_dim)
-    np.random.seed(1)
-    cube.vertices = np.dot(cube.vertices, linalg.orthonormalize(np.random.randn(n_dim, n_dim)))
-    cube.plot(plot_dual=True)
+def test_n_cube():
+    for n_dim in [2, 3, 4, 5]:
+        cube = n_cube(n_dim)
+        assert cube.topology.is_oriented
+        assert cube.boundary.topology.is_oriented
+        np.random.seed(1)
+        cube.vertices = np.dot(cube.vertices, linalg.orthonormalize(np.random.randn(n_dim, n_dim)))
+        cube.plot(plot_dual=True)
 
-# test_projected_hypercube()
+test_n_cube()

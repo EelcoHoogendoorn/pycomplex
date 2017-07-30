@@ -257,7 +257,7 @@ class PrimalTopology(BaseTopology):
         elements = inverse.reshape(elements.shape).astype(index_dtype)
 
         B = self.boundary_type().from_elements(elements)
-        B.parent_idx = self.find_correspondence(B, mapping)    # last element to signal n-elements are not involved in the boundary
+        B.parent_idx = self.find_correspondence(B, mapping)
         B.parent = self
         return B
 

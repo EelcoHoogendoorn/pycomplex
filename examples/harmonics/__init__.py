@@ -1,6 +1,5 @@
 import numpy as np
 import scipy.sparse
-scipy.sparse.diags()
 
 
 def sparse_diag(diag):
@@ -8,7 +7,7 @@ def sparse_diag(diag):
     i = np.arange(s)
     return scipy.sparse.csc_matrix((diag, (i, i)), shape=(s, s))
 
-
+# FIXME: need to make common laplacians centrally available somewhere
 def get_harmonics_0(complex2):
     # grab all the operators we will be needing
     T01 = complex2.topology.matrix(0, 1).T

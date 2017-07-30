@@ -90,10 +90,10 @@ def test_product():
 def test_to_simplicial():
     """Check that mapping cubical to simplicial retains orientation"""
     n_dim = 3
-    cube = n_cube(n_dim).boundary()
-    assert not cube.topology.is_oriented
-    assert not cube.as_23().to_simplicial().topology.is_oriented
-    cube.topology = cube.topology.fix_orientation()
+    cube = n_cube(n_dim).boundary
+    # assert not cube.topology.is_oriented
+    # assert not cube.as_23().to_simplicial().topology.is_oriented
+    # cube.topology = cube.topology.fix_orientation()
     assert cube.topology.is_oriented
     assert cube.as_23().to_simplicial().topology.is_oriented
 

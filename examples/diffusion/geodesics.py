@@ -17,18 +17,19 @@ class MyComplex(ComplexTriangularEuclidian3):
     """Subclass that implements the divergence and gradient operators specific to the paper 'Geodesics In Heat'"""
 
     def remap_edges(self, field):
-        """Given a quantity computed on each triangle-edge, sum the contributions from each adjecent triangle
+        """Given a quantity computed on each triangle-edge, sum the contributions from each incident triangle
 
         Parameters
         ----------
         field : ndarray, [n_triangles, 3], float
+            a quantity defined on each edge of all
 
         Returns
         -------
         field : ndarray, [n_edges], float
         """
-        B12 = self.topology._boundary[1]   # [n_triangles, 3], edge indices
-        _, field = npi.group_by(B12.flatten()).sum(field.flatten())
+        I21 = self.topology.incidence[2, 1]   # [n_triangles, 3], edge indices
+        _, field = npi.group_by(I21.flatten()).sum(field.flatten())
         return field
 
     def triangle_edge_vectors(self, oriented):
@@ -121,7 +122,7 @@ class MyComplex(ComplexTriangularEuclidian3):
             scale = np.linalg.norm(np.diff(self.box, axis=0)) / 10  # pretty sensible default guess
         diffused = D.integrate_explicit_sigma(seed * 1.0, scale)
 
-        # now try and find a potential that has the same normalized gradient as the diffusion equation
+        # now try and find a potential that has the same normalized gradient as the diffused seed
         gradient = -linalg.normalized(self.compute_gradient(diffused))
         rhs = self.compute_divergence(gradient)
         phi = scipy.sparse.linalg.minres(D.laplacian, rhs)[0]
@@ -132,7 +133,6 @@ if __name__ == '__main__':
     from examples.subdivision.letter_a import create_letter
 
     letter = create_letter(3).as_23().to_simplicial().as_3()
-    assert letter.topology.is_oriented
 
     letter = MyComplex(vertices=letter.vertices, topology=letter.topology)
     letter.metric()

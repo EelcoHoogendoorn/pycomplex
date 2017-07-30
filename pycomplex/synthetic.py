@@ -12,47 +12,6 @@ from pycomplex.topology.simplicial import TopologyTriangular, TopologySimplicial
 from pycomplex.math import linalg
 
 
-def icosahedron():
-    """Generate an icosahedron.
-
-    Returns
-    -------
-    ComplexSpherical2
-    """
-    phi = (1 + np.sqrt(5)) / 2
-    Q = np.array(list(itertools.product([0], [-1, +1], [-phi, +phi])))
-    vertices = np.vstack([np.roll(Q, r, axis=1) for r in range(3)])     # even permutations
-
-    triangles = np.array([t for t in itertools.combinations(range(12), 3)])
-    corners = vertices[triangles]
-    centers = corners.mean(axis=1, keepdims=True)
-    d = np.linalg.norm(corners - centers, axis=-1).sum(axis=1)
-    triangles = triangles[d < 4]
-
-    return ComplexSpherical2(
-        vertices=linalg.normalized(vertices),
-        topology=TopologyTriangular.from_simplices(triangles).fix_orientation()
-    )
-
-
-def icosphere(refinement=0):
-    """Generate a sphere by recursive subdivision of an icosahedron.
-
-    Parameters
-    ----------
-    refinement: int, optional
-        number of levels of subdivision
-
-    Returns
-    -------
-    ComplexSpherical2
-    """
-    sphere = icosahedron()
-    for _ in range(refinement):
-        sphere = sphere.subdivide()
-    return sphere
-
-
 def n_simplex(n_dim, equilateral=True):
     """Generate a single n-simplex
 
@@ -145,22 +104,67 @@ def n_cube_dual(n_dim):
 
     Notes
     -----
-    quad, octahedron, hexadecachoron for 2,3,4 resp.
+    quad, octahedron, hexadecachoron for n_dim = 2,3,4 resp.
     """
-    cube = n_cube(n_dim, centering=True).boundary()
-    dual_cube = linalg.normalized(cube.dual_position()[0])
+    cube = n_cube(n_dim, centering=True).boundary
 
     # grab simplices from cube corners
     from pycomplex.topology import sparse_to_elements
     cubes = cube.topology.matrix(n_dim - 1, 0)
     simplices = sparse_to_elements(cubes)
 
-    topology = TopologySimplicial.from_simplices(simplices).fix_orientation()
-    return ComplexSpherical(vertices=dual_cube, topology=topology)
+    return ComplexSpherical(
+        vertices=linalg.normalized(cube.dual_position[0]),
+        topology=TopologySimplicial.from_simplices(simplices).fix_orientation()
+    )
+
+
+def icosahedron():
+    """Generate an icosahedron. Biggest symmetry group on the 2-sphere
+
+    Returns
+    -------
+    ComplexSpherical2
+    """
+    phi = (1 + np.sqrt(5)) / 2
+    Q = np.array(list(itertools.product([0], [-1, +1], [-phi, +phi])))
+    vertices = np.vstack([np.roll(Q, r, axis=1) for r in range(3)])     # even permutations
+
+    triangles = np.array([t for t in itertools.combinations(range(12), 3)])
+    corners = vertices[triangles]
+    centers = corners.mean(axis=1, keepdims=True)
+    d = np.linalg.norm(corners - centers, axis=-1).sum(axis=1)
+    triangles = triangles[d < 4]
+
+    return ComplexSpherical2(
+        vertices=linalg.normalized(vertices),
+        topology=TopologyTriangular.from_simplices(triangles).fix_orientation()
+    )
+
+
+def icosphere(refinement=0):
+    """Generate a sphere by recursive subdivision of an icosahedron.
+
+    Parameters
+    ----------
+    refinement: int, optional
+        number of levels of subdivision
+
+    Returns
+    -------
+    ComplexSpherical2
+    """
+    sphere = icosahedron()
+    for _ in range(refinement):
+        sphere = sphere.subdivide()
+    return sphere
 
 
 def hexacosichoron():
-    """Biggest symmetry group on the 4-sphere, analogous to the icosahedron on the 3-sphere"""
+    """Biggest symmetry group on the 4-sphere, analogous to the icosahedron on the 3-sphere
+
+    Its dual is a hyperdodecahedron, consisting of 120 dodecahedra
+    """
     phi = (1 + np.sqrt(5)) / 2
 
     b = [phi, 1, 1/phi, 0]

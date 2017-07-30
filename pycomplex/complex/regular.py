@@ -25,7 +25,7 @@ class ComplexRegular2(ComplexCubical2Euclidian2):
 
         topology = self.topology
         # dual_vertices, dual_edges, dual_faces = self.dual_position()
-        PP0, PP1, PP2 = self.primal_position()
+        PP0, PP1, PP2 = self.primal_position
 
         #metrics
         P0, P1, P2 = topology.n_elements

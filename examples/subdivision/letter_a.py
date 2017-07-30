@@ -63,17 +63,16 @@ def create_letter_3d(quads, subdivisions=2):
 
     # extract quads to cubes
     segment = synthetic.n_cube(1)
-    grid = quads.product(segment)
+    # get boundary of cubes
+    grid = quads.product(segment).boundary
     # product perserves orientation
     print(grid.topology.is_oriented)
 
-    # get boundary of cubes
-    grid = grid.boundary()
     # boundary preserves orientation
     print(grid.topology.is_oriented)
 
     # get bottom face chain
-    fp = grid.primal_position()[2]
+    fp = grid.primal_position[2]
     fi = np.argsort(fp[:, 1])[:2]
     fc = grid.topology.chain(2, 0)
     fc[fi] = 1

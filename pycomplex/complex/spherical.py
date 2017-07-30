@@ -25,7 +25,7 @@ class ComplexSpherical(BaseComplexSpherical):
         def from_se(s, e):
             return np.concatenate([s[:, None, :], e[:, None, :]], axis=1)
 
-        def subdivide(edges, steps=10):
+        def subdivide(edges, steps):
             f = np.linspace(0, 1, steps)
             i = np.array([f, 1-f])
             edges = edges[:, :, None, :] * i[None, :, :, None]
@@ -58,23 +58,24 @@ class ComplexSpherical(BaseComplexSpherical):
 
         # plot primal edges
         edges = self.topology.corners[1]
-        e = subdivide(self.vertices[edges], steps=20)
+        steps = int(1000 / len(edges)) + 1
+        e = subdivide(self.vertices[edges], steps=steps*2)
         plot_edge(ax, e, color='b', alpha=0.5)
         if plot_vertices:
             plot_vertex(ax, self.vertices, color='b')
 
         if plot_dual:
             # plot dual edges
-            dual_vertices, dual_edges = self.dual_position()[:2]
+            dual_vertices, dual_edges = self.dual_position[:2]
             dual_topology = self.topology.dual
             from pycomplex.topology import sparse_to_elements
             de = sparse_to_elements(dual_topology[0].T)
 
             de = dual_vertices[de]
             s, e = de[:, 0], de[:, 1]
-            s = subdivide(from_se(dual_edges, s))
+            s = subdivide(from_se(dual_edges, s), steps=steps)
             plot_edge(ax, s, color='r', alpha=0.5)
-            e = subdivide(from_se(dual_edges, e))
+            e = subdivide(from_se(dual_edges, e), steps=steps)
             plot_edge(ax, e, color='r', alpha=0.5)
             if plot_vertices:
                 plot_vertex(ax, dual_vertices, color='r')
@@ -123,7 +124,7 @@ class ComplexSpherical2(ComplexSpherical):
             np.add.at(target.ravel(), idx.ravel(), vals.ravel())
 
         topology = self.topology
-        PP0, PP1, PP2 = self.primal_position()
+        PP0, PP1, PP2 = self.primal_position
 
         #metrics
         P0, P1, P2 = topology.n_elements
@@ -187,9 +188,8 @@ class ComplexSpherical2(ComplexSpherical):
         This is a loop-like subdivision
 
         """
-        pp = self.primal_position()
         return ComplexSpherical2(
-            vertices=np.concatenate([pp[0], pp[1]], axis=0),
+            vertices=np.concatenate(self.primal_position[:2], axis=0),
             topology=self.topology.subdivide()
         )
 
