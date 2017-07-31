@@ -68,6 +68,7 @@ class ComplexCubical(BaseComplexCubical):
         -------
         ComplexCubical of dimension self.n_dim + other.n_dim
         """
+        # FIXME: add transfer operators here too?
         if not self.n_dim == self.topology.n_dim:
             raise ValueError
         if not other.n_dim == other.topology.n_dim:
@@ -85,6 +86,11 @@ class ComplexCubical(BaseComplexCubical):
         )
 
     # cast to subtypes
+    def as_11(self):
+        if not (self.n_dim == 1 and self.topology.n_dim == 1):
+            raise TypeError('invalid cast')
+        return ComplexCubical1Euclidian1(vertices=self.vertices, topology=self.topology)
+
     def as_12(self):
         if not (self.n_dim == 2 and self.topology.n_dim == 1):
             raise TypeError('invalid cast')
@@ -104,16 +110,6 @@ class ComplexCubical(BaseComplexCubical):
         if not (self.n_dim == 3 and self.topology.n_dim == 3):
             raise TypeError('invalid cast')
         return ComplexCubical3Euclidian3(vertices=self.vertices, topology=self.topology)
-
-    def as_44(self):
-        if not (self.n_dim == 4 and self.topology.n_dim == 4):
-            raise TypeError('invalid cast')
-        return ComplexCubical4Euclidian4(vertices=self.vertices, topology=self.topology)
-
-    def as_55(self):
-        if not (self.n_dim == 5 and self.topology.n_dim == 5):
-            raise TypeError('invalid cast')
-        return ComplexCubical4Euclidian4(vertices=self.vertices, topology=self.topology)
 
     def plot(self, plot_dual=True, plot_vertices=False):
         """Generic 2d projected plotting of primal and dual lines and edges"""
@@ -152,6 +148,17 @@ class ComplexCubical(BaseComplexCubical):
         plt.show()
 
 
+class ComplexCubical1(ComplexCubical):
+    """Specialization for 2d quads"""
+
+    def to_simplicial(self):
+        """Convert the cubical complex into a simplicial complex; trivial"""
+        from pycomplex.complex.simplicial import ComplexSimplicial1
+        return ComplexSimplicial1(
+            vertices=self.vertices,
+            topology=self.topology.as_1().to_simplicial()
+        )
+
 class ComplexCubical2(ComplexCubical):
     """Specialization for 2d quads"""
 
@@ -163,6 +170,13 @@ class ComplexCubical2(ComplexCubical):
             vertices=np.concatenate(self.primal_position[::2], axis=0),
             topology=self.topology.as_2().to_simplicial()
         )
+
+
+class ComplexCubical1Euclidian1(ComplexCubical1):
+
+    def as_regular(self):
+        from pycomplex.complex.regular import ComplexRegular1
+        return ComplexRegular1(vertices=self.vertices, topology=self.topology)
 
 
 class ComplexCubical2Euclidian2(ComplexCubical2):
@@ -201,16 +215,6 @@ class ComplexCubical3Euclidian3(ComplexCubical):
 
     def plot_slice(self, affine, ):
         pass
-
-
-class ComplexCubical4Euclidian4(ComplexCubical3Euclidian3):
-    """Projected plotting is infact the same as 3d case"""
-    pass
-
-
-class ComplexCubical5Euclidian5(ComplexCubical4Euclidian4):
-    """Projected plotting is infact the same as 3d case"""
-    pass
 
 
 class ComplexCubicalToroidal(ComplexCubical):

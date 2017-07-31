@@ -444,14 +444,22 @@ class TopologyCubical2(TopologyCubical):
         return simplicial
 
     def to_simplicial_transfer(cubical, simplicial):
-        """Construct transfer operators from cubical to simplicial"""
+        """Construct transfer operators from cubical to simplicial
+
+        The n-th operator in this list by right-multiplication with a cubical n-chain
+        will result in the corresponding simpicial n-chain
+        """
         import scipy.sparse
-        # FIXME: implement other operators
+        # FIXME: implement edge operator
         simplicial.transfer_operators = [
             scipy.sparse.vstack([
                 cubical.matrix(0, 0),
                 cubical.matrix(2, 0).T / 4
             ]),
             None,
-            None
+            transfer_matrix(
+                simplicial.range(2),
+                simplicial.range(2) // 4,
+                shape=(simplicial.n_elements[2], cubical.n_elements[2])
+            )
         ]
