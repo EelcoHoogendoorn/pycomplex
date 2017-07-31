@@ -5,13 +5,13 @@ the simplest 'introduction to vector calculus' possible, while still doing somet
 
 import numpy as np
 import scipy.sparse
+from cached_property import cached_property
 
 
 class Diffusor(object):
     def __init__(self, complex):
         self.complex = complex
         self.laplacian, self.mass, self.inverse_mass_operator = self.laplacian_0()
-        self.precompute()
 
     def laplacian_0(self):
         complex = self.complex
@@ -27,13 +27,13 @@ class Diffusor(object):
         mass = complex.hodge_DP[0]
         return laplacian, mass, P0D2
 
-    def precompute(self):
+    @cached_property
+    def largest_eigenvalue(self):
         # compute largest eigenvalue, for optimally scaled explicit timestepping
-        self.largest_eigenvalue = scipy.sparse.linalg.eigsh(
+        return scipy.sparse.linalg.eigsh(
             self.laplacian,
             M=scipy.sparse.diags(self.mass),
             k=1, which='LM', tol=1e-6, return_eigenvectors=False)
-        print(self.largest_eigenvalue)
 
     # def eigen(self):
     #     """Compute small magnitude eigencomponents; those that are hard to solve explicitly"""
@@ -77,25 +77,21 @@ class Diffusor(object):
 
 
 if __name__ == '__main__':
-    kind = 'letter'
+    kind = 'sphere'
 
     if kind == 'sphere':
         from pycomplex import synthetic
         complex = synthetic.icosphere(refinement=6)
         complex = complex.copy(radius=16)
-        # complex.metric(radius=16)
     if kind == 'regular':
         from pycomplex import synthetic
         complex = synthetic.n_cube_grid((32, 32)).as_22().as_regular()
         for i in range(2):
             complex = complex.subdivide()
-        # complex.metric()
     if kind == 'letter':
         from examples.subdivision import letter_a
         complex = letter_a.create_letter(4).to_simplicial().as_3()
         complex = complex.copy(vertices=complex.vertices * 10)
-        # complex.metric()
-        # complex.plot_3d(plot_dual=False, plot_vertices=False)
 
     if True:
         field = np.random.rand(complex.topology.n_elements[0])
