@@ -35,20 +35,15 @@ def test_quad_3():
 
 def test_2cube_3space():
     """Test the surface of a cube embedded in 3-space"""
-    # we grab the boundary of the cube
-    quads = n_cube(3).boundary.as_23()
-    for i in range(2):
+    quads = n_cube(3, centering=True).boundary.as_23()
+    for i in range(3):
         quads = quads.subdivide(smooth=True)
-        if i == 0:
-            quads.vertices = linalg.normalized(quads.vertices)
 
     quads.vertices = np.dot(quads.vertices, linalg.orthonormalize(np.random.randn(3, 3)))
-
-    # FIXME: this does not yet work
-    # triangular = quads.to_simplicial()
-    # triangular.as_3().plot_3d()
     quads.plot()
-#
+
+    quads.to_simplicial().as_3().plot_3d(plot_vertices=False, backface_culling=True, plot_dual=False)
+
 
 def test_cube():
     """Test 3d cube embedded in 3-space"""
@@ -118,8 +113,14 @@ def test_product_2_1():
 def test_n_cube():
     for n_dim in [2, 3, 4, 5, 6]:
         cube = n_cube(n_dim)
+
         assert cube.topology.is_oriented
-        assert cube.boundary.topology.is_oriented
+        assert cube.topology.is_connected
+        assert not cube.topology.is_closed
+        assert cube.topology.boundary.is_connected
+        assert cube.topology.boundary.is_oriented
+        assert cube.topology.boundary.is_closed
+
         np.random.seed(1)
         cube.vertices = np.dot(cube.vertices, linalg.orthonormalize(np.random.randn(n_dim, n_dim)))
         cube.plot(plot_dual=True)

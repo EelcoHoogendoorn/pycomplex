@@ -24,12 +24,10 @@ def generate_cube_boundary(cubes, degree=1):
 
     Returns
     -------
-    parity : ndarray, [n_combinations, (2,)**d], sign_type
-        parity of boundary element relative to parent element, along this axis and side
     boundary : ndarray, [n_elements, n_combinations, (2,)**d, (2,)**b]
         Vertex indices of 2**d * n_elements (n-d=b)-cubes
+        if degree == 1, the boundary of each n-cube is an oriented set of n-1-cubes
     """
-    # assert degree==1    # not sure parity is general enough yet
     cubes = np.asarray(cubes)
     n_dim = cubes.ndim - 1
     b_dim = n_dim - degree
@@ -49,11 +47,11 @@ def generate_cube_boundary(cubes, degree=1):
             s_view = np.flip(s_view, axis=-1)
         boundary[:, i] = s_view
 
-    parity = np.logical_xor(np.array(axes_parity)[:, None] * 0, [[0, 1]])
-    # NOTE: get it now; cant flip one half of the cube!
-    # boundary[:, :, 0] = np.flip(boundary[:, :, 0], axis=-1)
+    if degree == 1:
+        # flip the parity of elements on one side of the cube
+        boundary[:, :, 1] = np.flip(boundary[:, :, 1], axis=-1)
 
-    return parity.astype(sign_dtype), boundary
+    return boundary
 
 
 @lru_cache()
@@ -177,7 +175,7 @@ class TopologyCubical(PrimalTopology):
                 return En0.astype(index_dtype), EnN.astype(index_dtype), parity_to_orientation(parity)
 
             # generate boundary elements
-            axes_parity, En0_all = generate_cube_boundary(EN0, degree=1)
+            En0_all = generate_cube_boundary(EN0, degree=1)
             En0_all = En0_all.reshape((-1,) + b_shape)
 
             # get mapping to unique set of boundary elements, by considering sorted corners
@@ -202,9 +200,8 @@ class TopologyCubical(PrimalTopology):
             # derive relative parity of each n-cube to the one picked as defining neutral convention in En0
             relative_parity = relative_cube_parity(relative_permutation.reshape((-1,) + b_shape))
 
-            # set up parity
-            parity = relative_parity.reshape(EnN.shape)     # parity relative to canonical boundary element
-            parity = np.logical_xor(parity, axes_parity)    # parity relative to parent element
+            # parity relative to canonical boundary element
+            parity = relative_parity.reshape(EnN.shape)
 
             return En0.astype(index_dtype), EnN.astype(index_dtype), parity_to_orientation(parity)
 
@@ -252,7 +249,7 @@ class TopologyCubical(PrimalTopology):
         n_dim = self.n_dim
 
         # construct all levels of boundaries of cubes, plus their indices
-        B = [generate_cube_boundary(cubes, d)[1] for d in reversed(range(self.n_dim + 1))]
+        B = [generate_cube_boundary(cubes, d) for d in reversed(range(self.n_dim + 1))]
         # FIXME: do we always want to be doing this during construction to fill out our incidence matrix?
         I = [pycomplex.topology.generate_boundary_indices(e, b) for e, b in zip(E, B)]
 

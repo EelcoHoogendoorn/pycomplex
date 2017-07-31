@@ -77,7 +77,7 @@ class Diffusor(object):
 
 
 if __name__ == '__main__':
-    kind = 'regular'
+    kind = 'letter'
 
     if kind == 'sphere':
         from pycomplex import synthetic
@@ -97,16 +97,16 @@ if __name__ == '__main__':
         # complex.metric()
         # complex.plot_3d(plot_dual=False, plot_vertices=False)
 
-    print(complex.box)
-    assert complex.topology.is_oriented
+    if True:
+        field = np.random.rand(complex.topology.n_elements[0])
+    else:
+        print(complex.box)
+        field = complex.topology.chain(0, dtype=np.float)
+        idx = 0
+        idx = np.argmin(np.linalg.norm(complex.vertices - [0, 0], axis=1))
+        field[idx] = 1
 
     diffusor = Diffusor(complex)
-    field = np.random.rand(complex.topology.n_elements[0])
-    field = complex.topology.chain(0, dtype=np.float)
-    # idx = 0
-    idx = np.argmin(np.linalg.norm(complex.vertices - [0, 0], axis=1))
-    field[idx] = 1
-    # field = diffusor.integrate_explicit(field, 1)
     field = diffusor.integrate_explicit_sigma(field, 1.5)
     print(field.min(), field.max())
 
