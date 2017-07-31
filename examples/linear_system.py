@@ -55,8 +55,8 @@ class BlockSystem(object):
         for i in range(self.equations.shape[0]):
             for j in range(self.equations.shape[1]):
                 for k in range(self.equations.shape[1]):
-                    equations[j, k] += S[i, j].T * S[i, k]
-                knowns[j] += S[i, j].T * self.knowns[i]
+                    equations[j, k] = equations[j, k] + S[i, j].T * S[i, k]
+                knowns[j] = knowns[j] + S[i, j].T * self.knowns[i]
         return BlockSystem(equations=equations, knowns=knowns, unknowns=list(self.unknowns))
 
     def concatenate(self):

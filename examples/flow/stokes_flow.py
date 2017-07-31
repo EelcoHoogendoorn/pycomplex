@@ -65,7 +65,7 @@ def concave():
     mesh = mesh.select_subset([1, 1, 1, 0])
 
 
-    for i in range(4):
+    for i in range(3):
         mesh = mesh.subdivide()
         # left = mesh.topology.transfer_matrices[1] * left
         # right = mesh.topology.transfer_matrices[1] * right
@@ -78,6 +78,7 @@ def concave():
 
 
 mesh, inlet, outlet = concave()
+# construct closed part of the boundary
 closed = mesh.boundary.topology.chain(1, fill=1)
 closed[np.nonzero(inlet)] = 0
 closed[np.nonzero(outlet)] = 0
@@ -87,14 +88,14 @@ print(closed)
 
 def chain_matrix(idx, shape, O):
     return scipy.sparse.csr_matrix((
-        idx,
+        idx.astype(np.float),
         (np.arange(len(idx)), np.arange(len(idx)) + O)),
         shape=shape
     )
 
 def q_matrix(v, col, shape):
     return scipy.sparse.coo_matrix((
-        v,
+        v.astype(np.float),
         (np.arange(len(v)), col)),
         shape=shape
     )
@@ -121,30 +122,30 @@ def stokes_flow(complex2):
     D2D1 = D12.T
     D1D0 = D01.T
 
-    P1D1 = sparse_diag(complex2.hodge_PD[1])
-    P2D0 = sparse_diag(complex2.hodge_PD[2])
     P0D2 = sparse_diag(complex2.hodge_PD[0])
+    P1D1 = sparse_diag(complex2.hodge_PD[1])
 
     primal = complex2.topology
     boundary = primal.boundary
     dual = primal.dual
+    primal.check_chain()
+    dual.check_chain()
+
     P0, P1, P2 = primal.n_elements
     D0, D1, D2 = dual.n_elements
     B0, B1 = boundary.n_elements
 
-    D2D2_1 = scipy.sparse.eye(D2)
-
     # FIXME: autogen this given system shape
     P2D2_0 = sparse_zeros((P2, D2))
     P1D1_0 = sparse_zeros((P1, D1))
-    D2D0_0 = sparse_zeros((D2, D0))
+    P0D0_0 = sparse_zeros((P0, D0))
     P2D0_0 = sparse_zeros((P2, D0))
 
     S = complex2.topology.dual.selector
 
-    vorticity  = [D2D2_1     , D2D1              , D2D0_0]
-    momentum   = [P1P0 * P0D2, P1D1_0            , D1D0  ]  # P0D2 term primary source of scaling. problem?
-    continuity = [P2D2_0     , P2P1 * P1D1 * S[1], P2D0_0]
+    vorticity  = [P0D2       , P0D2 * D2D1       , P0D0_0       ]
+    momentum   = [P1P0 * P0D2, P1D1_0            , P1D1 * D1D0  ]  # P0D2 term primary source of scaling. problem?
+    continuity = [P2D2_0     , P2P1 * P1D1 * S[1], P2D0_0       ]
 
     # set up boundary equations
     continuity_bc = [sparse_zeros((B0, d)) for d in dual.n_elements[::-1]]
@@ -164,9 +165,9 @@ def stokes_flow(complex2):
         continuity_bc,
     ]
 
-    omega    = np.zeros(D0)
+    omega    = np.zeros(D2)
     velocity = np.zeros(D1)
-    pressure = np.zeros(D2)
+    pressure = np.zeros(D0)
     unknowns = [
         omega,
         velocity,
@@ -177,7 +178,7 @@ def stokes_flow(complex2):
     force     = np.zeros(P1)
     force_bc  = np.zeros(B1)   # set tangent fluxes; all zero
     source    = np.zeros(P2)
-    source_bc = inlet.astype(np.float) - outlet.astype(np.float)  # set opening pressures
+    source_bc = np.zeros(B0) + inlet.astype(np.float) - outlet.astype(np.float)  # set opening pressures
     knowns = [
         vortex,
         force,
@@ -195,7 +196,7 @@ system = stokes_flow(mesh)
 system.print()
 system.plot()
 
-
+# formulate normal equations and solve
 normal = system.normal_equations()
 equations, knowns = normal.concatenate()
 x = scipy.sparse.linalg.minres(equations, knowns, tol=1e-16)[0]    # move into linear system class
@@ -204,7 +205,14 @@ vorticity, flux, pressure = normal.split(x)
 normal.print()
 normal.plot()
 
+# plot result
 tris = mesh.to_simplicial()
 pressure = mesh.topology.dual.selector[2] * pressure
+pressure = mesh.hodge_PD[2] * pressure
 pressure = tris.topology.transfer_operators[2] * pressure
 tris.as_2().plot_primal_2_form(pressure)
+
+vorticity = mesh.topology.dual.selector[0] * vorticity
+vorticity = mesh.hodge_PD[0] * vorticity
+vorticity = tris.topology.transfer_operators[0] * vorticity
+tris.as_2().plot_primal_0_form(vorticity)
