@@ -65,7 +65,7 @@ def concave():
     mesh = mesh.select_subset([1, 1, 1, 0])
 
 
-    for i in range(3):
+    for i in range(4):
         mesh = mesh.subdivide()
         # left = mesh.topology.transfer_matrices[1] * left
         # right = mesh.topology.transfer_matrices[1] * right
@@ -74,6 +74,8 @@ def concave():
     left = edge_position[:, 0] == edge_position[:, 0].min()
     right = edge_position[:, 0] == edge_position[:, 0].max()
 
+    print (left.sum())
+    print (right.sum())
     return mesh, left, right
 
 
@@ -83,7 +85,7 @@ closed = mesh.boundary.topology.chain(1, fill=1)
 closed[np.nonzero(inlet)] = 0
 closed[np.nonzero(outlet)] = 0
 # mesh.plot()
-print(closed)
+print(closed.sum())
 
 
 def chain_matrix(idx, shape, O):
@@ -128,6 +130,7 @@ def stokes_flow(complex2):
     primal = complex2.topology
     boundary = primal.boundary
     dual = primal.dual
+    # make sure our boundary actually makes sense topologically
     primal.check_chain()
     dual.check_chain()
 
@@ -143,7 +146,7 @@ def stokes_flow(complex2):
 
     S = complex2.topology.dual.selector
 
-    vorticity  = [P0D2       , P0D2 * D2D1       , P0D0_0       ]
+    vorticity  = [P0D2       , -P0D2 * D2D1       , P0D0_0       ]
     momentum   = [P1P0 * P0D2, P1D1_0            , P1D1 * D1D0  ]  # P0D2 term primary source of scaling. problem?
     continuity = [P2D2_0     , P2P1 * P1D1 * S[1], P2D0_0       ]
 
@@ -151,7 +154,7 @@ def stokes_flow(complex2):
     continuity_bc = [sparse_zeros((B0, d)) for d in dual.n_elements[::-1]]
     momentum_bc = [sparse_zeros((B1, d)) for d in dual.n_elements[::-1]]
     # set normal flux
-    continuity_bc[1] = q_matrix(closed, boundary.parent_idx[1], continuity_bc[1].shape)
+    continuity_bc[1] = -q_matrix(closed, boundary.parent_idx[1], continuity_bc[1].shape)
     # set opening pressures
     continuity_bc[2] = chain_matrix(inlet + outlet, continuity_bc[2].shape, P2)
     # set tangent flux
@@ -178,7 +181,7 @@ def stokes_flow(complex2):
     force     = np.zeros(P1)
     force_bc  = np.zeros(B1)   # set tangent fluxes; all zero
     source    = np.zeros(P2)
-    source_bc = np.zeros(B0) + inlet.astype(np.float) - outlet.astype(np.float)  # set opening pressures
+    source_bc = np.zeros(B0) - inlet.astype(np.float) + outlet.astype(np.float)  # set opening pressures
     knowns = [
         vortex,
         force,
@@ -194,16 +197,20 @@ system = stokes_flow(mesh)
 
 
 system.print()
-system.plot()
+# system.plot()
 
 # formulate normal equations and solve
 normal = system.normal_equations()
-equations, knowns = normal.concatenate()
-x = scipy.sparse.linalg.minres(equations, knowns, tol=1e-16)[0]    # move into linear system class
-vorticity, flux, pressure = normal.split(x)
 
+# solution, residual = normal.solve_least_squares()
+# solution, residual = normal.solve_minres()
+solution, residual = system.solve_direct()
+
+vorticity, flux, pressure = solution
+print(residual)
+print(pressure)
 normal.print()
-normal.plot()
+# normal.plot()
 
 # plot result
 tris = mesh.to_simplicial()

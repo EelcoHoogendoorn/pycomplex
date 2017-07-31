@@ -102,3 +102,24 @@ class BlockSystem(object):
 
         plt.axis('equal')
         plt.show()
+
+
+    def solve_direct(self):
+        equations, knowns = self.concatenate()
+        x = np.linalg.solve(equations.todense(), knowns)
+        r = equations * x - knowns
+        return self.split(x), r
+
+    def solve_minres(self):
+        equations, knowns = self.concatenate()
+        x = scipy.sparse.linalg.minres(equations, knowns, tol=1e-16)[0]
+        x = scipy.sparse.linalg.minres(equations, knowns, x0=x, tol=1e-16)[0]
+        r = equations * x - knowns
+        return self.split(x), r
+
+    def solve_least_squares(self):
+        equations, knowns = self.concatenate()
+        # x = scipy.sparse.linalg.lsqr(equations, knowns, atol=1e-16, btol=1e-16)[0]
+        x = scipy.sparse.linalg.lsqr(equations, knowns, atol=0, btol=0, conlim=0)[0]
+        r = equations * x - knowns
+        return self.split(x), r
