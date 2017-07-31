@@ -26,6 +26,17 @@ field = perlin_noise([
     (8, 8),
 ])
 
+water_level = 0.42
+field = np.clip(field, water_level, 1)
+# add some bump mapping
+surface = surface.copy(vertices=surface.vertices * (1 + field[:, None] / 5))
+
+R = [
+    [0, 0, -1],
+    [0, 1, 0],
+    [1, 0, 0]
+]
+R = linalg.power(R, 0.1)
 for i in range(100):
-    surface = surface.copy(vertices=np.dot(surface.vertices, linalg.power(linalg.orthonormalize(np.random.randn(3, 3)), 0.2)))
-    surface.as_euclidian().plot_primal_0_form(field, cmap='terrain', vmin=.42, plot_contour=False, shading='gouraud')
+    surface = surface.copy(vertices=np.dot(surface.vertices, R))
+    surface.as_euclidian().plot_primal_0_form(field, cmap='terrain', plot_contour=False, shading='gouraud')

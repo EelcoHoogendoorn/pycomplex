@@ -175,7 +175,10 @@ class BaseTopology(object):
         return npi.all_equal(self.relative_orientation())
 
     def check_chain(self):
-        """Some basic sanity checks on a topology matrix"""
+        """Some basic sanity checks on a topology matrix
+
+        Should this be part of is_oriented check?
+        """
         for i in range(self.n_dim - 2):
             a, b = self.matrices[i], self.matrices[i+1]
             if not (a * b).nnz == 0:

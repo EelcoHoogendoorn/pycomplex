@@ -60,7 +60,7 @@ class Dual(BaseTopology):
         return boundary.n_elements + [0]
     @cached_property
     def d_elements(self):
-        """number of Dual boundary elements"""
+        """number of Dual boundary elements, per primal index"""
         boundary = self.primal.boundary
         return [0] + boundary.n_elements
     @cached_property
@@ -75,7 +75,7 @@ class Dual(BaseTopology):
         Returns
         -------
         list of ints
-            number of elements of each n-dim, primal and dual boundary elements inclusive
+            number of elements of each n-dim, primal and dual boundary elements inclusive, per dual index
         """
         return [p + b for p, b in zip(self.primal.n_elements, self.d_elements)][::-1]
 
@@ -86,123 +86,15 @@ class Dual(BaseTopology):
 
     @cached_property
     def matrices_2(self):
-        """Construct dual topology matrices
-
-        How to determine sign of dual boundary-interior connection?
-        primal boundary elements contribute dual elements shifted to the left
-        in 2d
-        how a dual boundary edge sticks to the dual face seems hard
-        how primal vertex sticks to edges appears not to inform us; two edges anyway
-        dual boundary vertex to dual interior edge has a simple rule;
-        just take open dual edge and ensure its closed
-        dual faces are not closed since boundary of boundary results in two added vertices
-        until i get a better idea; can guess positive orientation
-
-        General structure:
-         0i.0p.0d
-        [d, 0, 0] 1i
-        [d, d, I] 1p
-        [0, 0, b] 1d
-
-         1i.1p.1d
-        [d, 0, 0] 2i
-        [d, d, I] 2p
-        [0, 0, b] 2d
-
-        I-terms obey => b I == I b. find n-1 flips that neutralize n-flips
-        alternatively, make sure sign plays no role
-        that requires that both the interior and boundary are oriented
-        can we adjust 'generate_boundary' such that this holds? think so...
-        yes we can, except for P01; is a special case, just like D01
+        """Construct dual topology matrices stripped of dual boundary topology
+        This leaves us at liberty to construct custom boundary conditions
 
         Returns
         -------
         array_like, [n_dim], sparse matrix
         """
 
-        def close_topology(T, idx_p, idx_P, i):
-            """Dual topology constructed by closing partially formed dual elements
-            """
-            # FIXME: orientation of the closing elements is still failing hard
-            # PNn/D01 case is simple; add opposing sign.
-            # for subsequent operators, only care that product zeros out. can we use this?
-            # and how important are subsequent operators, really?
-
-            # T.shape = [P, p], or [d, D]
-            if i == 1:
-                q = T.sum(axis=0)  # sum over all dual vertices / primal faces per edge; shape [d_edges]
-                orientation = np.asarray(q[0, idx_p]).flatten()
-            else:
-                orientation = -np.ones_like(idx_p, dtype=sign_dtype)
-
-            q = np.arange(len(idx_p), dtype=index_dtype)
-            # orientation = T[idx_n][:, q]
-
-            I = scipy.sparse.coo_matrix(
-                (orientation,
-                 (q, idx_p)),
-                shape=(len(idx_p), T.shape[1])
-            )
-
-            blocks = [
-                [T],
-                [-I]
-            ]
-            return scipy.sparse.bmat(blocks)
-
-        boundary = self.primal.boundary
-
-        P = self.primal.matrices
-        p_idx = boundary.parent_idx
-
-        if False:
-            # attempted special case logic for 2d case
-            P01, P12 = P
-            D01 = P12.T # D01 has shape [d_vertices, d_edges]
-            q = D01.sum(axis=0)  # sum over all dual vertices / primal faces per edge; shape [d_edges]
-            orientation = np.asarray(q[0, p_idx[1]]).flatten()
-            q = np.arange(len(p_idx[1]), dtype=index_dtype)
-            # add a closing vertex for each dual edge
-            I = scipy.sparse.coo_matrix((orientation * -1, (q, p_idx[1])), shape=(len(q), D01.shape[1]))
-            D01 = scipy.sparse.bmat([[D01], [I]]) # add dual vertices to close the edges
-            q = D01.sum(axis=0)     # sum over all dual vertices / primal faces per edge; shape [d_edges]
-            assert np.all(q==0)     # check that all edges are indeed closed
-
-            # hmm; if we want to be truly closed, we need the dual boundary element block in D01
-            # what are the implications of this? is an interaction term between 0 and 2 forms truly sound?
-            D02 = D01 * P01.T
-
-            import matplotlib.pyplot as plt
-            # plt.scatter(z.row, z.col, z.data)
-            plt.imshow(D02.todense(), cmap='bwr')
-            plt.show()
-
-
-            D12 = P01.T
-
-            # interior_edges = 1 - self.primal.chain(1, fill=p_idx[1])
-            # q = P01[p_idx[0], :][:, interior_edges.astype(np.bool)]
-            # orientation = np.asarray(q).flatten()
-
-            q = np.arange(len(p_idx[0]), dtype=index_dtype)
-            # add a closing egde for each dual face
-            I = scipy.sparse.coo_matrix((orientation * -1, (q, p_idx[0])), shape=(len(q), D12.shape[1]))
-
-            D12 = scipy.sparse.bmat([[D12], [I]]) # add dual edges to close the faces
-
-
-            q = D12.sum(axis=0)     # sum over all dual vertices / primal faces per edge; shape [d_edges]
-
-            q = np.arange(len(p_idx[0]), dtype=index_dtype)
-            I = scipy.sparse.coo_matrix((orientation * -1, (q, p_idx[0])), shape=(len(q), D12.shape[1]))
-            D12 = scipy.sparse.vstack([D12, I]) # add dual vertices to close the edges
-
-            q = D12.sum(axis=0)     # sum over all edges per dual face; shape [d_faces]
-
-            return [D01, D12]
-
-        return [close_topology(t.T, b, b2, i)
-                for i, (t, b, b2) in enumerate(zip(P, p_idx, p_idx[1:]+[None]))][::-1]
+        return [m * s.T for m, s in zip(self.matrices, self.selector[::-1][1:])]
 
     @cached_property
     def selector(self):
@@ -211,7 +103,7 @@ class Dual(BaseTopology):
         def s(np, nd):
             return scipy.sparse.eye(np, nd)
 
-        return [s(np, nd) for np, nd in zip(self.primal.n_elements, self.n_elements)]
+        return [s(np, nd) for np, nd in zip(self.primal.n_elements, self.n_elements[::-1])]
 
     @cached_property
     def matrices(self):
@@ -219,7 +111,8 @@ class Dual(BaseTopology):
 
         Returns
         -------
-        list of dual topology matrices
+        list of dual topology matrices, len self.n_dim
+            the chain complex defining the dual topology
 
         Notes
         -----

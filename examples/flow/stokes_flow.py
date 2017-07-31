@@ -87,7 +87,7 @@ def stokes_flow(complex2):
 
     # grab the chain complex
     P01, P12 = complex2.topology.matrices
-    D01, D12 = complex2.topology.dual.matrices
+    D01, D12 = complex2.topology.dual.matrices_2
 
     P2P1 = P12.T
     P1P0 = P01.T
