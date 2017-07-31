@@ -167,7 +167,7 @@ class Dual(BaseTopology):
     def __getitem__(self, item):
         """Given that the topology matrices are really the thing of interest of our dual object,
         we make them easily accessible"""
-        return self.matrix[item]
+        return self.matrices[item]
 
     def form(self, n):
         """allocate a dual n-form. This is a block-vector"""

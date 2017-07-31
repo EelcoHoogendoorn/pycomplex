@@ -61,7 +61,7 @@ class BlockSystem(object):
 
     def concatenate(self):
         """Concatenate blocks into single system"""
-        return scipy.sparse.bmat(self.equations)
+        return scipy.sparse.bmat(self.equations), scipy.hstack(self.knowns)
 
     def split(self, x):
         """Split concatted vector into blocks
@@ -71,7 +71,8 @@ class BlockSystem(object):
         x : ndarray, [n_cols], float
 
         """
-        raise NotImplementedError
+        splits = [0] + list(np.cumsum(self.cols))
+        return [x[s:e] for s, e in zip(splits[:-1], splits[1:])]
 
     def print(self):
         for i in range(self.equations.shape[0]):
@@ -83,7 +84,7 @@ class BlockSystem(object):
 
     def plot(self, dense=True):
         import matplotlib.pyplot as plt
-        S = self.concatenate()
+        S, _ = self.concatenate()
         if not dense:
             s = S.tocoo()
             plt.scatter(S.col, S.row, c=S.data, cmap='seismic', vmin=-4, vmax=+4)

@@ -64,13 +64,40 @@ def concave():
     # discard a corner
     mesh = mesh.select_subset([1, 1, 1, 0])
 
-    for i in range(2):
+
+    for i in range(4):
         mesh = mesh.subdivide()
-    return mesh
+        # left = mesh.topology.transfer_matrices[1] * left
+        # right = mesh.topology.transfer_matrices[1] * right
+
+    edge_position = mesh.boundary.primal_position[1]
+    left = edge_position[:, 0] == edge_position[:, 0].min()
+    right = edge_position[:, 0] == edge_position[:, 0].max()
+
+    return mesh, left, right
 
 
-mesh = concave()
+mesh, inlet, outlet = concave()
+closed = mesh.boundary.topology.chain(1, fill=1)
+closed[np.nonzero(inlet)] = 0
+closed[np.nonzero(outlet)] = 0
 # mesh.plot()
+print(closed)
+
+
+def chain_matrix(idx, shape, O):
+    return scipy.sparse.csr_matrix((
+        idx,
+        (np.arange(len(idx)), np.arange(len(idx)) + O)),
+        shape=shape
+    )
+
+def q_matrix(v, col, shape):
+    return scipy.sparse.coo_matrix((
+        v,
+        (np.arange(len(v)), col)),
+        shape=shape
+    )
 
 
 def stokes_flow(complex2):
@@ -98,11 +125,16 @@ def stokes_flow(complex2):
     P2D0 = sparse_diag(complex2.hodge_PD[2])
     P0D2 = sparse_diag(complex2.hodge_PD[0])
 
-    P0, P1, P2 = complex2.topology.n_elements
-    D0, D1, D2 = complex2.topology.dual.n_elements
+    primal = complex2.topology
+    boundary = primal.boundary
+    dual = primal.dual
+    P0, P1, P2 = primal.n_elements
+    D0, D1, D2 = dual.n_elements
+    B0, B1 = boundary.n_elements
 
-    D2D2_1 = scipy.sparse.eye(complex2.topology.dual.n_elements[2])
+    D2D2_1 = scipy.sparse.eye(D2)
 
+    # FIXME: autogen this given system shape
     P2D2_0 = sparse_zeros((P2, D2))
     P1D1_0 = sparse_zeros((P1, D1))
     D2D0_0 = sparse_zeros((D2, D0))
@@ -110,13 +142,26 @@ def stokes_flow(complex2):
 
     S = complex2.topology.dual.selector
 
-    vorticity  = [-D2D2_1    , D2D1              , D2D0_0]
-    momentum   = [P1P0 * P0D2, P1D1_0            , D1D0  ]  # P0D2 term primary source of scaling
+    vorticity  = [D2D2_1     , D2D1              , D2D0_0]
+    momentum   = [P1P0 * P0D2, P1D1_0            , D1D0  ]  # P0D2 term primary source of scaling. problem?
     continuity = [P2D2_0     , P2P1 * P1D1 * S[1], P2D0_0]
+
+    # set up boundary equations
+    continuity_bc = [sparse_zeros((B0, d)) for d in dual.n_elements[::-1]]
+    momentum_bc = [sparse_zeros((B1, d)) for d in dual.n_elements[::-1]]
+    # set normal flux
+    continuity_bc[1] = q_matrix(closed, boundary.parent_idx[1], continuity_bc[1].shape)
+    # set opening pressures
+    continuity_bc[2] = chain_matrix(inlet + outlet, continuity_bc[2].shape, P2)
+    # set tangent flux
+    momentum_bc[1] = chain_matrix(inlet + outlet + closed, momentum_bc[1].shape, P1)
+
     equations = [
         vorticity,
         momentum,
-        continuity
+        momentum_bc,
+        continuity,
+        continuity_bc,
     ]
 
     omega    = np.zeros(D0)
@@ -128,13 +173,17 @@ def stokes_flow(complex2):
         pressure
     ]
 
-    vortex = np.zeros(P0)
-    force  = np.zeros(P1)
-    source = np.zeros(P2)
+    vortex    = np.zeros(P0)
+    force     = np.zeros(P1)
+    force_bc  = np.zeros(B1)   # set tangent fluxes; all zero
+    source    = np.zeros(P2)
+    source_bc = inlet.astype(np.float) - outlet.astype(np.float)  # set opening pressures
     knowns = [
         vortex,
         force,
+        force_bc,
         source,
+        source_bc,
     ]
 
     system = BlockSystem(equations=equations, knowns=knowns, unknowns=unknowns)
@@ -142,10 +191,20 @@ def stokes_flow(complex2):
 
 system = stokes_flow(mesh)
 
+
 system.print()
-# now add bc's; pressure difference over manifold, for instance
 system.plot()
 
-N = system.normal_equations()
-N.print()
-N.plot()
+
+normal = system.normal_equations()
+equations, knowns = normal.concatenate()
+x = scipy.sparse.linalg.minres(equations, knowns, tol=1e-16)[0]    # move into linear system class
+vorticity, flux, pressure = normal.split(x)
+
+normal.print()
+normal.plot()
+
+tris = mesh.to_simplicial()
+pressure = mesh.topology.dual.selector[2] * pressure
+pressure = tris.topology.transfer_operators[2] * pressure
+tris.as_2().plot_primal_2_form(pressure)

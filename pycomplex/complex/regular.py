@@ -32,9 +32,10 @@ class ComplexRegular1(ComplexCubical1Euclidian1):
         topology = self.topology
         PP = self.primal_position
 
-        #metrics
         PN = topology.n_elements
         DN = PN[::-1]
+
+        #metrics
         PM = [np.zeros(n) for n in PN]
         PM[0][...] = 1
         DM = [np.zeros(n) for n in DN]
@@ -42,8 +43,7 @@ class ComplexRegular1(ComplexCubical1Euclidian1):
 
         # precomputations
         E10  = topology.incidence[1, 0].reshape(-1, 2)  # [edges, v2]          vertex indices per edge
-
-        PP10  = PP[0][E10]                 # [edges, v2, c1]
+        PP10  = PP[0][E10]                 # [edges, v2]
 
         # calc edge lengths
         PM[1] += regular.edge_length(PP10[:, 0, :], PP10[:, 1, :])
@@ -96,9 +96,10 @@ class ComplexRegular2(ComplexCubical2Euclidian2):
         topology = self.topology
         PP = self.primal_position
 
-        #metrics
         PN = topology.n_elements
         DN = PN[::-1]
+
+        # metrics
         PM = [np.zeros(n) for n in PN]
         PM[0][...] = 1
         DM = [np.zeros(n) for n in DN]
