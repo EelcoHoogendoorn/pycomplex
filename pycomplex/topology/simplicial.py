@@ -10,7 +10,7 @@ from pycomplex.topology.primal import *
 
 
 def generate_simplex_boundary(simplices):
-    """
+    """Generate a full set of oriented boundary simplices for each input simplex
 
     Parameters
     ----------
@@ -18,22 +18,24 @@ def generate_simplex_boundary(simplices):
 
     Returns
     -------
-    parity : ndarray, [n_corners], sign_dtype
     boundary : ndarray, [n_simplices, n_corners, n_dim], index_dtype
+        for each simplex, an oriented boundary of simplices is generated
 
     Notes
     -----
-    Only in uneven ndim is a roll not a parity change!
+    If a roll represents a parity change depends on even-ness of n-dim!
 
     """
     n_simplices, n_corners = simplices.shape
     n_dim = n_corners - 1
-    parity = np.ones(n_corners, dtype=sign_dtype) * (n_dim % 2)
+    assert n_dim > 0
+
     b = np.empty((n_simplices, n_corners, n_dim), dtype=simplices.dtype)
     for c in range(n_corners):
         b[:, c] = np.roll(simplices, -c, axis=-1)[:, 1:]
-        parity[c] *= c % 2
-    return parity, b
+        if c % 2 and n_dim % 2:
+            b[:, c, [0, 1]] = b[:, c, [1, 0]]   # change the parity by swapping two vertices
+    return b
 
 
 @lru_cache()
@@ -110,16 +112,16 @@ class TopologySimplicial(PrimalTopology):
             b_corners = n_corners - 1
 
             if n_dim == 1:
-                # FIXME: does this special case add much at all?
-                EnN = EN0
+                # This can be simpler and faster than the general case, but
+                # parity of edges is indeed a genuine special case, as is connectivity of dual edges
+                # since we cannot signal boundary orientation by permutations here
+                ENn = EN0
                 En0 = np.unique(EN0).reshape(-1, 1)
-                EnN = EnN.reshape((n_simplices,) + (n_dim, 2))
-                parity = np.zeros_like(EnN)
-                parity = np.logical_xor(parity, [[[0, 1]]])
-                orientation = parity * 2 - 1
-                return En0.astype(index_dtype), EnN.astype(index_dtype), orientation.astype(sign_dtype)
+                parity = np.zeros_like(ENn)
+                parity[:, 1] = 1
+                return En0.astype(index_dtype), ENn.astype(index_dtype), parity_to_orientation(parity)
 
-            b_parity, full_boundary = generate_simplex_boundary(EN0)
+            full_boundary = generate_simplex_boundary(EN0)
             boundary_corners = full_boundary.reshape(n_simplices * n_corners, b_corners)
             sorted_boundary_corners, permutation = sort_and_argsort(boundary_corners, axis=1)
             permutation = permutation.astype(sign_dtype)
@@ -142,10 +144,8 @@ class TopologySimplicial(PrimalTopology):
             relative_parity = relative_simplex_parity(relative_permutation)
 
             parity = relative_parity.reshape(ENn.shape)
-            parity = np.logical_xor(b_parity[None, :], parity)
 
-            orientation = parity * 2 - 1
-            return En0, ENn, orientation.astype(sign_dtype)
+            return En0, ENn, parity_to_orientation(parity)
 
 
         n_simplices, n_pts = EN0.shape

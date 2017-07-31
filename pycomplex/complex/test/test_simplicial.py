@@ -35,19 +35,19 @@ def test_sphere():
 
 
 def test_n_simplex():
-    for n_dim in [2, 3, 4, 5]:
+    for n_dim in [2, 3, 4, 5, 6, 7]:
         simplex = synthetic.n_simplex(n_dim)
         simplex.vertices = np.dot(simplex.vertices, linalg.orthonormalize(np.random.randn(n_dim, n_dim)))
 
         assert simplex.topology.is_oriented
         assert simplex.topology.is_connected
+        assert not simplex.topology.is_closed
         assert simplex.topology.boundary.is_connected
         assert simplex.topology.boundary.is_oriented
         assert simplex.topology.boundary.is_closed
 
         simplex.plot(plot_dual=True)
 
-test_n_simplex()
 
 def test_subdivided_triangle():
     tri = synthetic.n_simplex(2).as_2().as_2()

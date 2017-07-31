@@ -7,6 +7,14 @@ from pycomplex.topology import index_dtype, sign_dtype, topology_matrix
 from pycomplex.topology.base import BaseTopology
 
 
+def parity_to_orientation(parity):
+    return ((parity * 2) - 1).astype(sign_dtype)
+
+
+def orientation_to_parity(parity):
+    return parity < 0
+
+
 def indices(shape, dtype):
     """mem-efficient version of np.indices"""
     n_dim = len(shape)

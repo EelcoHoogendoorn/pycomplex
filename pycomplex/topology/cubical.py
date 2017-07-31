@@ -5,7 +5,7 @@ import numpy_indexed as npi
 
 import pycomplex.math.combinatorial
 from pycomplex.topology import index_dtype, sign_dtype, transfer_matrix
-from pycomplex.topology.primal import PrimalTopology, relative_permutations, sort_and_argsort
+from pycomplex.topology.primal import *
 
 
 def generate_cube_boundary(cubes, degree=1):
@@ -50,6 +50,7 @@ def generate_cube_boundary(cubes, degree=1):
         boundary[:, i] = s_view
 
     parity = np.logical_xor(np.array(axes_parity)[:, None] * 0, [[0, 1]])
+    # NOTE: get it now; cant flip one half of the cube!
     # boundary[:, :, 0] = np.flip(boundary[:, :, 0], axis=-1)
 
     return parity.astype(sign_dtype), boundary
@@ -62,6 +63,10 @@ def permutation_map(n_dim, rotations=True):
     Parameters
     ----------
     n_dim : int
+    rotations : bool
+        if False, only mirror symmetries are included in the map, and rotated cubes will not be recognized as valid cubes
+        This will make a huge efficiency difference for high dimensional regular grids, that will not contain
+        any rotations anyway
 
     Returns
     -------
@@ -153,13 +158,6 @@ class TopologyCubical(PrimalTopology):
         -------
         TopologyCubical
 
-        Notes
-        -----
-        The general case is quite a pain, but the actual use cases of subdivision surfaces
-        and regular topologies are infact quite a lot simpler
-        Everything relating to relative_parity and permutation is unnecessary for regular topologies
-        Everything relating to orientation is unnecessary for subdivision surfaces
-
         """
         def lower(EN0):
             """Construct n-1 boundary"""
@@ -169,15 +167,14 @@ class TopologyCubical(PrimalTopology):
             b_shape = (2,) * b_dim
             b_corners = 2 ** b_dim
 
-            if b_dim == 0:
-                # special case for E10, for performance
+            if n_dim == 1:
+                # special case for E10
                 EnN = EN0
                 En0 = np.unique(EN0)
-                EnN = EnN.reshape((n_elements,) + (n_dim, 2))
+                EnN = EnN.reshape((n_elements, n_dim, 2))
                 parity = np.zeros_like(EnN)
-                parity = np.logical_xor(parity, [[[0, 1]]])
-                orientation = parity * 2 - 1
-                return En0.astype(index_dtype), EnN.astype(index_dtype), orientation.astype(sign_dtype)
+                parity[..., 1] = 1
+                return En0.astype(index_dtype), EnN.astype(index_dtype), parity_to_orientation(parity)
 
             # generate boundary elements
             axes_parity, En0_all = generate_cube_boundary(EN0, degree=1)
@@ -192,7 +189,7 @@ class TopologyCubical(PrimalTopology):
 
             # boundary operator is always the same simple matter
             EnN = index.inverse
-            EnN = EnN.reshape((n_elements,) + (n_dim, 2))   # retain some structure in boundary operator
+            EnN = EnN.reshape((n_elements, n_dim, 2))   # retain some structure in boundary operator
 
             # pick one element from each group of corner-identical elements as reference;
             # note: this takes first; need not be canonical in any sense!
@@ -208,10 +205,8 @@ class TopologyCubical(PrimalTopology):
             # set up parity
             parity = relative_parity.reshape(EnN.shape)     # parity relative to canonical boundary element
             parity = np.logical_xor(parity, axes_parity)    # parity relative to parent element
-            # map parity to orientation
-            orientation = parity * 2 - 1
 
-            return En0.astype(index_dtype), EnN.astype(index_dtype), orientation.astype(sign_dtype)
+            return En0.astype(index_dtype), EnN.astype(index_dtype), parity_to_orientation(parity)
 
         EN0 = np.asarray(cubes)
         n_dim = EN0.ndim - 1

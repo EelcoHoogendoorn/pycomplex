@@ -9,7 +9,6 @@ from pycomplex.topology.test.test_base import basic_test
 
 
 def test_permutation_map():
-
     for n in [3]:
         parity, permutation = permutation_map(n)
         print(parity)

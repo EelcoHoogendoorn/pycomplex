@@ -202,7 +202,7 @@ class ComplexTriangularEuclidian2(ComplexTriangular):
         plt.axis('equal')
         plt.show()
 
-    def plot_primal_2_form(self, p2):
+    def plot_primal_2_form(self, p2, cmap='jet'):
         """plot a primal 2-form
 
         Parameters
@@ -211,13 +211,12 @@ class ComplexTriangularEuclidian2(ComplexTriangular):
             a primal 0-form
 
         """
-        # FIXME: add color mapping, including banded stripes
         import matplotlib.pyplot as plt
         from matplotlib.collections import PolyCollection
         from matplotlib.cm import ScalarMappable
 
         fig, ax = plt.subplots(1, 1)
-        cmap = plt.get_cmap('jet')
+        cmap = plt.get_cmap(cmap)
         facecolors = ScalarMappable(cmap=cmap).to_rgba(p2)
         ax.add_collection(PolyCollection(self.vertices[self.topology.triangles], facecolors=facecolors, edgecolors=None))
 

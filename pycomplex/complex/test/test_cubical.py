@@ -116,12 +116,10 @@ def test_product_2_1():
 
 
 def test_n_cube():
-    for n_dim in [2, 3, 4, 5]:
+    for n_dim in [2, 3, 4, 5, 6]:
         cube = n_cube(n_dim)
         assert cube.topology.is_oriented
         assert cube.boundary.topology.is_oriented
         np.random.seed(1)
         cube.vertices = np.dot(cube.vertices, linalg.orthonormalize(np.random.randn(n_dim, n_dim)))
         cube.plot(plot_dual=True)
-
-test_n_cube()
