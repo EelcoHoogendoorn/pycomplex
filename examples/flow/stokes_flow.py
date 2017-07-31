@@ -70,21 +70,7 @@ def concave():
 
 
 mesh = concave()
-mesh.metric()
-
-
-def debug_harmonics():
-    """test that our grid works"""
-    from examples.harmonics import get_harmonics_2
-    from examples.harmonics import get_harmonics_0
-    v = get_harmonics_2(mesh)
-    q = mesh.to_simplicial_transfer_2(v[:, -10])
-    mesh.to_simplicial().as_2().plot_primal_2_form(q)
-
-    v = get_harmonics_0(mesh)
-    print(v[:, 5])
-    q = mesh.to_simplicial_transfer_0(v[:, 7])
-    mesh.to_simplicial().as_2().plot_primal_0_form(q)
+# mesh.plot()
 
 
 def stokes_flow(complex2):
@@ -108,9 +94,9 @@ def stokes_flow(complex2):
     D2D1 = D12.T
     D1D0 = D01.T
 
-    P1D1 = sparse_diag(complex2.P1D1)
-    P2D0 = sparse_diag(complex2.P2D0)
-    P0D2 = sparse_diag(complex2.P0D2)
+    P1D1 = sparse_diag(complex2.hodge_PD[1])
+    P2D0 = sparse_diag(complex2.hodge_PD[2])
+    P0D2 = sparse_diag(complex2.hodge_PD[0])
 
     P0, P1, P2 = complex2.topology.n_elements
     D0, D1, D2 = complex2.topology.dual.n_elements

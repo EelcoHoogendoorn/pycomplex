@@ -85,7 +85,7 @@ class Dual(BaseTopology):
         raise NotImplementedError
 
     @cached_property
-    def matrices(self):
+    def matrices_2(self):
         """Construct dual topology matrices
 
         How to determine sign of dual boundary-interior connection?
@@ -214,7 +214,7 @@ class Dual(BaseTopology):
         return [s(np, nd) for np, nd in zip(self.primal.n_elements, self.n_elements)]
 
     @cached_property
-    def matrix(self):
+    def matrices(self):
         """Construct dual topology matrices
 
         Returns
@@ -223,7 +223,8 @@ class Dual(BaseTopology):
 
         Notes
         -----
-        This version attaches the dual boundary information; it is not clear that we actually need this anywhere
+        This version attaches the dual boundary information; the dual chain will thus be closed
+        Note that this requires that both the primal and its boundary are oriented
         """
         def dual_T(T, B, idx):
             """Compose dual topology matrix in presence of boundaries
@@ -231,13 +232,9 @@ class Dual(BaseTopology):
             FIXME: make block structure persistent? would be more self-documenting to vectors
             also would be cleaner to split primal topology in interior/boundary blocks first
 
-            To what extent do we care about relations between dual boundary elements?
-            only really care about the caps to close the dual; interrelations appear irrelevant as far as i can tell so far
-
-            However, may play an important part in constructing the connection?
             """
 
-            orientation = np.ones_like(idx) # FIXME: this is obviously nonsense; need to work out signs
+            orientation = -np.ones_like(idx)
 
             I = scipy.sparse.coo_matrix(
                 (orientation,
@@ -252,7 +249,7 @@ class Dual(BaseTopology):
             else:
                 blocks = [
                     [T, None],
-                    [I, B]      # its far from obvious any application actually needs this term...
+                    [I, -B]      # its far from obvious any application actually needs this term...
                 ]
             return (blocks)
 
@@ -271,10 +268,6 @@ class Dual(BaseTopology):
                     boundary.parent_idx[::-1][d]
                 )
             )
-
-        for i in range(len(CBT)):
-            # patch up connection signs
-            pass
 
         return [scipy.sparse.bmat(t) for t in CBT]
 

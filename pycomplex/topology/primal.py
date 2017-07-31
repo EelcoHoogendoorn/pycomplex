@@ -177,9 +177,13 @@ class PrimalTopology(BaseTopology):
     def dual(self):
         """Return dual topology object, that closes all boundaries"""
         from pycomplex.topology.dual import Dual, ClosedDual
+        if not self.is_oriented:
+            raise ValueError('Dual of non-oriented manifold is not supported')
         if self.is_closed:
             return ClosedDual(self)
         else:
+            if not self.boundary.is_oriented:
+                raise ValueError('Dual of non-oriented boundary is not supported')
             return Dual(self)
 
     def find_correspondence(self, other, mapping):
@@ -254,12 +258,12 @@ class PrimalTopology(BaseTopology):
         # construct boundary
         elements = self.elements[-2][b_idx]
 
-        # flip the elements around depending on the sign of the boundary chain
-        # not sure if this is desirable, but results in an oriented boundary
-        orientation = chain_n[b_idx]
-        shape = np.asarray(elements.shape)
-        shape[1:] = 1
-        elements = np.where(orientation.reshape(shape) == 1, elements, elements[:, ::-1])
+        # # flip the elements around depending on the sign of the boundary chain
+        # # not sure if this is desirable, but results in an oriented boundary
+        # orientation = chain_n[b_idx]
+        # shape = np.asarray(elements.shape)
+        # shape[1:] = 1
+        # elements = np.where(orientation.reshape(shape) == 1, elements, elements[:, ::-1])
 
         mapping, inverse = np.unique(elements.flatten(), return_inverse=True)
         elements = inverse.reshape(elements.shape).astype(index_dtype)

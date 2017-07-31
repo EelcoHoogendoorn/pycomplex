@@ -2,15 +2,14 @@ import numpy as np
 import numpy.testing as npt
 import pytest
 
-from pycomplex.synthetic import n_cube, n_cube_grid
+from pycomplex import synthetic
 from pycomplex.topology.cubical import *
 from pycomplex.topology.test.test_base import basic_test
-from pycomplex.math import linalg
 
 
 def test_generate_boundary():
     n_dim = 3
-    cube = n_cube(n_dim)
+    cube = synthetic.n_cube(n_dim)
     cubes = cube.topology.elements[-1]
     for d in range(3):
         b = generate_cube_boundary(cubes, degree=d)
@@ -29,7 +28,7 @@ def test_permutation_map():
 
 def test_cube_parity():
     for n in [1, 2, 3]:
-        cubes = n_cube(n).topology.elements[-1]
+        cubes = synthetic.n_cube(n).topology.elements[-1]
         npt.assert_array_equal(relative_cube_parity(cubes), [0])
 
 
@@ -45,7 +44,7 @@ def test_cube():
         print()
         print(n_dim)
         print()
-        cube = n_cube(n_dim)
+        cube = synthetic.n_cube(n_dim)
         basic_test(cube.topology)
 
 
@@ -82,18 +81,13 @@ def test_quads():
 
 def test_product():
     """Test product topology functionality"""
-    quad = n_cube(2)
-    line = n_cube(1)
+    quad = synthetic.n_cube(2)
+    line = synthetic.n_cube(1)
     c = quad.product(line)
 
 
 def test_to_simplicial():
     """Check that mapping cubical to simplicial retains orientation"""
-    n_dim = 3
-    cube = n_cube(n_dim).boundary
-    # assert not cube.topology.is_oriented
-    # assert not cube.as_23().to_simplicial().topology.is_oriented
-    # cube.topology = cube.topology.fix_orientation()
+    cube = synthetic.n_cube(3).boundary
     assert cube.topology.is_oriented
     assert cube.as_23().to_simplicial().topology.is_oriented
-

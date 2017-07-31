@@ -11,16 +11,12 @@ from examples.diffusion.explicit import Diffusor
 diffusor = Diffusor(surface)
 
 def perlin_noise(octaves):
-    total = 0
-    for s,a in octaves:
-        field = np.random.rand(surface.topology.n_elements[0])
-        field = diffusor.integrate_explicit_sigma(field, s)
-        field -= field.min()
-        field /= field.max()
-        total = total + field ** 1.5 * a
-    total -= total.min()
-    total /= total.max()
-    return total
+    def normalize(x):
+        x -= x.min()
+        return x / x.max()
+    def level(s, a):
+        return normalize(diffusor.integrate_explicit_sigma(np.random.rand(surface.topology.n_elements[0]), s)) ** 1.5 * a
+    return normalize(sum(level(*o) for o in octaves))
 
 field = perlin_noise([
     (.5, .5),

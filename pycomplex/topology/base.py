@@ -147,6 +147,9 @@ class BaseTopology(object):
         ValueError
             if the topology is not orientable
         """
+        if self.n_dim == 0:
+            return np.ones_like(self.elements[0], dtype=np.bool)
+
         inc = self.matrix(-1)
 
         # filter out relevant edges
@@ -175,7 +178,7 @@ class BaseTopology(object):
         """Some basic sanity checks on a topology matrix"""
         for i in range(self.n_dim - 2):
             a, b = self.matrices[i], self.matrices[i+1]
-            if not (a * b).nnz() == 0:
+            if not (a * b).nnz == 0:
                 raise ValueError(f'chain [{i}, {i+1}] to [{i+1}, {i+2}] does not match')
 
 

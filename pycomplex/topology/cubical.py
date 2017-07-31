@@ -164,6 +164,7 @@ class TopologyCubical(PrimalTopology):
             n_elements = EN0.shape[0]
             b_shape = (2,) * b_dim
             b_corners = 2 ** b_dim
+            print(b_dim)
 
             if n_dim == 1:
                 # special case for E10
@@ -217,7 +218,10 @@ class TopologyCubical(PrimalTopology):
         B = [None] * n_dim
         O = [None] * n_dim
 
+
         while True:
+            if n_dim == 0:
+                break
             EN0, ENn, ONn = lower(EN0)
 
             n_dim = EN0.ndim - 1
@@ -227,8 +231,6 @@ class TopologyCubical(PrimalTopology):
             O[N] = ONn
             B[N] = ENn
 
-            if N == 0:
-                break
 
         return cls(elements=E, boundary=B, orientation=O)
 
