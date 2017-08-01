@@ -186,7 +186,6 @@ class ComplexTriangularEuclidian2(ComplexTriangular):
             a primal 0-form
 
         """
-        # FIXME: add color mapping, including banded stripes
         import matplotlib.pyplot as plt
         import matplotlib.tri as tri
 
@@ -195,8 +194,9 @@ class ComplexTriangularEuclidian2(ComplexTriangular):
         fig, ax = plt.subplots(1, 1)
 
         if plot_contour:
-            plt.tricontourf(triang, c0, cmap=cmap)
-            plt.tricontour(triang, c0, colors='k')
+            levels = np.linspace(c0.min(), c0.max(), 20, endpoint=True)
+            plt.tricontourf(triang, c0, cmap=cmap, levels=levels)
+            plt.tricontour(triang, c0, colors='k', levels=levels)
         else:
             plt.tripcolor(triang, c0, cmap=cmap, **kwargs)
 

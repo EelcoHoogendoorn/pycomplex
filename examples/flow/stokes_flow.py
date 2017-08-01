@@ -67,8 +67,7 @@ def concave():
     # discard a corner
     mesh = mesh.select_subset([1, 1, 1, 0])
 
-
-    for i in range(4):  # subdiv 5 is already pushing our solvers...
+    for i in range(3):  # subdiv 5 is already pushing our solvers...
         mesh = mesh.subdivide()
         # left = mesh.topology.transfer_matrices[1] * left
         # right = mesh.topology.transfer_matrices[1] * right
@@ -213,12 +212,19 @@ vorticity, flux, pressure = solution
 # normal.print()
 # normal.plot()
 
+
 # plot result
 tris = mesh.to_simplicial()
 pressure = mesh.topology.dual.selector[2] * pressure
 pressure = mesh.hodge_PD[2] * pressure
 pressure = tris.topology.transfer_operators[2] * pressure
 tris.as_2().plot_primal_2_form(pressure)
+
+from examples.flow.stream import stream
+primal_flux = mesh.hodge_PD[1] * (mesh.topology.dual.selector[1] * flux)
+phi = stream(mesh, primal_flux)
+phi = tris.topology.transfer_operators[0] * phi
+tris.as_2().plot_primal_0_form(phi, cmap='jet', plot_contour=True)
 
 vorticity = mesh.topology.dual.selector[0] * vorticity
 vorticity = mesh.hodge_PD[0] * vorticity
