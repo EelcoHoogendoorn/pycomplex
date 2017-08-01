@@ -54,12 +54,12 @@ class BaseComplex(object):
 
     @cached_property
     def boundary(self):
-        B = self.topology.boundary
-        if B is None:
+        boundary = self.topology.boundary
+        if boundary is None:
             return None
         else:
             # FIXME: type self should be boundary_type
-            return type(self)(vertices=self.vertices[B.parent_idx[0]], topology=B)
+            return type(self)(vertices=self.vertices[boundary.parent_idx[0]], topology=boundary)
 
     def fix_orientation(self):
         return self.copy(topology=self.topology.fix_orientation())

@@ -257,18 +257,8 @@ class PrimalTopology(BaseTopology):
         if len(b_idx) == 0:
             # topology is closed
             return None
+
         # construct boundary
-
-        # B_idx = [b_idx]
-        # for b in self._boundary[:-1][::-1]:
-        #     q = B_idx[-1]
-        #     a = b[q]
-        #     B_idx.append(a)
-        #
-        # E = [e[i] for e, i in zip(self.elements, B_idx)]
-        # O = [o[i] for o, i in zip(self._orientation, B_idx[1:])]
-        # B = [b[i] for b, i in zip(self._orientation, B_idx[1:])]
-
         boundary_elements = self.elements[-2][b_idx]
 
         # # flip the elements around depending on the sign of the boundary chain

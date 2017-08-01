@@ -146,7 +146,7 @@ if True:
     form = rd.state[0]
     if True:
         tris = mesh.to_simplicial()
-        tris.as_2().plot_primal_0_form(tris.topology.transfer_operators[0] * form, plot_contour=False)
+        tris.as_2().plot_primal_0_form(tris.topology.transfer_operators[0] * form, plot_contour=False, cmap='jet')
     mu = form[mesh.topology.elements[1]].mean(axis=1)   # map vertices to edges
     mu -= mu.min()
     mu /= mu.max()

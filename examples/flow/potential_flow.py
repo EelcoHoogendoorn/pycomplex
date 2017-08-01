@@ -65,17 +65,18 @@ least energetic / smoothest field
 
 """
 
-
 import numpy as np
 import scipy.sparse
-from examples.linear_system import *
+
 from pycomplex.topology import sign_dtype
+from examples.linear_system import *
 
 
 def grid(shape):
     from pycomplex import synthetic
     mesh = synthetic.n_cube_grid(shape)
     return mesh.as_22().as_regular()
+
 
 def concave():
     # take a 3x3 grid
@@ -86,7 +87,7 @@ def concave():
     mesh = mesh.select_subset(mask.flatten())
 
     # subdivide
-    for i in range(2):
+    for i in range(4):
         mesh = mesh.subdivide()
 
     # identify boundaries
@@ -100,7 +101,6 @@ def concave():
 
     # 0-element boundary
     interior = (np.linalg.norm(BPP[0], axis=1) < 1).astype(sign_dtype)
-    print(interior.sum())
 
     all_0 = mesh.boundary.topology.chain(0, fill=1)
 
@@ -151,12 +151,11 @@ def potential_flow(complex2):
     rotation_bc   = [sparse_zeros((B0, d)) for d in [D1]]
     continuity_bc = [sparse_zeros((B1, d)) for d in [D1]]
 
-    # activate condition on tangent flux
-    # rotation_bc[0] = d_matrix(inlet + outlet, rotation_bc[0].shape, P1)
-    # impose a circulation around the center
-    # rotation_bc[0] = \
-    #     o_matrix(interior, boundary.parent_idx[1], rotation_bc[0].shape, row=np.zeros(len(interior), dtype=int)) # + \
-        # o_matrix(exterior, boundary.parent_idx[1], rotation_bc[0].shape, row=np.ones(len(interior), dtype=int))
+    # impose a circulation around both boundaries
+    rotation_bc[0] = \
+        d_matrix(interior, rotation_bc[0].shape, P1, rows=0) + \
+        d_matrix(exterior, rotation_bc[0].shape, P1, rows=1)
+
     # activate condition on normal flux
     continuity_bc[0] = o_matrix(all, boundary.parent_idx[1], continuity_bc[0].shape)
 
@@ -172,7 +171,8 @@ def potential_flow(complex2):
 
     vortex = np.zeros(P0)       # generally irrotational
     vortex_bc = np.zeros(B0)
-    vortex_bc[0] = 1e1
+    vortex_bc[0] = 2e1 * 8
+    vortex_bc[1] = 0
     source = np.zeros(P2)       # generally incompressible
     source_bc = np.zeros(B1) + inlet - outlet
     knowns = [
@@ -187,7 +187,7 @@ def potential_flow(complex2):
 
 
 system = potential_flow(mesh)
-system.plot()
+# system.plot()
 
 
 # formulate normal equations and solve
@@ -200,7 +200,7 @@ solution, residual = normal.precondition().solve_minres(tol=1e-16)
 # print(residual)
 print('solving time: ', clock() - t)
 solution = [s / np.sqrt(d) for s, d in zip(solution, normal.diag())]
-solution, residual = normal.solve_direct()
+# solution, residual = normal.solve_direct()
 flux, = solution
 
 # plot result

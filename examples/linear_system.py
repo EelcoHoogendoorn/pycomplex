@@ -1,15 +1,15 @@
 import numpy
 import numpy as np
 import scipy.sparse
-
+from pycomplex.topology import sign_dtype, index_dtype
 
 def sparse_diag(diag):
     s = len(diag)
-    i = np.arange(s)
+    i = np.arange(s, dtype=index_dtype)
     return scipy.sparse.csc_matrix((diag, (i, i)), shape=(s, s))
 
 def sparse_zeros(shape):
-    q = np.zeros(0)
+    q = np.zeros(0, dtype=sign_dtype)
     return scipy.sparse.coo_matrix((q, (q, q)), shape=shape)
 
 
@@ -140,19 +140,28 @@ class BlockSystem(object):
         return BlockSystem(equations=equations, knowns=knowns, unknowns=self.unknowns)
 
 
-def d_matrix(idx, shape, O):
+def d_matrix(chain, shape, O, rows=None):
+    """Dual boundary term"""
+    if rows is None:
+        rows = np.arange(len(chain), dtype=index_dtype)
+    else:
+        rows = np.ones(len(chain), dtype=index_dtype) * rows
+    cols = np.arange(len(chain), dtype=index_dtype) + O
     return scipy.sparse.csr_matrix((
-        idx.astype(np.float),
-        (np.arange(len(idx)), np.arange(len(idx)) + O)),
+        chain.astype(np.float),
+        (rows, cols)),
         shape=shape
     )
 
 
-def o_matrix(v, col, shape, row=None):
-    if row is None:
-        row = np.arange(len(v))
+def o_matrix(chain, cols, shape, rows=None):
+    """Primal boundary term"""
+    if rows is None:
+        rows = np.arange(len(chain), dtype=index_dtype)
+    else:
+        rows = np.ones(len(chain), dtype=index_dtype) * rows
     return scipy.sparse.coo_matrix((
-        v.astype(np.float),
-        (row, col)),
+        chain.astype(np.float),
+        (rows, cols)),
         shape=shape
     )
