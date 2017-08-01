@@ -248,6 +248,8 @@ class PrimalTopology(BaseTopology):
         """
         # FIXME: rather than using from_elements, a direct subset selection would be preferable
         # should be too hard; just find chains on all elements, select subsets, and remap vertex indices
+        if not self.is_oriented:
+            raise ValueError('Cannot get the boundary of a non-oriented manifold')
 
         chain_N = self.chain(-1, fill=1)
         chain_n = self.matrix(-1) * chain_N
@@ -256,7 +258,18 @@ class PrimalTopology(BaseTopology):
             # topology is closed
             return None
         # construct boundary
-        elements = self.elements[-2][b_idx]
+
+        # B_idx = [b_idx]
+        # for b in self._boundary[:-1][::-1]:
+        #     q = B_idx[-1]
+        #     a = b[q]
+        #     B_idx.append(a)
+        #
+        # E = [e[i] for e, i in zip(self.elements, B_idx)]
+        # O = [o[i] for o, i in zip(self._orientation, B_idx[1:])]
+        # B = [b[i] for b, i in zip(self._orientation, B_idx[1:])]
+
+        boundary_elements = self.elements[-2][b_idx]
 
         # # flip the elements around depending on the sign of the boundary chain
         # # not sure if this is desirable, but results in an oriented boundary
@@ -265,13 +278,14 @@ class PrimalTopology(BaseTopology):
         # shape[1:] = 1
         # elements = np.where(orientation.reshape(shape) == 1, elements, elements[:, ::-1])
 
-        mapping, inverse = np.unique(elements.flatten(), return_inverse=True)
-        elements = inverse.reshape(elements.shape).astype(index_dtype)
+        # mapping is a list of parent vertex indices, for each boundary vertex
+        mapping, inverse = np.unique(boundary_elements.flatten(), return_inverse=True)
+        boundary_elements = inverse.reshape(boundary_elements.shape).astype(index_dtype)
 
-        B = self.boundary_type().from_elements(elements)
-        B.parent_idx = self.find_correspondence(B, mapping)
-        B.parent = self
-        return B
+        boundary = self.boundary_type().from_elements(boundary_elements)
+        boundary.parent_idx = self.find_correspondence(boundary, mapping)
+        boundary.parent = self
+        return boundary
 
     @cached_property
     def is_closed(self):

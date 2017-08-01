@@ -63,41 +63,54 @@ there is already a preferred solution in the face of indeterminism,
 which reflects physical intuition; smallest velocity squared is the
 least energetic / smoothest field
 
-
 """
 
 
 import numpy as np
 import scipy.sparse
 from examples.linear_system import *
+from pycomplex.topology import sign_dtype
 
 
-
-def grid(shape=(32, 32)):
+def grid(shape):
     from pycomplex import synthetic
     mesh = synthetic.n_cube_grid(shape)
     return mesh.as_22().as_regular()
 
 def concave():
-    # take a 2x2 grid
-    mesh = grid(shape=(2, 2))
-    # discard a corner
-    mesh = mesh.select_subset([1, 1, 0, 1])
-
-    # identify two boundaries
-    edge_position = mesh.primal_position[1]
-    left = edge_position[:, 0] == edge_position[:, 0].min()
-    right = edge_position[:, 0] == edge_position[:, 0].max()
+    # take a 3x3 grid
+    mesh = grid(shape=(3, 3))
+    # make a hole in it
+    mask = np.ones((3, 3), dtype=np.int)
+    mask[1, 1] = 0
+    mesh = mesh.select_subset(mask.flatten())
 
     # subdivide
     for i in range(2):
         mesh = mesh.subdivide()
-        left = mesh.topology.transfer_matrices[1] * left
-        right = mesh.topology.transfer_matrices[1] * right
-    return mesh, left, right
 
-mesh, left, right = concave()
-mesh.metric()
+    # identify boundaries
+    edge_position = mesh.boundary.primal_position[1]
+    BPP = mesh.boundary.primal_position
+    left  = (edge_position[:, 0] == edge_position[:, 0].min()).astype(sign_dtype)
+    right = (edge_position[:, 0] == edge_position[:, 0].max()).astype(sign_dtype)
+    # construct closed part of the boundary
+    all = mesh.boundary.topology.chain(1, fill=1)
+    closed = all - left - right
+
+    # 0-element boundary
+    interior = (np.linalg.norm(BPP[0], axis=1) < 1).astype(sign_dtype)
+    print(interior.sum())
+
+    all_0 = mesh.boundary.topology.chain(0, fill=1)
+
+    exterior = all_0 - interior
+
+    return mesh, all, left, right, closed, interior, exterior
+
+
+mesh, all, inlet, outlet, closed, interior, exterior = concave()
+mesh.plot(plot_dual=False, plot_vertices=False)
 
 
 def potential_flow(complex2):
@@ -106,56 +119,100 @@ def potential_flow(complex2):
     Note that it does not actually involve any potentials
     And note the similarity, if not identicality, to EM problems
     """
-    # grab all the operators we will be needing
-    P01, P12 = complex2.topology.matrices
-    D01, D12 = complex2.topology.dual.matrices
+
+    # grab the chain complex
+    primal = complex2.topology
+    boundary = primal.boundary
+    assert boundary.is_oriented
+    dual = primal.dual
+    # make sure our boundary actually makes sense topologically
+    primal.check_chain()
+    dual.check_chain()
+
+    P01, P12 = primal.matrices
+    D01, D12 = dual.matrices_2
 
     P2P1 = P12.T
-    P1P0 = P01.T
     D2D1 = D12.T
-    D1D0 = D01.T
 
-    P1D1 = sparse_diag(complex2.P1D1)
-    P0D2 = sparse_diag(complex2.P0D2)
+    P0, P1, P2 = primal.n_elements
+    D0, D1, D2 = dual.n_elements
+    B0, B1 = boundary.n_elements
 
-    P0, P1, P2 = complex2.topology.n_elements
-    D0, D1, D2 = complex2.topology.dual.n_elements
+    P0D2 = sparse_diag(complex2.hodge_PD[0])
+    P1D1 = sparse_diag(complex2.hodge_PD[1])
 
     S = complex2.topology.dual.selector
 
-    rotation   = [P0D2 * D2D1]
+    rotation   = [P0D2 * D2D1       ]
     continuity = [P2P1 * P1D1 * S[1]]   # dual boundary tangent fluxes are not involved in continuity
+
+    # set up boundary equations
+    rotation_bc   = [sparse_zeros((B0, d)) for d in [D1]]
+    continuity_bc = [sparse_zeros((B1, d)) for d in [D1]]
+
+    # activate condition on tangent flux
+    # rotation_bc[0] = d_matrix(inlet + outlet, rotation_bc[0].shape, P1)
+    # impose a circulation around the center
+    # rotation_bc[0] = \
+    #     o_matrix(interior, boundary.parent_idx[1], rotation_bc[0].shape, row=np.zeros(len(interior), dtype=int)) # + \
+        # o_matrix(exterior, boundary.parent_idx[1], rotation_bc[0].shape, row=np.ones(len(interior), dtype=int))
+    # activate condition on normal flux
+    continuity_bc[0] = o_matrix(all, boundary.parent_idx[1], continuity_bc[0].shape)
+
     equations = [
         rotation,
+        rotation_bc,
         continuity,
+        continuity_bc,
     ]
 
     velocity = np.zeros(D1)   # one velocity unknown for each dual edge
     unknowns = [velocity]
 
-    vortex = np.zeros(P0)  # generally irrotational
-    source = np.zeros(P2)  # generally incompressible
+    vortex = np.zeros(P0)       # generally irrotational
+    vortex_bc = np.zeros(B0)
+    vortex_bc[0] = 1e1
+    source = np.zeros(P2)       # generally incompressible
+    source_bc = np.zeros(B1) + inlet - outlet
     knowns = [
         vortex,
+        vortex_bc,
         source,
+        source_bc,
     ]
 
     system = BlockSystem(equations=equations, knowns=knowns, unknowns=unknowns)
     return system
 
 
-potential_system = potential_flow(mesh)
-potential_system.plot()
-
-S = mesh.topology.dual.selector
-# all normal fluxes zero, except the ends
-bc_rhs = mesh.topology.chain(1)
-bc_rhs[left] = 1
-bc_rhs[right] = -1
-bc_eq = [[S[1]]]
+system = potential_flow(mesh)
+system.plot()
 
 
+# formulate normal equations and solve
+normal = system.normal_equations()
+# normal.precondition().plot()
+from time import clock
+t = clock()
+print('starting solving')
+solution, residual = normal.precondition().solve_minres(tol=1e-16)
+# print(residual)
+print('solving time: ', clock() - t)
+solution = [s / np.sqrt(d) for s, d in zip(solution, normal.diag())]
+solution, residual = normal.solve_direct()
+flux, = solution
 
-N = potential_system.normal_equations()
-N.plot()
-mesh.plot()
+# plot result
+tris = mesh.to_simplicial()
+
+# now we compute a streamfunction after all; just for visualization.
+# no streamfunctions were harmed in the finding of the flowfield.
+from examples.flow.stream import stream
+primal_flux = mesh.hodge_PD[1] * (mesh.topology.dual.selector[1] * flux)
+phi = stream(mesh, primal_flux)
+phi = tris.topology.transfer_operators[0] * phi
+tris.as_2().plot_primal_0_form(phi, cmap='jet', plot_contour=True, levels=49)
+
+import matplotlib.pyplot as plt
+plt.show()

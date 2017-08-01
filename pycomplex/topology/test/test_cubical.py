@@ -91,3 +91,25 @@ def test_to_simplicial():
     cube = synthetic.n_cube(3).boundary
     assert cube.topology.is_oriented
     assert cube.as_23().to_simplicial().topology.is_oriented
+
+
+def test_hole():
+    """Check that non-connected boundaries work fine"""
+    mesh = synthetic.n_cube_grid((3, 3))
+    # make a hole in it
+    mask = np.ones((3, 3), dtype=np.int)
+    mask[1, 1] = 0
+    mesh = mesh.select_subset(mask.flatten())
+
+    # subdivide
+    for i in range(2):
+        mesh = mesh.subdivide()
+
+    bt = mesh.boundary.topology
+    assert not bt.is_connected
+
+    for i in range(mesh.n_dim):
+        npt.assert_allclose(
+            mesh.primal_position[i][bt.parent_idx[i]],
+            mesh.boundary.primal_position[i]
+        )

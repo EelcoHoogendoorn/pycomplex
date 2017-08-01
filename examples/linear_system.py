@@ -148,9 +148,11 @@ def d_matrix(idx, shape, O):
     )
 
 
-def o_matrix(v, col, shape):
+def o_matrix(v, col, shape, row=None):
+    if row is None:
+        row = np.arange(len(v))
     return scipy.sparse.coo_matrix((
         v.astype(np.float),
-        (np.arange(len(v)), col)),
+        (row, col)),
         shape=shape
     )
