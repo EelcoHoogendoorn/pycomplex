@@ -76,8 +76,8 @@ def concave():
     right = edge_position[:, 0] == edge_position[:, 0].max()
     # construct closed part of the boundary
     closed = mesh.boundary.topology.chain(1, fill=1)
-    closed[np.nonzero(inlet)] = 0
-    closed[np.nonzero(outlet)] = 0
+    closed[np.nonzero(left)] = 0
+    closed[np.nonzero(right)] = 0
 
     return mesh, left, right, closed
 
@@ -219,3 +219,6 @@ vorticity = mesh.hodge_PD[0] * vorticity
 vorticity = tris.topology.transfer_operators[0] * vorticity
 limit = np.abs(vorticity).max()
 tris.as_2().plot_primal_0_form(vorticity, cmap='seismic', vmin=-limit, vmax=limit, plot_contour=False, shading='gouraud')
+
+import matplotlib.pyplot as plt
+plt.show()

@@ -194,14 +194,13 @@ class ComplexTriangularEuclidian2(ComplexTriangular):
         fig, ax = plt.subplots(1, 1)
 
         if plot_contour:
-            levels = np.linspace(c0.min(), c0.max(), 20, endpoint=True)
+            levels = np.linspace(c0.min(), c0.max(), kwargs.get('levels', 20), endpoint=True)
             plt.tricontourf(triang, c0, cmap=cmap, levels=levels)
             plt.tricontour(triang, c0, colors='k', levels=levels)
         else:
             plt.tripcolor(triang, c0, cmap=cmap, **kwargs)
 
         plt.axis('equal')
-        plt.show()
 
     def plot_primal_2_form(self, p2, cmap='jet'):
         """plot a primal 2-form
@@ -222,7 +221,6 @@ class ComplexTriangularEuclidian2(ComplexTriangular):
         ax.add_collection(PolyCollection(self.vertices[self.topology.triangles], facecolors=facecolors, edgecolors=None))
 
         plt.axis('equal')
-        plt.show()
 
 
 class ComplexTriangularEuclidian3(ComplexTriangular):

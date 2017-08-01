@@ -24,6 +24,8 @@ def stream(complex, flux):
     D1P1 = scipy.sparse.diags(complex.hodge_DP[1])
 
     # construct our laplacian
-    laplacian = div * D1P1 * grad
-    vorticity = div * D1P1 * flux
-    return scipy.sparse.linalg.minres(laplacian, vorticity, tol=1e-12)[0]
+    laplacian = div * (D1P1 * grad)
+    vorticity = div * (D1P1 * flux)
+    phi = scipy.sparse.linalg.minres(laplacian, vorticity, tol=1e-12)[0]
+    phi -= phi.min()
+    return phi

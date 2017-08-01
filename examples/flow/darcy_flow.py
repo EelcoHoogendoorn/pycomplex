@@ -1,7 +1,7 @@
 """
 darcy flow:
-    divergence free
-    follows darcy's law; proportionality between gradient of pressure and flow velocity and permeability mu
+    flow is divergence free
+    follows darcy's law; proportionality flux and the proudct of pressure gradient and permeability
 
 [mu,  grad] [v] = [f]
 [div, 0   ] [P]   [0]
@@ -10,27 +10,18 @@ if we model P as a primal-n-form, we get
 [I, δ] [v] = [f]
 [d, 0] [P]   [0]
 
-[[I, 0, 0],  [δ, 0]]  [vi]   [fi]
-[[0, I, 0],  [δ, I]]  [vp] = [fp]
-[[0, 0, J],  [0, b]]  [vd]   [fd]
-
-[[d, d, 0],  [0, 0]]  [Pi]   [0]
-[[0, I, b],  [0, J]]  [Pd]   [0]
-
-interesting question; should vd always be zero?
-if b is zero, eq is quite simple
-
 [[I, 0],  [δ, 0]]  [vi]   [fi]
 [[0, I],  [δ, I]]  [vp] = [fp]
 
 [[d, d],  [0, 0]]  [Pi]   [0]
 [[0, _],  [0, _]]  [Pd]   [0]
 
-either way, this lends itself perfectly to either solving as second order normal equation,
-or directly using minres if we bother to make it symmetrical
-indeed normal equations are overkill here, and solving in terms of the physical pressure potential
-does not seem to impose any compromises
+This can be solved easily using a normal equation method, leading to a second order system
 
+Should we take the effort to make this symmetrical, including boundary conditions, minres could be applied directly.
+The reduced condition number could be very valuable if variable mu renders the equations stiff
+
+Alternatively, we may eliminate flux and solve for pressure alone.
 """
 
 import numpy as np
@@ -50,9 +41,9 @@ def concave():
     # discard a corner
     mesh = mesh.select_subset([1, 1, 1, 0])
 
-    for i in range(5):  # 5 is in tune with current rd-settings
+    for i in range(6):  # if you change this, change scaling below accordingly, to keep RD happy
         mesh = mesh.subdivide()
-    mesh = mesh.copy(vertices=mesh.vertices * 32)
+    mesh = mesh.copy(vertices=mesh.vertices * 64)
 
     edge_position = mesh.boundary.primal_position[1]
     left = edge_position[:, 0] == edge_position[:, 0].min()
@@ -107,8 +98,8 @@ def darcy_flow(complex2, mu):
 
     # S = complex2.topology.dual.selector
 
-    momentum   = [P1D1 * mu  , P1D1 * D1D0]      # darcy's law
-    continuity = [P2P1 * P1D1, P2D0_0     ]
+    momentum   = [P1D1       , mu * P1D1 * D1D0]      # darcy's law
+    continuity = [P2P1 * P1D1, P2D0_0          ]
     # set up boundary equations
     continuity_bc = [sparse_zeros((B0, d)) for d in [P1, D0]]
     # set normal flux
@@ -144,15 +135,23 @@ def darcy_flow(complex2, mu):
 
 
 
-# Use reaction-diffusion to set up an interesting permeability-pattern
-if False:
+if True:
+    # Use reaction-diffusion to set up an interesting permeability-pattern
+    # high min/max mu ratios make the equations very stiff, but gives the coolest looking results
+    # Solving the resulting equations may take a while; about a minute on my laptop
+    # Efficiently solving these equations is a known hard problem.
     from examples.diffusion.reaction_diffusion import ReactionDiffusion
-    rd = ReactionDiffusion(mesh)
-    rd.simulate(200)
-    form = rd.state[1]
-    tris = mesh.to_simplicial()
-    form = tris.topology.transfer_operators[0] * form
-    tris.as_2().plot_primal_0_form(form, plot_contour=False)
+    rd = ReactionDiffusion(mesh, key='labyrinth')
+    rd.simulate(300)
+    form = rd.state[0]
+    if True:
+        tris = mesh.to_simplicial()
+        tris.as_2().plot_primal_0_form(tris.topology.transfer_operators[0] * form, plot_contour=False)
+    mu = form[mesh.topology.elements[1]].mean(axis=1)   # map vertices to edges
+    mu -= mu.min()
+    mu /= mu.max()
+    mu *= mu
+    mu += .00001
 else:
     mu = mesh.topology.chain(1, fill=1, dtype=np.float)
 
@@ -160,15 +159,17 @@ else:
 # formulate darcy flow equations
 system = darcy_flow(mesh, mu)
 
-# system.print()
 # system.plot()
 
 # formulate normal equations and solve
 normal = system.normal_equations()
+from time import clock
+t = clock()
+print('starting solving')
 solution, residual = normal.precondition().solve_minres(tol=1e-16)
+print('solving time: ', clock() - t)
 solution = [s / np.sqrt(d) for s, d in zip(solution, normal.diag())]
 flux, pressure = solution
-
 
 # plot result
 tris = mesh.to_simplicial()
@@ -181,4 +182,7 @@ from examples.flow.stream import stream
 primal_flux = mesh.hodge_PD[1] * flux
 phi = stream(mesh, primal_flux)
 phi = tris.topology.transfer_operators[0] * phi
-tris.as_2().plot_primal_0_form(phi, cmap='jet', plot_contour=True)
+tris.as_2().plot_primal_0_form(phi, cmap='jet', plot_contour=True, levels=50)
+
+import matplotlib.pyplot as plt
+plt.show()
