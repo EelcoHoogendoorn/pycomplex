@@ -50,7 +50,6 @@ which is all well and good; but either scipy minres has issues, or condition of 
 try my own cg with appropriate constraint on pressure?
 
 """
-import scipy.sparse
 
 from examples.linear_system import *
 
@@ -67,7 +66,7 @@ def concave():
     # discard a corner
     mesh = mesh.select_subset([1, 1, 1, 0])
 
-    for i in range(3):  # subdiv 5 is already pushing our solvers...
+    for i in range(4):  # subdiv 5 is already pushing our solvers...
         mesh = mesh.subdivide()
         # left = mesh.topology.transfer_matrices[1] * left
         # right = mesh.topology.transfer_matrices[1] * right
@@ -75,31 +74,16 @@ def concave():
     edge_position = mesh.boundary.primal_position[1]
     left = edge_position[:, 0] == edge_position[:, 0].min()
     right = edge_position[:, 0] == edge_position[:, 0].max()
+    # construct closed part of the boundary
+    closed = mesh.boundary.topology.chain(1, fill=1)
+    closed[np.nonzero(inlet)] = 0
+    closed[np.nonzero(outlet)] = 0
 
-    return mesh, left, right
+    return mesh, left, right, closed
 
 
-mesh, inlet, outlet = concave()
-# construct closed part of the boundary
-closed = mesh.boundary.topology.chain(1, fill=1)
-closed[np.nonzero(inlet)] = 0
-closed[np.nonzero(outlet)] = 0
+mesh, inlet, outlet, closed = concave()
 # mesh.plot()
-
-
-def d_matrix(idx, shape, O):
-    return scipy.sparse.csr_matrix((
-        idx.astype(np.float),
-        (np.arange(len(idx)), np.arange(len(idx)) + O)),
-        shape=shape
-    )
-
-def o_matrix(v, col, shape):
-    return scipy.sparse.coo_matrix((
-        v.astype(np.float),
-        (np.arange(len(v)), col)),
-        shape=shape
-    )
 
 
 def stokes_flow(complex2):
@@ -115,17 +99,6 @@ def stokes_flow(complex2):
     """
 
     # grab the chain complex
-    P01, P12 = complex2.topology.matrices
-    D01, D12 = complex2.topology.dual.matrices_2
-
-    P2P1 = P12.T
-    P1P0 = P01.T
-    D2D1 = D12.T
-    D1D0 = D01.T
-
-    P0D2 = sparse_diag(complex2.hodge_PD[0])
-    P1D1 = sparse_diag(complex2.hodge_PD[1])
-
     primal = complex2.topology
     boundary = primal.boundary
     dual = primal.dual
@@ -133,9 +106,20 @@ def stokes_flow(complex2):
     primal.check_chain()
     dual.check_chain()
 
+    P01, P12 = primal.matrices
+    D01, D12 = dual.matrices_2
+
+    P2P1 = P12.T
+    P1P0 = P01.T
+    D2D1 = D12.T
+    D1D0 = D01.T
+
     P0, P1, P2 = primal.n_elements
     D0, D1, D2 = dual.n_elements
     B0, B1 = boundary.n_elements
+
+    P0D2 = sparse_diag(complex2.hodge_PD[0])
+    P1D1 = sparse_diag(complex2.hodge_PD[1])
 
     # FIXME: autogen this given system shape
     P2D2_0 = sparse_zeros((P2, D2))
@@ -145,6 +129,7 @@ def stokes_flow(complex2):
 
     S = complex2.topology.dual.selector
 
+    # NOTE: could model divergence as a seperate 2-form; would that give more control over the numerical structure of the vector laplacian?
     vorticity  = [P0D2       , P0D2 * D2D1       , P0D0_0       ]
     momentum   = [P1P0 * P0D2, P1D1_0            , P1D1 * D1D0  ]
     continuity = [P2D2_0     , P2P1 * P1D1 * S[1], P2D0_0       ]
@@ -199,6 +184,9 @@ system = stokes_flow(mesh)
 # system.plot()
 
 # formulate normal equations and solve
+# normal = system.preconditioned_normal_equations()
+# normal.plot()
+
 normal = system.normal_equations()
 # normal.precondition().plot()
 solution, residual = normal.precondition().solve_minres(tol=1e-16)

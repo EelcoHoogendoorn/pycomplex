@@ -50,43 +50,77 @@ def concave():
     # discard a corner
     mesh = mesh.select_subset([1, 1, 1, 0])
 
-    for i in range(2):
+    for i in range(5):  # 5 is in tune with current rd-settings
         mesh = mesh.subdivide()
-    return mesh
+    mesh = mesh.copy(vertices=mesh.vertices * 32)
+
+    edge_position = mesh.boundary.primal_position[1]
+    left = edge_position[:, 0] == edge_position[:, 0].min()
+    right = edge_position[:, 0] == edge_position[:, 0].max()
+    # construct closed part of the boundary
+    closed = mesh.boundary.topology.chain(1, fill=1)
+    closed[np.nonzero(left)] = 0
+    closed[np.nonzero(right)] = 0
+
+    return mesh, left, right, closed
 
 
-mesh = concave()
-mesh.metric()
+mesh, inlet, outlet, closed = concave()
+# mesh.plot()
 
 
-def darcy_flow(complex2):
-    """Formulate darcy flow over a 2-complex"""
+def darcy_flow(complex2, mu):
+    """Formulate darcy flow over a 2-complex
+
+    Parameters
+    ----------
+    mu : primal 1-form, describing local permeability
+    """
 
     # grab the chain complex
-    P01, P12 = complex2.topology.matrices
-    D01, D12 = complex2.topology.dual.matrices
+    primal = complex2.topology
+    boundary = primal.boundary
+    dual = primal.dual
+    # make sure our boundary actually makes sense topologically
+    primal.check_chain()
+    dual.check_chain()
+
+    P01, P12 = primal.matrices
+    D01, D12 = dual.matrices_2
 
     P2P1 = P12.T
-    P1P0 = P01.T
-    D2D1 = D12.T
+    # P1P0 = P01.T
+    # D2D1 = D12.T
     D1D0 = D01.T
 
-    P1D1 = sparse_diag(complex2.P1D1)
-    P2D0 = sparse_diag(complex2.P2D0)
-    P0D2 = sparse_diag(complex2.P0D2)
+    P0, P1, P2 = primal.n_elements
+    D0, D1, D2 = dual.n_elements
+    B0, B1 = boundary.n_elements
 
-    P0, P1, P2 = complex2.topology.n_elements
-    D0, D1, D2 = complex2.topology.dual.n_elements
+    P1D1 = sparse_diag(complex2.hodge_PD[1])
+    # P2D0 = sparse_diag(complex2.P2D0)
+    # P0D2 = sparse_diag(complex2.P0D2)
+    mu = sparse_diag(mu)
+
 
     P2D0_0 = sparse_zeros((P2, D0))
 
-    S = complex2.topology.dual.selector
+    # S = complex2.topology.dual.selector
 
-    momentum   = [P1D1       , P1D1 * D1D0]      # darcy's law
+    momentum   = [P1D1 * mu  , P1D1 * D1D0]      # darcy's law
     continuity = [P2P1 * P1D1, P2D0_0     ]
+    # set up boundary equations
+    continuity_bc = [sparse_zeros((B0, d)) for d in [P1, D0]]
+    # set normal flux
+    continuity_bc[0] = o_matrix(closed, boundary.parent_idx[1], continuity_bc[0].shape)
+    # set opening pressures
+    continuity_bc[1] = d_matrix(inlet + outlet, continuity_bc[1].shape, P2)
+
+
     equations = [
         momentum,
-        continuity
+        continuity,
+        continuity_bc,
     ]
 
     velocity = np.zeros(P1)     # no point in modelling tangent flux for darcy flow
@@ -98,21 +132,53 @@ def darcy_flow(complex2):
 
     force  = np.zeros(P1)
     source = np.zeros(P2)
+    source_bc = np.zeros(B0) - inlet.astype(np.float) + outlet.astype(np.float)  # set opening pressures
     knowns = [
         force,
         source,
+        source_bc,
     ]
 
     system = BlockSystem(equations=equations, knowns=knowns, unknowns=unknowns)
     return system
 
 
-system = darcy_flow(mesh)
 
-system.print()
-# now add bc's; pressure difference over manifold, for instance
-system.plot()
+# Use reaction-diffusion to set up an interesting permeability-pattern
+if False:
+    from examples.diffusion.reaction_diffusion import ReactionDiffusion
+    rd = ReactionDiffusion(mesh)
+    rd.simulate(200)
+    form = rd.state[1]
+    tris = mesh.to_simplicial()
+    form = tris.topology.transfer_operators[0] * form
+    tris.as_2().plot_primal_0_form(form, plot_contour=False)
+else:
+    mu = mesh.topology.chain(1, fill=1, dtype=np.float)
 
-N = system.normal_equations()
-N.print()
-N.plot()
+
+# formulate darcy flow equations
+system = darcy_flow(mesh, mu)
+
+# system.print()
+# system.plot()
+
+# formulate normal equations and solve
+normal = system.normal_equations()
+solution, residual = normal.precondition().solve_minres(tol=1e-16)
+solution = [s / np.sqrt(d) for s, d in zip(solution, normal.diag())]
+flux, pressure = solution
+
+
+# plot result
+tris = mesh.to_simplicial()
+pressure = mesh.topology.dual.selector[2] * pressure
+pressure = mesh.hodge_PD[2] * pressure
+pressure = tris.topology.transfer_operators[2] * pressure
+tris.as_2().plot_primal_2_form(pressure)
+
+from examples.flow.stream import stream
+primal_flux = mesh.hodge_PD[1] * flux
+phi = stream(mesh, primal_flux)
+phi = tris.topology.transfer_operators[0] * phi
+tris.as_2().plot_primal_0_form(phi, cmap='jet', plot_contour=True)

@@ -1,4 +1,4 @@
-
+import numpy
 import numpy as np
 import scipy.sparse
 
@@ -42,6 +42,12 @@ class BlockSystem(object):
 
         # check that subblocks are consistent
 
+    def preconditioned_normal_equations(self):
+        # FIXME: logic here is broken; we need a factor for each equation if we want to contract it inside the normal equations
+        diag = self.normal_equations().diag()
+        diag = [scipy.sparse.diags(1 / d) for d in diag]
+        return self.normal_equations(diag=diag)
+
     def normal_equations(self):
         output_shape = self.equations.shape[1], self.equations.shape[1]
         S = self.equations
@@ -52,6 +58,7 @@ class BlockSystem(object):
             for j in range(self.equations.shape[1]):
                 for k in range(self.equations.shape[1]):
                     equations[j, k] = equations[j, k] + S[i, j].T * S[i, k]
+
                 knowns[j] = knowns[j] + S[i, j].T * self.knowns[i]
         return BlockSystem(equations=equations, knowns=knowns, unknowns=list(self.unknowns))
 
@@ -131,3 +138,19 @@ class BlockSystem(object):
                     for i in range(self.shape[0])]
         knowns = [diag[i] * self.knowns[i] for i in range(self.shape[0])]
         return BlockSystem(equations=equations, knowns=knowns, unknowns=self.unknowns)
+
+
+def d_matrix(idx, shape, O):
+    return scipy.sparse.csr_matrix((
+        idx.astype(np.float),
+        (np.arange(len(idx)), np.arange(len(idx)) + O)),
+        shape=shape
+    )
+
+
+def o_matrix(v, col, shape):
+    return scipy.sparse.coo_matrix((
+        v.astype(np.float),
+        (np.arange(len(v)), col)),
+        shape=shape
+    )

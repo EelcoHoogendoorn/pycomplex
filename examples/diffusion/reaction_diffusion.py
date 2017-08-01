@@ -98,7 +98,7 @@ class ReactionDiffusion(object):
 
 
 if __name__ == '__main__':
-    kind = 'sphere'
+    kind = 'regular'
     if kind == 'sphere':
         from pycomplex import synthetic
         surface = synthetic.icosphere(refinement=5).copy(radius=50)
@@ -127,7 +127,6 @@ if __name__ == '__main__':
     print('starting sim')
     rd.simulate(200)
     print('done with sim')
-
     form = rd.state[1]
 
     # plot the resulting pattern
