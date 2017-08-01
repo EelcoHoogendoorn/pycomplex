@@ -164,7 +164,6 @@ class TopologyCubical(PrimalTopology):
             n_elements = EN0.shape[0]
             b_shape = (2,) * b_dim
             b_corners = 2 ** b_dim
-            print(b_dim)
 
             if n_dim == 1:
                 # special case for E10

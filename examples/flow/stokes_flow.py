@@ -46,6 +46,9 @@ absolves us from obsessing about symmetry, and gives more leeway in exploring bo
 also, letting go of unphysical potentials might make unspecified boundary conditions a lot easier;
 minimizing potential is meaningless, but minimizing velocity is not
 
+which is all well and good; but either scipy minres has issues, or condition of resulting system is quite awefull...
+try my own cg with appropriate constraint on pressure?
+
 """
 import scipy.sparse
 
@@ -65,7 +68,7 @@ def concave():
     mesh = mesh.select_subset([1, 1, 1, 0])
 
 
-    for i in range(4):
+    for i in range(4):  # subdiv 5 is already pushing our solvers...
         mesh = mesh.subdivide()
         # left = mesh.topology.transfer_matrices[1] * left
         # right = mesh.topology.transfer_matrices[1] * right
@@ -74,8 +77,6 @@ def concave():
     left = edge_position[:, 0] == edge_position[:, 0].min()
     right = edge_position[:, 0] == edge_position[:, 0].max()
 
-    print (left.sum())
-    print (right.sum())
     return mesh, left, right
 
 
@@ -85,17 +86,16 @@ closed = mesh.boundary.topology.chain(1, fill=1)
 closed[np.nonzero(inlet)] = 0
 closed[np.nonzero(outlet)] = 0
 # mesh.plot()
-print(closed.sum())
 
 
-def chain_matrix(idx, shape, O):
+def d_matrix(idx, shape, O):
     return scipy.sparse.csr_matrix((
         idx.astype(np.float),
         (np.arange(len(idx)), np.arange(len(idx)) + O)),
         shape=shape
     )
 
-def q_matrix(v, col, shape):
+def o_matrix(v, col, shape):
     return scipy.sparse.coo_matrix((
         v.astype(np.float),
         (np.arange(len(v)), col)),
@@ -146,19 +146,19 @@ def stokes_flow(complex2):
 
     S = complex2.topology.dual.selector
 
-    vorticity  = [P0D2       , -P0D2 * D2D1       , P0D0_0       ]
-    momentum   = [P1P0 * P0D2, P1D1_0            , P1D1 * D1D0  ]  # P0D2 term primary source of scaling. problem?
+    vorticity  = [P0D2       , P0D2 * D2D1       , P0D0_0       ]
+    momentum   = [P1P0 * P0D2, P1D1_0            , P1D1 * D1D0  ]
     continuity = [P2D2_0     , P2P1 * P1D1 * S[1], P2D0_0       ]
 
     # set up boundary equations
     continuity_bc = [sparse_zeros((B0, d)) for d in dual.n_elements[::-1]]
     momentum_bc = [sparse_zeros((B1, d)) for d in dual.n_elements[::-1]]
     # set normal flux
-    continuity_bc[1] = -q_matrix(closed, boundary.parent_idx[1], continuity_bc[1].shape)
+    continuity_bc[1] = o_matrix(closed, boundary.parent_idx[1], continuity_bc[1].shape)
     # set opening pressures
-    continuity_bc[2] = chain_matrix(inlet + outlet, continuity_bc[2].shape, P2)
+    continuity_bc[2] = d_matrix(inlet + outlet, continuity_bc[2].shape, P2)
     # set tangent flux
-    momentum_bc[1] = chain_matrix(inlet + outlet + closed, momentum_bc[1].shape, P1)
+    momentum_bc[1] = d_matrix(inlet + outlet + closed, momentum_bc[1].shape, P1)
 
     equations = [
         vorticity,
@@ -196,20 +196,21 @@ def stokes_flow(complex2):
 system = stokes_flow(mesh)
 
 
-system.print()
+# system.print()
 # system.plot()
 
 # formulate normal equations and solve
 normal = system.normal_equations()
+# normal.precondition().plot()
+solution, residual = normal.precondition().solve_minres(tol=1e-16)
+solution = [s / np.sqrt(d) for s, d in zip(solution, normal.diag())]
 
-# solution, residual = normal.solve_least_squares()
+# solution, residual = system.solve_least_squares()
 # solution, residual = normal.solve_minres()
-solution, residual = system.solve_direct()
+# solution, residual = system.solve_direct()
 
 vorticity, flux, pressure = solution
-print(residual)
-print(pressure)
-normal.print()
+# normal.print()
 # normal.plot()
 
 # plot result
@@ -222,4 +223,5 @@ tris.as_2().plot_primal_2_form(pressure)
 vorticity = mesh.topology.dual.selector[0] * vorticity
 vorticity = mesh.hodge_PD[0] * vorticity
 vorticity = tris.topology.transfer_operators[0] * vorticity
-tris.as_2().plot_primal_0_form(vorticity)
+limit = np.abs(vorticity).max()
+tris.as_2().plot_primal_0_form(vorticity, cmap='seismic', vmin=-limit, vmax=limit, plot_contour=False, shading='gouraud')
