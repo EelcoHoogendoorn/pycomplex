@@ -66,7 +66,7 @@ class BlockSystem(object):
         """Concatenate blocks into single system"""
         return scipy.sparse.bmat(self.equations), scipy.hstack(self.knowns)
 
-    def split(self, x):
+    def split(self, x, axis='cols'):
         """Split concatted vector into blocks
 
         Parameters
@@ -74,7 +74,7 @@ class BlockSystem(object):
         x : ndarray, [n_cols], float
 
         """
-        splits = [0] + list(np.cumsum(self.cols))
+        splits = [0] + list(np.cumsum(self.cols if axis == 'cols' else self.rows))
         return [x[s:e] for s, e in zip(splits[:-1], splits[1:])]
 
     def print(self):
@@ -117,7 +117,7 @@ class BlockSystem(object):
         x = scipy.sparse.linalg.minres(equations, knowns, tol=tol)[0]
         # x = scipy.sparse.linalg.minres(equations, knowns, x0=x, tol=1e-10)[0]
         r = equations * x - knowns
-        return self.split(x), r
+        return self.split(x), self.split(r, axis='rows')
 
     def solve_least_squares(self):
         equations, knowns = self.concatenate()
