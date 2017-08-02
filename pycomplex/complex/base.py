@@ -159,6 +159,13 @@ class BaseComplex(object):
         P, D = self.metric
         return [d / p for p, d in zip(P, D[::-1])]
 
+    @abstractmethod
+    def pick_primal(self, points):
+        raise NotImplementedError
+    @abstractmethod
+    def pick_dual(self, points):
+        raise NotImplementedError
+
 
 class BaseComplexEuclidian(BaseComplex):
 

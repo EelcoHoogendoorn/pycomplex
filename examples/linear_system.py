@@ -42,6 +42,10 @@ class BlockSystem(object):
 
         # check that subblocks are consistent
 
+    def symmetrize(self):
+        """symmetrize systems with a structural symmetry"""
+        raise NotImplementedError
+
     def preconditioned_normal_equations(self):
         # FIXME: logic here is broken; we need a factor for each equation if we want to contract it inside the normal equations
         diag = self.normal_equations().diag()

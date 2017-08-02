@@ -198,43 +198,43 @@ class TopologySimplicial(PrimalTopology):
 
 class TopologyTriangular(TopologySimplicial):
 
-    @classmethod
-    def from_simplices(cls, triangles):
-        """Construct topology from triangle description as sets of vertex indices
-
-        Note that this is quite a bit simpler than the general case
-
-        Also, we enforce a relation between I21 and I20;
-        that is, edges and vertices are always opposite
-
-        seek to do similar things for tets
-        """
-        E20 = np.asarray(triangles, dtype=index_dtype)
-        if not E20.ndim==2 and E20.shape[1] == 3:
-            raise ValueError('Expected integer triples')
-
-        E00 = np.unique(E20).reshape(-1, 1)
-
-        L = np.roll(E20, -1, axis=1)
-        R = np.roll(E20, +1, axis=1)
-        # I210 is triangles expressed as edges expressed as vertex indices; [n_triangles, 3, 2]
-        E210 = np.concatenate([L[..., None], R[..., None]], axis=-1)
-        E210 = np.sort(E210, axis=-1)
-
-        E10, E21 = npi.unique(E210.reshape(-1, 2), return_inverse=True)
-        E21 = E21.reshape(-1, 3).astype(index_dtype)
-
-        # special case rule for triangle orientations
-        O21 = ((L < R) * 2 - 1).astype(sign_dtype)
-        O10 = np.ones((len(E10), 2), sign_dtype)
-        O10[:, 0] *= -1
-
-        # construct grid of all element representations
-        E = [E00, E10, E20]
-        B = [E10, E21]
-        O = [O10, O21]
-
-        return cls(elements=E, orientation=O, boundary=B)
+    # @classmethod
+    # def from_simplices(cls, triangles):
+    #     """Construct topology from triangle description as sets of vertex indices
+    #
+    #     Note that this is quite a bit simpler than the general case
+    #
+    #     Also, we enforce a relation between I21 and I20;
+    #     that is, edges and vertices are always opposite
+    #
+    #     seek to do similar things for tets
+    #     """
+    #     E20 = np.asarray(triangles, dtype=index_dtype)
+    #     if not E20.ndim==2 and E20.shape[1] == 3:
+    #         raise ValueError('Expected integer triples')
+    #
+    #     E00 = np.unique(E20).reshape(-1, 1)
+    #
+    #     L = np.roll(E20, -1, axis=1)
+    #     R = np.roll(E20, +1, axis=1)
+    #     # I210 is triangles expressed as edges expressed as vertex indices; [n_triangles, 3, 2]
+    #     E210 = np.concatenate([L[..., None], R[..., None]], axis=-1)
+    #     E210 = np.sort(E210, axis=-1)
+    #
+    #     E10, E21 = npi.unique(E210.reshape(-1, 2), return_inverse=True)
+    #     E21 = E21.reshape(-1, 3).astype(index_dtype)
+    #
+    #     # special case rule for triangle orientations
+    #     O21 = ((L < R) * 2 - 1).astype(sign_dtype)
+    #     O10 = np.ones((len(E10), 2), sign_dtype)
+    #     O10[:, 0] *= -1
+    #
+    #     # construct grid of all element representations
+    #     E = [E00, E10, E20]
+    #     B = [E10, E21]
+    #     O = [O10, O21]
+    #
+    #     return cls(elements=E, orientation=O, boundary=B)
 
     def subdivide(coarse):
         """Loop subdivision on triangles

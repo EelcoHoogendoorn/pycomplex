@@ -133,6 +133,8 @@ def stokes_flow(complex2):
     continuity_bc[2] = d_matrix(inlet + outlet, continuity_bc[2].shape, P2)
     # set tangent flux
     momentum_bc[1] = d_matrix(inlet + outlet + closed, momentum_bc[1].shape, P1)
+    # alternatively, set zero shear on boundaries
+    # momentum_bc[0] = o_matrix(inlet + outlet + closed, boundary.parent_idx[0], momentum_bc[0].shape)
 
     equations = [
         vorticity,

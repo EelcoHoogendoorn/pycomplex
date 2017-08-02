@@ -87,7 +87,7 @@ def concave():
     mesh = mesh.select_subset(mask.flatten())
 
     # subdivide
-    for i in range(4):
+    for i in range(2):
         mesh = mesh.subdivide()
 
     # identify boundaries
@@ -103,13 +103,15 @@ def concave():
     interior = (np.linalg.norm(BPP[0], axis=1) < 1).astype(sign_dtype)
 
     all_0 = mesh.boundary.topology.chain(0, fill=1)
+    top_right_0 = mesh.boundary.topology.chain(0, fill=0)
+    top_right_0[np.argmin(np.linalg.norm(BPP[0]-[0.5,0.5], axis=1))] = 1
 
     exterior = all_0 - interior
 
-    return mesh, all, left, right, closed, interior, exterior
+    return mesh, all, left, right, closed, interior, exterior, top_right_0
 
 
-mesh, all, inlet, outlet, closed, interior, exterior = concave()
+mesh, all, inlet, outlet, closed, interior, exterior, top_right = concave()
 mesh.plot(plot_dual=False, plot_vertices=False)
 
 
@@ -154,9 +156,10 @@ def potential_flow(complex2):
     # impose a circulation around both boundaries
     rotation_bc[0] = \
         d_matrix(interior, rotation_bc[0].shape, P1, rows=0) + \
-        d_matrix(exterior, rotation_bc[0].shape, P1, rows=1)
+        d_matrix(exterior, rotation_bc[0].shape, P1, rows=1) + \
+        d_matrix(top_right, rotation_bc[0].shape, P1) * 0   # for some reason, this does not work
 
-    # activate condition on normal flux
+        # activate condition on normal flux
     continuity_bc[0] = o_matrix(all, boundary.parent_idx[1], continuity_bc[0].shape)
 
     equations = [
@@ -187,7 +190,7 @@ def potential_flow(complex2):
 
 
 system = potential_flow(mesh)
-# system.plot()
+system.plot()
 
 
 # formulate normal equations and solve

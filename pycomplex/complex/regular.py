@@ -132,3 +132,52 @@ class ComplexRegular2(ComplexCubical2Euclidian2):
                     DM[1])
 
         return PM, DM
+
+    @cached_property
+    def primal_lookup(self):
+        # FIXME: this could go in a ComplexRegularMixin?
+        assert self.topology.n_dim == self.n_dim
+        box = self.box
+        quad_position = self.primal_position[2]
+        edge_length = self.primal_metric[1][0]
+        # assert np.allclose(edge_length, edge_length[0]) # rectangles not supported yet
+        def to_grid(x):
+            x = x - box[0]
+            return x / edge_length - 1
+        # add a padding gridcell in all directions to handle out of bounds sampling
+        # NOTE: could also use scipy.ndimage.map_coordinates and handle out of bound that way
+        grid_shape = ((box[1] - box[0]) / edge_length + 2).astype(np.int)
+        grid = -np.ones(grid_shape, dtype=index_dtype)
+
+        local = to_grid(quad_position)
+        idx = np.floor(local).astype(np.int)
+        grid[tuple(idx.T)] = self.topology.range(2)
+        return grid, to_grid
+
+    def pick_primal(self, points):
+        """
+
+        Parameters
+        ----------
+        points : ndarray, [n_points, 2], float
+
+        Returns
+        -------
+        idx : ndarray, [n_points], index_dtype
+            Quad index of each picking point. -1 when sampling out of bounds.
+        bary : ndarray, [n_points, 2], float
+
+        """
+        grid, to_grid = self.primal_lookup
+        local = to_grid(points)
+        idx = np.floor(local).astype(index_dtype)
+        bary = local - idx
+        quad_idx = grid[tuple(idx.T)]
+        return quad_idx, bary
+
+    def pick_dual(self, points):
+        """Could do something analogous to primal here
+        but what about boundary quads?
+
+        Concave case is particularly challenging I suppose
+        """

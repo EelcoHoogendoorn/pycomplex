@@ -86,3 +86,12 @@ def test_n_cube_dual():
 
         complex.vertices = np.dot(complex.vertices, linalg.orthonormalize(np.random.randn(n_dim, n_dim)))
         complex.plot(plot_dual=True, backface_culling=n_dim==3)
+
+
+def test_picking():
+    for n_dim in [2, 3, 4, 5]:
+        sphere = synthetic.n_cube_dual(n_dim)
+        points = linalg.normalized(np.random.randn(10, n_dim))
+        idx, bary = sphere.pick_primal(points)
+        assert np.alltrue(bary >= 0)
+        assert np.allclose(bary.sum(axis=1), 1)

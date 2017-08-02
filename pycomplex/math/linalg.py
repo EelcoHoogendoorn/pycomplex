@@ -111,3 +111,77 @@ def power(m, p):
     p = np.expand_dims(np.asarray(p), -1)
     w, v = np.linalg.eig(m)
     return np.einsum('ij,...j,kj->...ik', v, w ** p, v.conj()).real
+
+
+def adjoint(A):
+    """Compute 3x3 adjoint matrices
+
+    Parameters
+    ----------
+    A : ndarray, [..., 3, 3]
+        (array of) 3 x 3 matrices
+
+    Returns
+    -------
+    AI : ndarray, [..., 3, 3]
+        adjoints of (array of) 3 x 3 matrices
+
+    """
+    AI = np.empty_like(A)
+    for i in range(3):
+        AI[..., i, :] = np.cross(A[..., i-2, :], A[..., i-1, :])
+    return AI
+
+
+def null(A):
+    """Vectorized nullspace algorithm, for 3x3 rank-2 matrix
+    simply cross each pair of vectors, and take the average
+
+    Parameters
+    ----------
+    A : ndarray, [..., 3, 3]
+        (array of) 3 x 3 matrices
+
+    Returns
+    -------
+    null : ndarray, [..., 3]
+        (array of) null space vectors
+
+    """
+    return adjoint(A).sum(axis=-2)
+
+
+def inverse_transpose(A):
+    """Efficiently compute the inverse-transpose of 3x3 matrices
+
+    Parameters
+    ----------
+    A : ndarray, [..., 3, 3]
+        (array of) 3 x 3 matrices
+
+    Returns
+    -------
+    I : ndarray, [..., 3, 3]
+        inverse-transpose of (array of) 3 x 3 matrices
+
+    """
+    I = adjoint(A)
+    det = dot(I, A).mean(axis=-1)
+    return I / det[...,None,None]
+
+
+def inverse(A):
+    """Inverse of 3x3 matrices
+
+    Parameters
+    ----------
+    A : ndarray, [..., 3, 3]
+        (array of) 3 x 3 matrices
+
+    Returns
+    -------
+    I : ndarray, [..., 3, 3]
+        inverses of (array of) 3 x 3 matrices
+
+    """
+    return np.swapaxes( inverse_transpose(A), -1,-2)

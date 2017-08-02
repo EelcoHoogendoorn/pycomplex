@@ -24,7 +24,7 @@ from examples.linear_system import *
 def make_mesh():
     mesh = synthetic.n_cube(2).as_22().as_regular()
     # subdivide
-    for i in range(6):
+    for i in range(5):
         mesh = mesh.subdivide()
 
     # identify boundaries
@@ -147,7 +147,7 @@ flux, = solution
 tris = mesh.to_simplicial()
 
 # now we compute a streamfunction after all; just for visualization.
-# no streamfunctions were harmed in the finding of the flowfield.
+# no streamfunctions were harmed in the finding of the magnetic flux.
 from examples.flow.stream import stream
 primal_flux = mesh.hodge_PD[1] * (mesh.topology.dual.selector[1] * flux)
 phi = stream(mesh, primal_flux)
