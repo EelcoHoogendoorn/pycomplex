@@ -180,4 +180,10 @@ class ComplexRegular2(ComplexCubical2Euclidian2):
         but what about boundary quads?
 
         Concave case is particularly challenging I suppose
+        does plead for a method defined in fundamental domains
+
+        yeah have the best feeling about this.
+        query for nearest n-1-element
+        then check incident n-elements to
         """
+        raise NotImplementedError

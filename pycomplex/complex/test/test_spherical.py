@@ -34,6 +34,7 @@ def test_icosahedron_subset():
 
     sphere.plot(plot_dual=True, backface_culling=True)
 
+# test_icosahedron_subset()
 
 def test_subdivide():
     """Test if subdivision works well for big triangles up to 90deg angle too"""
@@ -92,6 +93,9 @@ def test_picking():
     for n_dim in [2, 3, 4, 5]:
         sphere = synthetic.n_cube_dual(n_dim)
         points = linalg.normalized(np.random.randn(10, n_dim))
-        idx, bary = sphere.pick_primal(points)
-        assert np.alltrue(bary >= 0)
+        simplex_idx, bary = sphere.pick_primal(points)
+        assert np.alltrue(bary >= 0)    # this could fail for points on a boundary
+        assert np.allclose(bary.sum(axis=1), 1)
+        simplex_idx, bary = sphere.pick_primal(points, simplex_idx)
+        assert np.alltrue(bary >= 0)    # this could fail for points on a boundary
         assert np.allclose(bary.sum(axis=1), 1)

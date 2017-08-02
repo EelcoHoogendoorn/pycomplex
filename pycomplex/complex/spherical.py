@@ -94,16 +94,21 @@ class ComplexSpherical(BaseComplexSpherical):
 
     @cached_property
     def primal_lookup(self):
+        """Cached precomputations for spherical picking operations"""
         tree = scipy.spatial.cKDTree(self.primal_position[0])
         basis = np.linalg.inv(self.vertices[self.topology.elements[-1]])
         return tree, basis
 
-    def pick_primal(self, points):
+    def pick_primal(self, points, simplex=None):
         """Pick triangles and their barycentric coordinates on the sphere
 
         Parameters
         ----------
         points : ndarray, [n_points, n_dim], float
+            points on the sphere to pick
+        simplex : ndarray, [n_points], index_dtype, optional
+            guesses as to the simplex that contains the point;
+            can be used to exploit temporal coherence
 
         Returns
         -------
@@ -113,24 +118,49 @@ class ComplexSpherical(BaseComplexSpherical):
         Notes
         -----
         Probably not super efficient, but it is fully vectorized, and fully n-dim
+
+        If the primal simplexes are all equilateral,
+        then finding the primal simplices is just a matter of tree-querying the dual vertices.
+
         """
         tree, basis = self.primal_lookup
-        _, vertex_index = tree.query(points)
-        # construct all point-simplex combinations we need to test for
-        T = self.topology.matrix(self.topology.n_dim, 0)[vertex_index].tocoo()
-        point_idx, simplex_index = T.row, T.col
-        baries = np.einsum('tcv,tc->tv', basis[simplex_index], points[point_idx])
-        quality = (baries * (baries < 0)).sum(axis=1)
-        _, best = npi.group_by(point_idx).argmax(quality)
-        simplex_index, baries = simplex_index[best], baries[best]
+
+        def query(points):
+            _, vertex_index = tree.query(points)
+            # construct all point-simplex combinations we need to test for;
+            # matrix is compressed-row so row indexing should be efficient
+            T = self.topology.matrix(self.topology.n_dim, 0)[vertex_index].tocoo()
+            point_idx, simplex_index = T.row, T.col
+            baries = np.einsum('tcv,tc->tv', basis[simplex_index], points[point_idx])
+            # pick the one with the least-negative coordinates
+            quality = (baries * (baries < 0)).sum(axis=1)
+            _, best = npi.group_by(point_idx).argmax(quality)   # point_idx already sorted; can we make an optimized index for that?
+            simplex_index, baries = simplex_index[best], baries[best]
+            # normalize
+            return simplex_index, baries
+
+        if simplex is None:
+            simplex, baries = query(points)
+        else:
+            baries = np.einsum('tcv,tc->tv', basis[simplex], points)
+            update = np.any(baries < 0, axis=1)
+            if np.any(update):
+                simplex = simplex.copy()
+                s, b = query(points[update])
+                simplex[update] = s
+                baries[update] = b
+
         baries /= baries.sum(axis=1, keepdims=True)
-        return simplex_index, baries
+        return simplex, baries
+
 
     def pick_dual(self, points):
         tree, _ = self.primal_lookup
         # finding the dual face we are in is as simple as finding the closest primal vertex,
         # by virtue of the definition of duality
         _, dual_face_index = tree.query(points)
+
+
         return dual_face_index
         # to get the dual baries, would ideally do something like this:
         # https://pdfs.semanticscholar.org/6150/43145ebd38e2ae1fcf714f1d445c2d3a4308.pdf

@@ -110,7 +110,15 @@ def power(m, p):
     """
     p = np.expand_dims(np.asarray(p), -1)
     w, v = np.linalg.eig(m)
-    return np.einsum('ij,...j,kj->...ik', v, w ** p, v.conj()).real
+    return np.einsum('ij,...j,jk->...ik', v, w ** p, np.linalg.inv(v)).real
+
+
+def rotation_from_plane(u, v):
+    """Construct a rotation matrix from u and v, with u and v two orthonormal vectors spanning a plane"""
+    n = len(u)
+    R = [[0, 1], [-1, 0]]
+    p = np.asarray([u, v])
+    return np.eye(n) - np.outer(u, u) - np.outer(v, v) + np.dot(p.T, np.dot(R, p))
 
 
 def adjoint(A):
