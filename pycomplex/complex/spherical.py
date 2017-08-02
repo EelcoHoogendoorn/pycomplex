@@ -119,9 +119,6 @@ class ComplexSpherical(BaseComplexSpherical):
         -----
         Probably not super efficient, but it is fully vectorized, and fully n-dim
 
-        If the primal simplexes are all equilateral,
-        then finding the primal simplices is just a matter of tree-querying the dual vertices.
-
         """
         tree, basis = self.primal_lookup
 
@@ -151,6 +148,93 @@ class ComplexSpherical(BaseComplexSpherical):
                 baries[update] = b
 
         baries /= baries.sum(axis=1, keepdims=True)
+        return simplex, baries
+
+    def remap_boundary(self, field):
+        """Given a quantity computed on each n-simplex-boundary, combine the contributions of each incident n-simplex
+
+        Parameters
+        ----------
+        field : ndarray, [n_simplices, n_corners], float
+            a quantity defined on each boundary of all simplices
+
+        Returns
+        -------
+        field : ndarray, [n_boundary_simplices], float
+        """
+        INn = self.topology._boundary[-1]
+        ONn = self.topology._orientation[-1]
+        _, field = npi.group_by(INn.flatten()).sum((field * ONn).flatten())
+        return field
+
+    @cached_property
+    def pick_primal_alt_precomp(self):
+        """Can we find a power/weight for each dual such that nearest weighted dual vertex gives us the primal element?
+        think so! for each element, compute the distance to all its bounding elements.
+        the diff of that distance is the required diff in weight over a dual edge.
+        to find weights satisfying that diff, is essentially the dual of streamfunction;
+        we have a dual 1-form that is closed wrt dual 2-form by construction
+
+        how to handle boundary? just discard negative baries?
+
+        can we generalize this to any element? query nearest edges, f.i?
+        """
+        assert self.topology.is_closed
+        # DP = self.dual_position
+        PP = self.primal_position
+        tri_edge = PP[-2][self.topology._boundary[-1]]
+        delta = PP[-1][:, None, :] - tri_edge
+        d = np.linalg.norm(delta, axis=2) ** 2        # fixme: this should be signed distance
+        q = self.remap_boundary(d)
+        T = self.topology.matrices[-1]
+        rhs = T.T * q
+        L = T.T * T
+        power = scipy.sparse.linalg.minres(L, rhs, tol=1e-16)[0]
+        # print(np.abs(T * power - q).max())
+
+        # power += power.min()
+        power -= power.max()
+        augmented = np.concatenate([PP[-1], ((-power) ** 0.5)[:, None]], axis=1)
+        tree = scipy.spatial.cKDTree(augmented)
+
+        basis = np.linalg.inv(self.vertices[self.topology.elements[-1]])
+
+        return tree, basis
+
+    def pick_primal_alt(self, points, simplex=None):
+        """
+
+        Parameters
+        ----------
+        points
+        simplex
+
+        Returns
+        -------
+
+        """
+        tree, basis = self.pick_primal_alt_precomp
+
+        def query(points):
+            augmented = np.concatenate([points, np.zeros((len(points), 1))], axis=1)
+            dist, idx = tree.query(augmented)
+            baries = np.einsum('tcv,tc->tv', basis[idx], points)
+            return idx, baries
+
+        if simplex is None:
+            simplex, baries = query(points)
+        else:
+            baries = np.einsum('tcv,tc->tv', basis[simplex], points)
+            update = np.any(baries < 0, axis=1)
+            # print('misses: ', update.mean())
+            if np.any(update):
+                simplex = simplex.copy()
+                s, b = query(points[update])
+                simplex[update] = s
+                baries[update] = b
+
+        baries /= baries.sum(axis=1, keepdims=True)
+
         return simplex, baries
 
 

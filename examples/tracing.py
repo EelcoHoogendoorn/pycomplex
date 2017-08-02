@@ -4,18 +4,22 @@ I added this to stress-test complex.primal_pick, and out of general curiosity.
 It is not every day that you get to visualize curved spaces from within.
 
 It is interesting to note that all great circles appear as straight lines,
-and all spherical tetrahedra look perfectly flat.
-There are two things that I can tell that give away that this isnt a euclidian space.
+and all spherical tetrahedra look perfectly flat. Looking down upon a 2d spherical triangle
+you can see it isnt flat, but you are not getting any of that sense with these similarly curved tetrahedra,
+since the rays that are going the tracing are in on the joke, and doing the exact same curving as the 'straight' edges do.
+
+There are two things that I can tell that give away that this isnt a euclidian space:
 First of all, objects at the opposite pole of the universe appear enlarged,
 as a consequence of the rays being traced converging there again after traversing a half sphere.
 And also, a tiling with regular tetrahedra of euclidian space is impossible,
-so whatever it is we are looking at here isnt that.
+so whatever it is we are looking at here isnt that. Still, this isnt something that jumps out at you.
 
 """
 
 import numpy as np
 from pycomplex import synthetic
 from pycomplex.math import linalg
+import time
 
 space = synthetic.hexacosichoron()
 
@@ -44,18 +48,19 @@ simplex = None
 pick = -np.ones(resolution, np.int16)
 depth = np.zeros(resolution, np.float)
 
+t = time.clock()
 for distance in np.arange(0, max_distance, stepsize):
     print(distance)
     # this is simply the stepping operation
     ray = np.einsum('...ij,...j->...i', ray_step, ray)
-    simplex, bary = space.pick_primal(ray.reshape(-1, 4), simplex=simplex)  # caching simplex makes a huge speed difference!
+    simplex, bary = space.pick_primal_alt(ray.reshape(-1, 4), simplex=simplex)  # caching simplex makes a huge speed difference!
     bary = bary.reshape(resolution + (4,))
     # try and see if we hit an edge
     edge_hit = (bary < 0.01).sum(axis=2) >= 2
     draw = np.logical_and(edge_hit, pick==-1)
     pick[draw] = simplex.reshape(resolution)[draw]
     depth[draw] = distance
-
+print(time.clock() - t)
 
 # plot the result
 import matplotlib.pyplot as plt
