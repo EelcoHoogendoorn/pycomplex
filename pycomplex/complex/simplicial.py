@@ -18,38 +18,63 @@ class ComplexSimplicial(BaseComplexEuclidian):
             topology = TopologySimplicial.from_simplices(simplices)
         self.topology = topology
 
-    def plot(self, plot_dual=True, plot_vertices=False):
+    def plot(self, ax, plot_dual=True, plot_vertices=True, plot_lines=True):
         """Plot projection on plane"""
         import matplotlib.pyplot as plt
         import matplotlib.collections
         edges = self.topology.elements[1]
         e = self.vertices[edges]
 
-        fig, ax = plt.subplots(1, 1)
-        lc = matplotlib.collections.LineCollection(e[..., :2], color='b', alpha=0.5)
-        ax.add_collection(lc)
+        # fig, ax = plt.subplots(1, 1)
+        if plot_lines:
+            lc = matplotlib.collections.LineCollection(e[..., :2], color='b', alpha=0.5)
+            ax.add_collection(lc)
         if plot_vertices:
             ax.scatter(*self.vertices.T[:2], color='b')
 
         if plot_dual:
             dual_vertices, dual_edges = self.dual_position[0:2]
-            dual_topology = self.topology.dual
-            from pycomplex.topology import sparse_to_elements
-            de = sparse_to_elements(dual_topology[0].T)
+            if plot_lines:
+                dual_topology = self.topology.dual
+                from pycomplex.topology import sparse_to_elements
+                de = sparse_to_elements(dual_topology[0].T)
 
-            de = dual_vertices[de]
-            s, e = de[:, 0], de[:, 1]
-            s = np.moveaxis(np.array([dual_edges, s]), 0, 1)
-            lc = matplotlib.collections.LineCollection(s[..., :2], color='r', alpha=0.5)
-            ax.add_collection(lc)
-            e = np.moveaxis(np.array([dual_edges, e]), 0, 1)
-            lc = matplotlib.collections.LineCollection(e[..., :2], color='r', alpha=0.5)
-            ax.add_collection(lc)
+                de = dual_vertices[de]
+                s, e = de[:, 0], de[:, 1]
+                s = np.moveaxis(np.array([dual_edges, s]), 0, 1)
+                lc = matplotlib.collections.LineCollection(s[..., :2], color='r', alpha=0.5)
+                ax.add_collection(lc)
+                e = np.moveaxis(np.array([dual_edges, e]), 0, 1)
+                lc = matplotlib.collections.LineCollection(e[..., :2], color='r', alpha=0.5)
+                ax.add_collection(lc)
 
             if plot_vertices:
                 ax.scatter(*dual_vertices.T[:2], color='r')
         plt.axis('equal')
-        plt.show()
+        # plt.show()
+
+    def plot_domains(self, ax):
+        """Plot projection of fundamental domain onto plane"""
+        import matplotlib.pyplot as plt
+        import matplotlib.collections
+        domain = self.topology.fundamental_domains()
+        PP = self.primal_position
+
+        # fig, ax = plt.subplots(1, 1)
+        from pycomplex.math.combinatorial import combinations
+        comb = combinations(list(range(self.topology.n_dim + 1)), 2)
+        for (p, pair), c in zip(comb, 'rmbkyc'):
+            i, j = pair
+            # if i==1 or j ==1: continue
+            s = PP[i][domain[..., i].flatten()[:]]
+            e = PP[j][domain[..., j].flatten()[:]]
+            edge = np.moveaxis(np.array([s, e]), 0, 1)
+
+            lc = matplotlib.collections.LineCollection(edge[..., :2], color=c, alpha=0.5)
+            ax.add_collection(lc)
+
+        plt.axis('equal')
+        # plt.show()
 
     def as_spherical(self):
         from pycomplex.complex.spherical import ComplexSpherical

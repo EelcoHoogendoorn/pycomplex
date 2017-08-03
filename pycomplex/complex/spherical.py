@@ -178,6 +178,29 @@ class ComplexSpherical(BaseComplexSpherical):
         how to handle boundary? just discard negative baries?
 
         can we generalize this to any element? query nearest edges, f.i?
+        edge query seems hard. we can split our simplex however, by inserting a vert in the middle only
+        that should give a new mesh that we can apply the same primal-picking logic to
+        that then gives face and edge in one swoop. tri would have angle >> 90 degree typically though,
+        so does not work great with this picking strategy
+        what about constructing the actual fundamental domain? has a 90 deg angle, resulting in two
+        points located at the midpoint of edge joining primal and dual.
+
+        could consider those as a single point, and pick doubled fundamental domain instead.
+        by equilaterality, all such weights should be constant over the simplex
+        this might work as a method of picking primal and dual at the same time, but still no edge sidedness
+
+
+        tiling edge domain with two tris does result in well conditioned tris; and an interesting split generally
+        not entirely sure what to do at boundary, but seems like we should have the dofs there to make it work
+        split does not map tet meshes to tet meshes though..
+
+
+        aside from that, is there a simple rule for getting the nearest edge point in 2d case?
+        yes; we have simplex baries. it is not the edge opposite dual index.
+        wait; easier to just brute-force all candidate-fundamental domains at this point
+        how to generate fundamental domains? list of n-element indices?
+        having those would make n-dim metric a lot easier too
+
         """
         assert self.topology.is_closed
         # DP = self.dual_position

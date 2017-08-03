@@ -5,7 +5,7 @@ import numpy.testing as npt
 from pycomplex import synthetic
 from pycomplex.topology.simplicial import *
 from pycomplex.topology.test.test_base import basic_test
-
+from pycomplex.math import linalg
 
 
 def test_permutation_map():
@@ -82,3 +82,23 @@ def test_from_cubical():
 
     assert topology.is_oriented
     assert not topology.is_closed
+
+
+def test_fundamental_domains():
+    for n in [1, 2, 3, 4]:
+        print()
+        print(n)
+        print()
+        simplex = synthetic.n_simplex(n)
+        simplex.vertices = np.dot(simplex.vertices, linalg.orthonormalize(np.random.randn(n, n)))
+
+        domains = simplex.topology.fundamental_domains()
+        # import matplotlib.pyplot as plt
+        # fig, ax = plt.subplots(1,1)
+        # simplex.plot_domains(ax)
+        # simplex.plot(ax, plot_lines=False)
+        # plt.show()
+        # print(domains.shape)
+        # print(domains)
+
+# test_fundamental_domains()

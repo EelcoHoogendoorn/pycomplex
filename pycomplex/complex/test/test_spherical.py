@@ -116,4 +116,4 @@ def test_picking_alt():
         npt.assert_allclose(bary, bary_alt)
 
 
-test_picking_alt()
+test_icosahedron()

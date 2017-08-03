@@ -5,7 +5,7 @@ import numpy as np
 import numpy_indexed as npi
 from cached_property import cached_property
 
-from pycomplex.topology import topology_matrix, sign_dtype, index_dtype, transfer_matrix
+from pycomplex.topology import topology_matrix, sign_dtype, index_dtype, transfer_matrix, generate_boundary_indices
 from pycomplex.topology.primal import *
 
 
@@ -195,6 +195,39 @@ class TopologySimplicial(PrimalTopology):
         if not self.n_dim == 2:
             raise ValueError
         return TopologyTriangular(elements=self.elements, boundary=self._boundary, orientation=self._orientation)
+
+    def fundamental_domains(self):
+        """Generate fundamental domains
+
+        Returns
+        -------
+        domains : ndarray, [n_simplices, n_corners, n_corners - 1 ..., 2, n_dim + 1], index_dtype
+            n-th entry of last index refers to n-element indices
+            0 and n entry are kinda trivial
+
+        Notes
+        -----
+        Should implement this for cubes too
+        """
+        dim = list(range(2, self.n_dim + 2))[::-1]
+
+        shape = np.asarray([self.n_elements[-1]] + dim + [self.n_dim + 1])
+
+        domains = -np.ones(shape, dtype=index_dtype)
+        domains[..., -1] = self.range(-1)  # they all refer to their parent primal simplex
+        IN0 = self.elements[-1]
+
+        for i in range(2, self.n_dim + 1):
+            s = shape[:-1].copy()
+            s[i:] = 1
+            IN0 = generate_simplex_boundary(IN0.reshape(-1, IN0.shape[-1])).reshape(IN0.shape + (-1, ))
+            domains[..., -i] = generate_boundary_indices(self.elements[-i], IN0).reshape(s)
+        domains[..., 0] = IN0
+
+        return domains
+
+
+
 
 class TopologyTriangular(TopologySimplicial):
 
