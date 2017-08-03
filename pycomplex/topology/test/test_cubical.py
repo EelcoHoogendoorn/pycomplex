@@ -117,7 +117,7 @@ def test_hole():
 
 
 def test_fundamental_domains():
-    for n in [2, 3, 4]:
+    for n in [2, 3, 4, 5]:
         print()
         print(n)
         print()
@@ -125,12 +125,3 @@ def test_fundamental_domains():
         cube.vertices = np.dot(cube.vertices, linalg.orthonormalize(np.random.randn(n, n)))
 
         domains = cube.topology.fundamental_domains()
-        # import matplotlib.pyplot as plt
-        # fig, ax = plt.subplots(1,1)
-        # simplex.plot_domains(ax)
-        # simplex.plot(ax, plot_lines=False)
-        # plt.show()
-        print(domains.shape)
-        print(domains)
-
-test_fundamental_domains()
