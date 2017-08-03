@@ -5,6 +5,7 @@ import pytest
 from pycomplex import synthetic
 from pycomplex.topology.cubical import *
 from pycomplex.topology.test.test_base import basic_test
+from pycomplex.math import linalg
 
 
 def test_generate_boundary():
@@ -113,3 +114,23 @@ def test_hole():
             mesh.primal_position[i][bt.parent_idx[i]],
             mesh.boundary.primal_position[i]
         )
+
+
+def test_fundamental_domains():
+    for n in [2, 3, 4]:
+        print()
+        print(n)
+        print()
+        cube = synthetic.n_cube(n)
+        cube.vertices = np.dot(cube.vertices, linalg.orthonormalize(np.random.randn(n, n)))
+
+        domains = cube.topology.fundamental_domains()
+        # import matplotlib.pyplot as plt
+        # fig, ax = plt.subplots(1,1)
+        # simplex.plot_domains(ax)
+        # simplex.plot(ax, plot_lines=False)
+        # plt.show()
+        print(domains.shape)
+        print(domains)
+
+test_fundamental_domains()

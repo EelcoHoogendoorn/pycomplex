@@ -4,11 +4,11 @@ import numpy as np
 import numpy_indexed as npi
 
 import pycomplex.math.combinatorial
-from pycomplex.topology import index_dtype, sign_dtype, transfer_matrix
+from pycomplex.topology import index_dtype, sign_dtype, transfer_matrix, generate_boundary_indices
 from pycomplex.topology.primal import *
 
 
-def generate_cube_boundary(cubes, degree=1):
+def generate_cube_boundary(cubes, degree=1, return_corners=False):
     """Given a set of n-cubes, construct overcomplete boundary set of n-d-cubes
     
     every n-cube is bounded on n-dim dimensions; but the d-boundary has permutations given by pascals triangle
@@ -38,11 +38,14 @@ def generate_cube_boundary(cubes, degree=1):
     n_combinations = len(axes_list)
 
     boundary = np.empty((n_elements, n_combinations) + (2,) * degree + (2,) * (b_dim), dtype=cubes.dtype)
-
+    corners = []
     for i, (p, axes) in enumerate(zip(axes_parity, axes_list)):
         s_view = cubes
+        corner = [0] * n_dim
         for j, axis in enumerate(axes): # permute the relevant subrange of axes
             s_view = np.moveaxis(s_view, axis + 1, j + 1)
+            corner[axis] = 1
+        corners.append(tuple(corner))
         if p:
             s_view = np.flip(s_view, axis=-1)
         boundary[:, i] = s_view
@@ -51,7 +54,53 @@ def generate_cube_boundary(cubes, degree=1):
         # flip the parity of elements on one side of the cube
         boundary[:, :, 1] = np.flip(boundary[:, :, 1], axis=-1)
 
-    return boundary
+    if return_corners:
+        return boundary, corners
+    else:
+        return boundary
+
+
+# def generate_cube_boundary_alt(cubes):
+#     """Given a set of n-cubes, construct overcomplete boundary set of n-d-cubes
+#
+#     every n-cube is bounded on n-dim dimensions; but the d-boundary has permutations given by pascals triangle
+#     f.i., 4-cube has 6 types of 2-cubes incident to it; every unique combination of 2 axes grabbed from those 4
+#
+#     Parameters
+#     ----------
+#     cubes : ndarray, [n_elements, (2,) * n], int
+#         Vertex indices of n_elements n-cubes
+#
+#     Returns
+#     -------
+#     boundary : ndarray, [n_elements, (2,) * n, (2,)**(n-1)]
+#         Vertex indices of 2**d * n_elements (n-1)-cubes
+#         the boundary of each n-cube is an oriented set of n-1-cubes
+#     """
+#     cubes = np.asarray(cubes)
+#     n_dim = cubes.ndim - 1
+#     b_dim = n_dim - degree
+#     n_elements = cubes.shape[0]
+#
+#     # axes to pull forward to generate all incident n-d-cubes
+#     axes_parity, axes_list = zip(*pycomplex.math.combinatorial.combinations(np.arange(n_dim), degree))
+#     n_combinations = len(axes_list)
+#
+#     boundary = np.empty((n_elements, n_combinations) + (2,) * degree + (2,) * (b_dim), dtype=cubes.dtype)
+#
+#     for i, (p, axes) in enumerate(zip(axes_parity, axes_list)):
+#         s_view = cubes
+#         for j, axis in enumerate(axes):  # permute the relevant subrange of axes
+#             s_view = np.moveaxis(s_view, axis + 1, j + 1)
+#         if p:
+#             s_view = np.flip(s_view, axis=-1)
+#         boundary[:, i] = s_view
+#
+#     if degree == 1:
+#         # flip the parity of elements on one side of the cube
+#         boundary[:, :, 1] = np.flip(boundary[:, :, 1], axis=-1)
+#
+#     return boundary
 
 
 @lru_cache()
@@ -361,6 +410,54 @@ class TopologyCubical(PrimalTopology):
             raise NotImplementedError
 
         return new_cubes
+
+    def fundamental_domains(self):
+        """Generate fundamental domains
+
+        Returns
+        -------
+        domains : ndarray, [n_cubes] + cube_shape + cube_shape, index_dtype
+            each cube generates a cube of fundamental domains,
+            each consisting of a cube of cube indices
+
+        """
+        cube_shape = [2] * self.n_dim
+        corners = np.indices(cube_shape).reshape(self.n_dim, -1).T
+
+        shape = np.asarray([self.n_elements[-1]] + cube_shape + cube_shape)
+
+        # 2d shape: [n, 2, 2,  2, 2]
+        # 4 domains, 4 edges. each domain partakes in two edges
+        # 3d shape: [n, 6, 4, 2,  2, 2]
+        # 8 domains, 6 faces.
+        #   each face is shared by 4 domains; each domain has 3 faces
+        # 8 domains, 12x2 or 4x6 edges.
+        #   each edge is shared by two domains; each domain has 3 edges
+        # instead of n_combinations, need to have boundaries in a form that emphasises their orientation
+        # corner vector indicating which dimension have been projected out?
+        # faces is [1, 0, 0], [0, 1, 0], [0, 0, 1], and two sides of all
+        # edges is adding another projection, and another mirror
+        # this is a general pattern; add another axis to squeeze, and another mirror
+        # if we can return this corner-structure from generate_boundaries, I think we are good
+
+        domains = -np.ones(shape, dtype=index_dtype)
+        # c = Ellipsis, 0, 0
+        # domains[c] = self.range(-1)
+        E = self.elements[-1]
+
+        # FIXME: treat 0 and n as special cases? seems to work fine this way
+        for d in range(0, self.n_dim + 1):
+            IN0, corners = generate_cube_boundary(E, degree=d, return_corners=True)
+            for i, c in enumerate(corners):
+                c = (Ellipsis, ) + c
+                domains[c] = IN0[:, i]
+
+        # IN0, corners = generate_cube_boundary(
+        #     E.reshape((-1,) + subcube), degree=2, return_corners=True)
+        # c = (Ellipsis,) + corners[0]
+        # domains[c] = IN0
+
+        return domains
 
     def product(self, other):
         """Construct product topology of self and other
