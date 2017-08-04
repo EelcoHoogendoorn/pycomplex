@@ -118,10 +118,5 @@ def test_hole():
 
 def test_fundamental_domains():
     for n in [2, 3, 4, 5]:
-        print()
-        print(n)
-        print()
         cube = synthetic.n_cube(n)
-        cube.vertices = np.dot(cube.vertices, linalg.orthonormalize(np.random.randn(n, n)))
-
         domains = cube.topology.fundamental_domains()

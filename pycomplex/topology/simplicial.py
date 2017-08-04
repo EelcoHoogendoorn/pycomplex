@@ -214,7 +214,7 @@ class TopologySimplicial(PrimalTopology):
         shape = np.asarray([self.n_elements[-1]] + dim + [self.n_dim + 1])
 
         domains = -np.ones(shape, dtype=index_dtype)
-        domains[..., -1] = self.range(-1)  # they all refer to their parent primal simplex
+        domains[..., -1] = self.range(-1).reshape((-1,) + (1,)*self.n_dim) # they all refer to their parent primal simplex
         IN0 = self.elements[-1]
 
         for i in range(2, self.n_dim + 1):
@@ -225,8 +225,6 @@ class TopologySimplicial(PrimalTopology):
         domains[..., 0] = IN0
 
         return domains
-
-
 
 
 class TopologyTriangular(TopologySimplicial):

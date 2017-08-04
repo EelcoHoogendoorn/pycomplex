@@ -103,11 +103,11 @@ def test_picking():
 
 
 def test_picking_alt():
-    for n_dim in [3]:
-        # sphere = synthetic.n_cube_dual(n_dim)
-        sphere = synthetic.icosphere(2)
-        sphere = sphere.subdivide()
-        points = linalg.normalized(np.random.randn(1000, n_dim))
+    for n_dim in [2, 3, 4, 5]:
+        sphere = synthetic.n_cube_dual(n_dim)
+        points = linalg.normalized(np.random.randn(10, n_dim))
+
+        sphere.pick_fundamental(points)
 
         simplex_idx, bary = sphere.pick_primal(points)
         simplex_idx_alt, bary_alt = sphere.pick_primal_alt(points)
@@ -116,4 +116,27 @@ def test_picking_alt():
         npt.assert_allclose(bary, bary_alt)
 
 
-test_icosahedron()
+def test_picking_fundamental():
+    sphere = synthetic.icosphere(1)
+    # sphere = synthetic.n_cube_dual(3).as_2().subdivide()
+    sphere.vertices = np.dot(sphere.vertices, linalg.orthonormalize(np.random.randn(3, 3)))
+
+    p = np.linspace(-1, +1, 1024, endpoint=True)
+    x, y = np.meshgrid(p, p)
+    r2 = x**2 + y**2
+    mask = r2 < 1
+    z = np.sqrt(1 - np.clip(r2, 0, 1))
+
+    points = np.array([x, y, z]).T
+    domain, bary = sphere.pick_fundamental(points.reshape(-1, 3))
+    D, B = sphere.pick_fundamental_precomp
+    import numpy_indexed as npi
+    idx = npi.indices(D.reshape(-1, 3), domain)
+    B = B.reshape(-1, 3, 3)[idx]
+    color = np.linalg.det(B)
+    color = color.reshape(len(p), len(p))
+    color[np.logical_not(mask)] = 0
+
+    import matplotlib.pyplot as plt
+    plt.imshow(color, cmap='bwr')
+    plt.show()

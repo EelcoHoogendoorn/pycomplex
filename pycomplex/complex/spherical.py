@@ -121,6 +121,7 @@ class ComplexSpherical(BaseComplexSpherical):
 
         """
         tree, basis = self.primal_lookup
+        n_points, n_dim = points.shape
 
         def query(points):
             _, vertex_index = tree.query(points)
@@ -223,6 +224,53 @@ class ComplexSpherical(BaseComplexSpherical):
         basis = np.linalg.inv(self.vertices[self.topology.elements[-1]])
 
         return tree, basis
+
+    @cached_property
+    def pick_fundamental_precomp(self):
+        domains = self.topology.fundamental_domains()
+        PP = self.primal_position
+        p = np.empty(domains.shape + (self.n_dim,))
+        for i in range(self.topology.n_dim + 1):
+            p[..., i, :] = PP[i][domains[..., i]]
+        return domains, np.linalg.inv(p)
+
+
+    def pick_fundamental(self, points):
+        """Pick the fundamental domain
+
+        Parameters
+        ----------
+        points : ndarray, [n_points, self.n_dim], float
+            points to pick
+
+        Returns
+        -------
+        domains : ndarray, [n_points, self.topology.n_dim + 1], index_dtype
+            n-th column corresponds to indices of n-element
+        baries: ndarray, [n_points, self.topology.n_dim + 1] float
+            barycentric weights corresponding to the domain indices
+
+        """
+        # FiXME: can be unified with its own tree; midpoint between primals and duals
+        primal, bary = self.pick_primal(points)
+        dual = self.pick_dual(points)
+        domains, basis = self.pick_fundamental_precomp
+
+        # get all fundamental domains that match both primal and dual, and brute-force versus their precomputed inverses
+        d = domains[primal].reshape(len(points), -1, self.topology.n_dim + 1)
+        b = basis  [primal].reshape(len(points), -1, self.n_dim, self.n_dim)
+        s = np.where(d[:, :, 0] == dual[:, None])
+        d = d[s].reshape(len(points), -1, self.topology.n_dim + 1)
+        b = b[s].reshape(len(points), -1, self.n_dim, self.n_dim)
+
+        # now get the best fitting domain from the selected set
+        baries = np.einsum('tpcv,tc->tpv', b, points)
+        quality = (baries * (baries < 0)).sum(axis=2)
+        best = np.argmax(quality, axis=1)
+        r = np.arange(len(points), dtype=index_dtype)
+        d = d[r, best]
+        baries = baries[r, best]
+        return d, baries
 
     def pick_primal_alt(self, points, simplex=None):
         """
