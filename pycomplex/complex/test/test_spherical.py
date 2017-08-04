@@ -118,6 +118,7 @@ def test_picking_alt():
 
 def test_picking_fundamental():
     sphere = synthetic.icosphere(1)
+
     # sphere = synthetic.n_cube_dual(3).as_2().subdivide()
     sphere.vertices = np.dot(sphere.vertices, linalg.orthonormalize(np.random.randn(3, 3)))
 
@@ -133,10 +134,26 @@ def test_picking_fundamental():
     import numpy_indexed as npi
     idx = npi.indices(D.reshape(-1, 3), domain)
     B = B.reshape(-1, 3, 3)[idx]
-    color = np.linalg.det(B)
+    color = np.linalg.det(B.astype(np.float32))
     color = color.reshape(len(p), len(p))
     color[np.logical_not(mask)] = 0
 
     import matplotlib.pyplot as plt
     plt.imshow(color, cmap='bwr')
     plt.show()
+
+
+def test_fundamental_subdivide():
+    sphere = synthetic.icosphere(1)
+    sphere.vertices = np.dot(sphere.vertices, linalg.orthonormalize(np.random.randn(3, 3)))
+    sphere = sphere.subdivide_fundamental()
+    sphere.plot(backface_culling=True, plot_vertices=False)
+    # FIXME: does not yet work for n > 3
+    n = 3
+    sphere = synthetic.n_cube_dual(n)
+    sphere.vertices = np.dot(sphere.vertices, linalg.orthonormalize(np.random.randn(n, n)))
+    sphere = sphere.subdivide_fundamental()
+    sphere.plot(backface_culling=True, plot_vertices=False)
+
+
+test_fundamental_subdivide()

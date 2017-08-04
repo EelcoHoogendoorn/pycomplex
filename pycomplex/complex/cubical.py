@@ -2,6 +2,7 @@
 
 import numpy as np
 import numpy_indexed as npi
+from cached_property import cached_property
 
 import pycomplex.topology
 from pycomplex.topology import index_dtype, sign_dtype
@@ -146,6 +147,32 @@ class ComplexCubical(BaseComplexCubical):
 
         plt.axis('equal')
         plt.show()
+
+    @cached_property
+    def metric(self):
+        """Calc metrics of all primal and dual n-cubes
+
+        Returns
+        -------
+        primal : list of ndarray
+        dual : list of ndarray
+
+        """
+        topology = self.topology
+        PP = self.primal_position
+        domains = self.topology.fundamental_domains()
+
+        PN = topology.n_elements
+        DN = PN[::-1]
+
+        # metrics
+        PM = [np.zeros(n) for n in PN]
+        PM[0][...] = 1
+        DM = [np.zeros(n) for n in DN]
+        DM[0][...] = 1
+
+
+
 
 
 class ComplexCubical1(ComplexCubical):

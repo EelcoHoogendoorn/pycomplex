@@ -151,6 +151,12 @@ class ComplexSpherical(BaseComplexSpherical):
         baries /= baries.sum(axis=1, keepdims=True)
         return simplex, baries
 
+    def subdivide_fundamental(self):
+        return type(self)(
+            vertices=np.concatenate(self.primal_position, axis=0),
+            topology=self.topology.subdivide_fundamental()
+        )
+
     def remap_boundary(self, field):
         """Given a quantity computed on each n-simplex-boundary, combine the contributions of each incident n-simplex
 
@@ -232,7 +238,7 @@ class ComplexSpherical(BaseComplexSpherical):
         p = np.empty(domains.shape + (self.n_dim,))
         for i in range(self.topology.n_dim + 1):
             p[..., i, :] = PP[i][domains[..., i]]
-        return domains, np.linalg.inv(p)
+        return domains, np.linalg.inv(p).astype(np.float32)
 
 
     def pick_fundamental(self, points):
@@ -240,28 +246,29 @@ class ComplexSpherical(BaseComplexSpherical):
 
         Parameters
         ----------
-        points : ndarray, [n_points, self.n_dim], float
+        points : ndarray, [n_points, n_dim], float
             points to pick
 
         Returns
         -------
-        domains : ndarray, [n_points, self.topology.n_dim + 1], index_dtype
+        domains : ndarray, [n_points, n_dim], index_dtype
             n-th column corresponds to indices of n-element
-        baries: ndarray, [n_points, self.topology.n_dim + 1] float
+        baries: ndarray, [n_points, n_dim] float
             barycentric weights corresponding to the domain indices
 
         """
+        n_points, n_dim = points.shape
         # FiXME: can be unified with its own tree; midpoint between primals and duals
-        primal, bary = self.pick_primal(points)
+        primal, bary = self.pick_primal(points)     # FIXME: use alt here? add kwarg for fast or stable
         dual = self.pick_dual(points)
         domains, basis = self.pick_fundamental_precomp
 
         # get all fundamental domains that match both primal and dual, and brute-force versus their precomputed inverses
-        d = domains[primal].reshape(len(points), -1, self.topology.n_dim + 1)
-        b = basis  [primal].reshape(len(points), -1, self.n_dim, self.n_dim)
+        d = domains[primal].reshape(n_points, -1, n_dim)
+        b = basis  [primal].reshape(n_points, -1, n_dim, n_dim)
         s = np.where(d[:, :, 0] == dual[:, None])
-        d = d[s].reshape(len(points), -1, self.topology.n_dim + 1)
-        b = b[s].reshape(len(points), -1, self.n_dim, self.n_dim)
+        d = d[s].reshape(n_points, -1, n_dim)
+        b = b[s].reshape(n_points, -1, n_dim, n_dim)
 
         # now get the best fitting domain from the selected set
         baries = np.einsum('tpcv,tc->tpv', b, points)
@@ -308,13 +315,11 @@ class ComplexSpherical(BaseComplexSpherical):
 
         return simplex, baries
 
-
     def pick_dual(self, points):
         tree, _ = self.primal_lookup
         # finding the dual face we are in is as simple as finding the closest primal vertex,
         # by virtue of the definition of duality
         _, dual_face_index = tree.query(points)
-
 
         return dual_face_index
         # to get the dual baries, would ideally do something like this:
@@ -339,6 +344,11 @@ class ComplexSpherical2(ComplexSpherical):
 
         if topology is None:
             topology = TopologyTriangular.from_simplices(simplices)
+        else:
+            try:
+                topology = topology.as_2()
+            except:
+                pass
 
         assert isinstance(topology, TopologyTriangular)
         self.topology = topology
