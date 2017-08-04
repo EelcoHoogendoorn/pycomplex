@@ -231,7 +231,8 @@ class TopologySimplicial(PrimalTopology):
         offset = np.cumsum([0] + self.n_elements)[:-1]
         # subdivision is essentially just remapping fundamental-domain n-simplex indices to 0-simplex indices
         simplices = self.fundamental_domains() + offset
-        # flip the mirrored side to preserve orientation
+        # flip the mirrored side to preserve orientation;
+        # FIXME: in n-dim > 3 we still need a fix-orientation somehow...
         simplices[..., 0, :] = np.flip(simplices[..., 0, :], axis=-1)
         return TopologySimplicial.from_simplices(simplices.reshape(-1, self.n_dim + 1))
 
