@@ -16,6 +16,7 @@ References
 
 import numpy as np
 import matplotlib.pyplot as plt
+import scipy.sparse
 
 from pycomplex import synthetic
 from pycomplex.math import linalg
@@ -33,69 +34,97 @@ from examples.harmonics import get_harmonics_1, get_harmonics_0
 # or maybe incompressible but with rotations?
 H = get_harmonics_0(sphere)[:, -2]
 
-if False:
-    sphere.as_euclidian().as_3().plot_primal_0_form(H, plot_contour=False, cmap='bwr', shading='gouraud')
-    plt.show()
+from examples.diffusion.explicit import Diffusor
+H = Diffusor(sphere).integrate_explicit_sigma(np.random.randn(sphere.topology.n_elements[0]), 0.2)
+H /= 30
 
 
-def advect_vorticity(sphere, flux_p1, dt):
+def advect_vorticity_precompute(sphere):
     T01, T12 = sphere.topology.matrices
-    # curl = T01.T
-    # interpolate flux to primal-2-form
-    flux_d1 = sphere.hodge_DP[1] * flux_p1
-    # compute dual edge vectors
-    de = T12 * sphere.dual_position[0]
-    # de_n = de / linalg.dot(de, de)[:, None] # normalized dual edge vectors
-    de_n = linalg.normalized(de)
-    # now there should be a solving step; there exists a 3-vector at the dual vertex,
+
+    dual_edge_vector = T12 * sphere.dual_position[0]
+    # there exists a 3-vector at the dual vertex,
     # which projected on the dual edges forms the dual fluxes. on a sphere the third component is not determined,
     # dirs.dot(v) = tangent_edge_flux
     B = sphere.topology._boundary[-1]
     O = sphere.topology._orientation[-1]
-    tangent_edge = de_n[B] * O[..., None]
-
-    u, s, v = np.linalg.svd(tangent_edge)
+    # tangent edges per primal n-element
+    tangent_edges = linalg.normalized(dual_edge_vector)[B] * O[..., None]
+    # compute pseudoinverse, to quickly construct velocities at dual vertices
+    u, s, v = np.linalg.svd(tangent_edges)
     s = 1 / s
     s[:, 2] = 0
     pinv = np.einsum('...ij,...j,...jk', u, s, v)
 
+    # operators to average something defined on a dual vertex to all dual elements
+    average_1 = np.abs(T12) / 2
+    q = np.abs(T01) * np.abs(T12)
+    average_2 = scipy.sparse.diags(1. / np.array(q.sum(axis=1)).flatten()) * q
+    dual_averages = [1, average_1, average_2]
 
-    tangent_flux = (flux_d1 / sphere.dual_metric[1])[B] * O
-    velocity_d0 = np.einsum('...ji,...j->...i', pinv, tangent_flux)
+    def dual_flux_to_dual_velocity(flux_d1):
+        tangent_flux = (flux_d1 / sphere.dual_metric[1])[B] * O
+        velocity_d0 = np.einsum('...ji,...j->...i', pinv, tangent_flux)
+        return velocity_d0
 
-    # cascade down from flux at primal simplex to lower forms
-    velocity_d1 = np.abs(T12) * velocity_d0 / 2  # mean over vertices of dual edge
-    T0N = sphere.topology.matrix(-1, 0)
-    velocity_d2 = (T0N * velocity_d1) / sphere.topology.vertex_degree()[:, None]  # mean over vertices of dual face
-    velocity = [velocity_d2, velocity_d1, velocity_d0]
+    return dual_flux_to_dual_velocity, dual_averages
+
+
+def advect_vorticity(sphere, flux_p1, dt):
+    T01, T12 = sphere.topology.matrices
+    flux_d1 = sphere.hodge_DP[1] * flux_p1
+
+    to_dual_velocity, averages = advect_vorticity_precompute(sphere)
+
+    velocity_d0 = to_dual_velocity(flux_d1)
+    print(velocity_d0.max())
+
+    # extend dual 0 form to all other dual elements by averaging
+    velocity_dual = [a * velocity_d0 for a in averages]
 
     # advect the dual mesh
     advected_d0 = sphere.dual_position[0] + velocity_d0 * dt
+    advected_d0 = linalg.normalized(advected_d0)
 
-    # integrate the tangent flux of the advected mesh
-    advected_d1 = np.abs(T12) * advected_d0 / 2 # mean over dual edges
 
-    # sample at the midpoints of all advected dual edges, multiplied with advected dual length
+    # sample at all advected dual vertices, average at the mid of dual edge, and dot with advected dual edge vector
 
-    de = T12 * advected_d0
-    domain, bary = sphere.pick_fundamental(advected_d1)
+    domain, bary = sphere.pick_fundamental(advected_d0)
     # do interpolation over fundamental domain
-    velocity_advected = sum([velocity[i][domain[:, i]] * bary[:, [i]] for i in range(sphere.n_dim)])
-    flux_advected = linalg.dot(velocity_advected, de)
+    velocity_sampled_d0 = sum([velocity_dual[::-1][i][domain[:, i]] * bary[:, [i]] for i in range(sphere.n_dim)])
+    # integrate the tangent flux of the advected mesh
+    velocity_sampled_d1 = averages[1] * velocity_sampled_d0
 
-    # advected vorticity is the curl of this
+    advected_edge = T12 * advected_d0
+    flux_advected = linalg.dot(velocity_sampled_d1, advected_edge)
+
+    # do streamfunction solve to recover incompressible component of advected flux
+
+    # advected vorticity is the curl of advected flux
     vorticity_advected = T01 * flux_advected
-    return vorticity_advected
+    import scipy.sparse
+    laplacian = T01 * (scipy.sparse.diags(sphere.hodge_DP[1]) * T01.T)
+    phi = scipy.sparse.linalg.minres(laplacian, vorticity_advected, tol=1e-12)[0]
+
+    advected_projected_flux = T01.T * phi
+    return sphere.hodge_PD[0] * vorticity_advected, advected_projected_flux, phi
 
 
 T01, T12 = sphere.topology.matrices
 curl = T01.T
 flux_p1 = curl * H
-flux_d1 = sphere.hodge_DP[1] * flux_p1
-old_vorticity = T01 * flux_d1
-new_vorticity = advect_vorticity(sphere, flux_p1, dt=0)
-print()
+# flux_d1 = sphere.hodge_DP[1] * flux_p1
+# old_vorticity = T01 * flux_d1
+
+phi = H
+
+while (True):
+    vorticity, flux_p1, phi = advect_vorticity(sphere, flux_p1, dt=1)
+    sphere.as_euclidian().as_3().plot_primal_0_form(phi, plot_contour=True, cmap='jet',vmin=-4e-2, vmax=+4e-2)
+    # sphere.as_euclidian().as_3().plot_primal_0_form(vorticity, plot_contour=False, cmap='bwr', shading='gouraud', vmin=-1e-0, vmax=+1e-0)
+    plt.show()
 # solve for a new flow field
+
 # potentially add BFECC step
 # do momentum diffusion, if desired
 

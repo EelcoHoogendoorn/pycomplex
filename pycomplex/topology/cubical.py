@@ -236,7 +236,6 @@ class TopologyCubical(PrimalTopology):
             O[N] = ONn
             B[N] = ENn
 
-
         return cls(elements=E, boundary=B, orientation=O)
 
     def subdivide(self):
@@ -279,6 +278,18 @@ class TopologyCubical(PrimalTopology):
 
         return sub
 
+    def subdivide_octohedral(self):
+        """Subdivision by inserting a new 0-cube at each n-cube, and creating a new 'octahedron'
+        at each n-1-cube. This requires the addition of a wholly new topology type however, where each element
+        has 2 * n_dim vertices.
+        At the boundary, we would only get a half-element, so only elegant on closed topologies really
+
+        Also, edges do not map to edges, so thats bad for crease modelling
+
+        """
+        assert self.is_closed
+        raise NotImplementedError
+
     def subdivide_transfers(coarse, fine, O):
         """build up transfer operators
 
@@ -308,8 +319,10 @@ class TopologyCubical(PrimalTopology):
             each consisting of a cube of cube indices
 
         """
+        # FIXME: fundamental domain isnt really the right word for what we are doing here;
+        # that would be the direct analogue of the simplex case
         cube_shape = [2] * self.n_dim
-        corners = np.indices(cube_shape).reshape(self.n_dim, -1).T
+        # corners = np.indices(cube_shape).reshape(self.n_dim, -1).T
 
         shape = np.asarray([self.n_elements[-1]] + cube_shape + cube_shape)
 
