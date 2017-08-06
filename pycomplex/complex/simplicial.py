@@ -403,7 +403,7 @@ class ComplexTriangularEuclidian3(ComplexTriangular):
             plt.tripcolor(triang, c0, cmap=cmap, **kwargs)
 
         plt.axis('equal')
-        plt.show()
+        # plt.show()
 
     def plot_primal_2_form(self, p2, backface_culling=True):
         """plot a primal 0-form

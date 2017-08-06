@@ -28,6 +28,7 @@ class Advector(object):
 
     def __init__(self, complex):
         self.complex = complex
+        self.domain_cache = None
 
     @cached_property
     def advect_vorticity_precompute(self):
@@ -59,11 +60,12 @@ class Advector(object):
         return dual_flux_to_dual_velocity, self.complex.topology.dual.averaging_operators()
 
     def sample_dual_0(self, d0, points):
-        # FIXME: make this a method on Complex?
+        # FIXME: make this a method on Complex? would need to cache the averaging operators
         _, dual_averages = self.advect_vorticity_precompute
         # extend dual 0 form to all other dual elements by averaging
         velocity_dual = [a * d0 for a in dual_averages]
-        domain, bary = self.complex.pick_fundamental(points)
+        domain, bary = self.complex.pick_fundamental(points, domain=self.domain_cache)
+        # self.domain_cache = domain
         # do interpolation over fundamental domain
         return sum([velocity_dual[::-1][i][domain[:, i]] * bary[:, [i]]
                     for i in range(self.complex.topology.n_dim + 1)])
@@ -86,6 +88,8 @@ class Advector(object):
 
     def constrain_divergence(self, flux_d1):
         # do streamfunction solve to recover incompressible component of (advected) flux
+        # why not just use pressure projection? need vorticity form anyway if we seek to do diffusion?
+        # otherwise we can do full time-dependent stokes; best for generality
         T01, T12 = self.complex.topology.matrices
         P1P0 = T01.T
         D2D1 = T01
@@ -93,9 +97,9 @@ class Advector(object):
 
         vorticity_d2 = D2D1 * flux_d1
         laplacian = self.constrain_divergence_precompute
-        phi = scipy.sparse.linalg.minres(laplacian, vorticity_d2, tol=1e-12)[0]
+        phi_p0 = scipy.sparse.linalg.minres(laplacian, vorticity_d2, tol=1e-12)[0]
 
-        return P0D2 * vorticity_d2, P1P0 * phi, phi
+        return P0D2 * vorticity_d2, P1P0 * phi_p0, phi_p0
 
     def advect_vorticity(self, flux_p1, dt):
         """The main method of vorticity advection"""
@@ -123,6 +127,17 @@ class Advector(object):
         vorticity_p0, projected_flux_p1, phi_p0 = self.constrain_divergence(flux_d1_advected)
         return vorticity_p0, projected_flux_p1, phi_p0
 
+    def __call__(self, state, dt):
+        return self.advect_vorticity(state, dt)
+
+
+def BFECC(advector, state, dt):
+    remapped = advector(advector(state, dt), -dt)
+    err = remapped - state
+    final = advector(state - err / 2, dt)
+    return final
+
+
 
 if __name__ == "__main__":
     sphere = synthetic.icosphere(refinement=4)
@@ -131,15 +146,29 @@ if __name__ == "__main__":
     if False:
         sphere.plot()
 
-    # get initial conditions; solve for incompressible irrotational field
-    from examples.harmonics import get_harmonics_1, get_harmonics_0
-    # H = get_harmonics_1(sphere)[:, 0]
-    # or maybe incompressible but with rotations?
-    H = get_harmonics_0(sphere)[:, -2]
+    # # get initial conditions; solve for incompressible irrotational field
+    # from examples.harmonics import get_harmonics_1, get_harmonics_0
+    # # H = get_harmonics_1(sphere)[:, 1]
+    # # or maybe incompressible but with rotations?
+    # H = get_harmonics_0(sphere)[:, -2]
+    #
+    # from examples.diffusion.explicit import Diffusor
+    # F = Diffusor(sphere).integrate_explicit_sigma(np.random.randn(sphere.topology.n_elements[0]), 0.2)
+    # F /= 30
+    # F = F + H
 
-    from examples.diffusion.explicit import Diffusor
-    H = Diffusor(sphere).integrate_explicit_sigma(np.random.randn(sphere.topology.n_elements[0]), 0.2)
-    H /= 30
+    from examples.diffusion.planet_perlin import perlin_noise
+    H = perlin_noise(
+        sphere,
+        [
+            (.05, .05),
+            (.1, .1),
+            (.2, .2),
+            (.4, .4),
+            # (.8, .8),
+        ]
+    ) / 100
+
 
     T01, T12 = sphere.topology.matrices
     curl = T01.T
@@ -152,11 +181,10 @@ if __name__ == "__main__":
     while (True):
         for i in range(10):
             vorticity_p0, flux_p1, phi_p0 = advector.advect_vorticity(flux_p1, dt=1)
-        # sphere.as_euclidian().as_3().plot_primal_0_form(phi_p0, plot_contour=True, cmap='jet', vmin=-4e-2, vmax=+4e-2)
+        # sphere.as_euclidian().as_3().plot_primal_0_form(phi_p0, plot_contour=True, cmap='jet', vmin=-2e-2, vmax=+2e-2)
         sphere.as_euclidian().as_3().plot_primal_0_form(
             vorticity_p0, plot_contour=False, cmap='bwr', shading='gouraud', vmin=-5e-1, vmax=+5e-1)
         plt.show()
 
-    # potentially add BFECC step
     # do momentum diffusion, if desired
 

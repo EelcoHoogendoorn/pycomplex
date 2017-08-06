@@ -11,3 +11,4 @@ dependencies:
   - pycosat
   - cached-property
   - pytest
+  - snakeviz

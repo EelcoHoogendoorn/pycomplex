@@ -241,7 +241,7 @@ class ComplexSpherical(BaseComplexSpherical):
         return domains, np.linalg.inv(p).astype(np.float32)
 
 
-    def pick_fundamental(self, points):
+    def pick_fundamental(self, points, domain=None):
         """Pick the fundamental domain
 
         Parameters
@@ -257,27 +257,46 @@ class ComplexSpherical(BaseComplexSpherical):
             barycentric weights corresponding to the domain indices
 
         """
-        n_points, n_dim = points.shape
-        # FiXME: can be unified with its own tree; midpoint between primals and duals
-        primal, bary = self.pick_primal(points)     # FIXME: use alt here? add kwarg for fast or stable
-        dual = self.pick_dual(points)
         domains, basis = self.pick_fundamental_precomp
 
-        # get all fundamental domains that match both primal and dual, and brute-force versus their precomputed inverses
-        d = domains[primal].reshape(n_points, -1, n_dim)
-        b = basis  [primal].reshape(n_points, -1, n_dim, n_dim)
-        s = np.where(d[:, :, 0] == dual[:, None])
-        d = d[s].reshape(n_points, -1, n_dim)
-        b = b[s].reshape(n_points, -1, n_dim, n_dim)
+        def query(points):
+            n_points, n_dim = points.shape
+            # FiXME: can be unified with its own tree; midpoint between primals and duals
+            primal, bary = self.pick_primal(points)     # FIXME: use alt here? add kwarg for fast or stable
+            dual = self.pick_dual(points)
 
-        # now get the best fitting domain from the selected set
-        baries = np.einsum('tpcv,tc->tpv', b, points)
-        quality = (baries * (baries < 0)).sum(axis=2)
-        best = np.argmax(quality, axis=1)
-        r = np.arange(len(points), dtype=index_dtype)
-        d = d[r, best]
-        baries = baries[r, best]
-        return d, baries
+            # get all fundamental domains that match both primal and dual, and brute-force versus their precomputed inverses
+            d = domains[primal].reshape(n_points, -1, n_dim)
+            b = basis  [primal].reshape(n_points, -1, n_dim, n_dim)
+            s = np.where(d[:, :, 0] == dual[:, None])
+            d = d[s].reshape(n_points, -1, n_dim)
+            b = b[s].reshape(n_points, -1, n_dim, n_dim)
+
+            # now get the best fitting domain from the selected set
+            baries = np.einsum('tpcv,tc->tpv', b, points)
+            quality = (baries * (baries < 0)).sum(axis=2)
+            best = np.argmax(quality, axis=1)
+            r = np.arange(len(points), dtype=index_dtype)
+            d = d[r, best]
+            baries = baries[r, best]
+            return d, baries
+
+        if domain is None:
+            domain, baries = query(points)
+        else:
+            raise NotImplementedError('Need to think about how to cache fundamental domain hits. cache the primal/dual query?')
+            baries = np.einsum('tcv,tc->tv', basis[domain], points)
+            update = np.any(baries < 0, axis=1)
+            if np.any(update):
+                domain = domain.copy()
+                d, b = query(points[update])
+                domain[update] = d
+                baries[update] = b
+
+        baries /= baries.sum(axis=1, keepdims=True)
+        return domain, baries
+
+        # return d, baries
 
     def pick_primal_alt(self, points, simplex=None):
         """
