@@ -156,4 +156,4 @@ def test_fundamental_subdivide():
     sphere.plot(backface_culling=True, plot_vertices=False)
 
 
-test_fundamental_subdivide()
+test_picking_fundamental()

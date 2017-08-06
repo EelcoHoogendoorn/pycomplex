@@ -4,6 +4,8 @@ import numpy_indexed as npi
 import scipy
 import scipy.sparse
 import pycosat
+import itertools
+import operator
 from cached_property import cached_property
 
 from pycomplex.topology import ManifoldException
@@ -184,4 +186,6 @@ class BaseTopology(object):
             if not (a * b).nnz == 0:
                 raise ValueError(f'chain [{i}, {i+1}] to [{i+1}, {i+2}] does not match')
 
-
+    def averaging_operators(self):
+        A = itertools.accumulate([np.abs(m) for m in self.matrices], func=operator.mul)
+        return [1] + [scipy.sparse.diags(1. / np.array(a.sum(axis=0)).flatten()) * a.T for a in A]
