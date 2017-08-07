@@ -21,58 +21,81 @@ from pycomplex import synthetic
 from pycomplex.math import linalg
 import time
 
-space = synthetic.hexacosichoron()
 
-# generate a random starting position and orientation
-coordinate = linalg.orthonormalize(np.random.randn(4, 4))
-p, x, y, z = coordinate
+def render_frame(p, x, y, z):
+    # stepping of each ray is a rotation matrix
+    dx, dy, dz = [linalg.power(linalg.rotation_from_plane(p, d), 1./90) for d in [x, y, z]]
 
-# stepping of each ray is a rotation matrix
-dx, dy, dz = [linalg.power(linalg.rotation_from_plane(p, d), 1./90) for d in [x, y, z]]
+    # build up projection plane
+    gx = np.linspace(-stepsize, +stepsize, num=resolution[0], endpoint=True)
+    gy = np.linspace(-stepsize, +stepsize, num=resolution[1], endpoint=True)
+    ray_step = np.einsum('xij,yjk,kl->xyil', linalg.power(dx, gx * fov), linalg.power(dy, gy * fov), linalg.power(dz, +stepsize))
 
-stepsize = .2       # ray step size in degrees
-max_distance = 180  # go around half the universe
-fov = 1             # higher values give a wider field of view
-resolution = (256, 256)     # in pixels
+    # all rays start from p
+    ray = p
+    simplex = None
 
-# build up projection plane
-gx = np.linspace(-stepsize, +stepsize, num=resolution[0], endpoint=True)
-gy = np.linspace(-stepsize, +stepsize, num=resolution[1], endpoint=True)
-ray_step = np.einsum('xij,yjk,kl->xyil', linalg.power(dx, gx * fov), linalg.power(dy, gy * fov), linalg.power(dz, +stepsize))
+    # accumulate what simplex we hit, and how far away
+    pick = -np.ones(resolution, np.int16)
+    depth = np.zeros(resolution, np.float)
 
-# all rays start from p
-ray = p
-simplex = None
+    t = time.clock()
+    for distance in np.arange(0, max_distance, stepsize):
+        # print(distance)
+        # this is simply the stepping operation
+        ray = np.einsum('...ij,...j->...i', ray_step, ray)
+        simplex, bary = space.pick_primal_alt(ray.reshape(-1, 4), simplex=simplex)  # caching simplex makes a huge speed difference!
+        bary = bary.reshape(resolution + (4,))
+        # try and see if we hit an edge
+        edge_hit = (bary < 0.01).sum(axis=2) >= 2
+        draw = np.logical_and(edge_hit, pick==-1)
+        pick[draw] = simplex.reshape(resolution)[draw]
+        depth[draw] = distance
+    print(time.clock() - t)
 
-# accumulate what simplex we hit, and how far away
-pick = -np.ones(resolution, np.int16)
-depth = np.zeros(resolution, np.float)
+    # plot the result
+    import matplotlib.pyplot as plt
+    from matplotlib.cm import ScalarMappable
 
-t = time.clock()
-for distance in np.arange(0, max_distance, stepsize):
-    print(distance)
-    # this is simply the stepping operation
-    ray = np.einsum('...ij,...j->...i', ray_step, ray)
-    simplex, bary = space.pick_primal_alt(ray.reshape(-1, 4), simplex=simplex)  # caching simplex makes a huge speed difference!
-    bary = bary.reshape(resolution + (4,))
-    # try and see if we hit an edge
-    edge_hit = (bary < 0.01).sum(axis=2) >= 2
-    draw = np.logical_and(edge_hit, pick==-1)
-    pick[draw] = simplex.reshape(resolution)[draw]
-    depth[draw] = distance
-print(time.clock() - t)
+    fig, ax = plt.subplots(1, 1)
 
-# plot the result
-import matplotlib.pyplot as plt
-from matplotlib.cm import ScalarMappable
+    cmap = plt.get_cmap('hsv')
+    colors = ScalarMappable(cmap=cmap).to_rgba(pick)
+    colors[pick==-1, :3] = 0
+    alpha = np.exp(-depth / 100)
+    colors[:, :, :3] *= alpha[:, :, None]
 
-fig, ax = plt.subplots(1, 1)
 
-cmap = plt.get_cmap('hsv')
-colors = ScalarMappable(cmap=cmap).to_rgba(pick)
-colors[pick==-1, :3] = 0
-alpha = np.exp(-depth / 100)
-colors[:, :, :3] *= alpha[:, :, None]
+    # from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+    # from matplotlib.figure import Figure
 
-plt.imshow(colors)
-plt.show()
+    # fig = plt.Figure(figsize=colors.shape[:-1], dpi=1, frameon=False)
+    # canvas = FigureCanvas(fig)
+    # fig = plt.Figure(figsize=colors.shape[:-1], dpi=1, frameon=False)
+    plt.figimage(colors)
+    fig.tight_layout()
+
+    # plt.imshow(colors)
+    plt.axis('off')
+
+
+if __name__ == '__main__':
+    space = synthetic.hexacosichoron()
+
+    stepsize = .2  # ray step size in degrees
+    max_distance = 180  # trace rays half around the universe
+    fov = 1  # higher values give a wider field of view
+    resolution = (256, 256)  # in pixels
+
+    from pycomplex.util import save_animation
+    path = r'c:\development\examples\hexacosichoron_4'
+
+    # generate a random starting position and orientation
+    coordinate = linalg.orthonormalize(np.random.randn(4, 4))
+    p, x, y, z = coordinate
+    dx, dy, dz = [linalg.power(linalg.rotation_from_plane(p, d), 1. / 90) for d in [x, y, z]]
+
+    for i in save_animation(path, frames=360):
+        # make a step forward along the z axis
+        coordinate = np.einsum('...ij,...j->...i', dz, coordinate)
+        render_frame(*coordinate)

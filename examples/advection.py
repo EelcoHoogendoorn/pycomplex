@@ -4,7 +4,7 @@ import numpy as np
 from cached_property import cached_property
 import scipy.sparse
 import matplotlib.pyplot as plt
-import os
+from pycomplex.util import save_animation
 
 from pycomplex import synthetic
 from pycomplex.math import linalg
@@ -44,11 +44,14 @@ class Advector(object):
 
         return dual_flux_to_dual_velocity
 
+    @cached_property
+    def dual_averages(self):
+         return self.complex.topology.dual.averaging_operators()
+
     def sample_dual_0(self, d0, points):
         # FIXME: make this a method on Complex? would need to cache the averaging operators
-        dual_averages = self.complex.topology.dual.averaging_operators()
         # extend dual 0 form to all other dual elements by averaging
-        dual_forms = [a * d0 for a in dual_averages]
+        dual_forms = [a * d0 for a in self.dual_averages]
         domain, bary = self.complex.pick_fundamental(points)
         # do interpolation over fundamental domain
         return sum([dual_forms[::-1][i][domain[:, i]] * bary[:, [i]]
@@ -93,6 +96,8 @@ def MacCormack(advector, state, dt):
 
 
 if __name__ == "__main__":
+    # advect the texture for constant flow field to illustrate advection
+
     sphere = synthetic.icosphere(refinement=5)
     if False:
         sphere.plot()
@@ -113,28 +118,25 @@ if __name__ == "__main__":
 
     # generate a smooth incompressible flow field using harmonics
     from examples.harmonics import get_harmonics_0
-    H = get_harmonics_0(sphere)[:, -2]
+    H = get_harmonics_0(sphere)
     T01, T12 = sphere.topology.matrices
     curl = T01.T
-    flux_d1 = sphere.hodge_DP[1] * (curl * H)
+    flux_d1 = sphere.hodge_DP[1] * (curl * (H[:, -2] + H[:, 2] * 10))
 
-    # advect the texture for constant flow field to illustrate advection
 
-    path = r'c:\development\examples\run_2'
-    os.mkdir(path)
+    path = r'c:\development\examples\advection_5'
 
     advector = Advector(sphere)
     def advect(p0, dt):
         return advector.advect_p0(flux_d1, p0, dt)
 
-    for t in range(50):
-        for i in range(10):
-            # texture_p0 = MacCormack(advect, texture_p0, dt=4)
-            texture_p0 = advect(texture_p0, dt=4)
+    for i in save_animation(path, frames=50):
+        for r in range(2):
+            texture_p0 = BFECC(advect, texture_p0, dt=20)
+            # texture_p0 = MacCormack(texture_p0, dt=4)
         # sphere.as_euclidian().as_3().plot_primal_0_form(phi_p0, plot_contour=True, cmap='jet', vmin=-2e-2, vmax=+2e-2)
         sphere.as_euclidian().as_3().plot_primal_0_form(
             texture_p0, plot_contour=False, cmap='terrain', shading='gouraud', vmin=vmin, vmax=vmax)
-        plt.savefig(os.path.join(path, f'advection_{t}.png'))
-        plt.close()
+        plt.axis('off')
         # plt.show()
 
