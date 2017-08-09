@@ -28,25 +28,25 @@ class Advector(object):
         B = self.complex.topology._boundary[-1]
         O = self.complex.topology._orientation[-1]
         # tangent edges per primal n-element
-        tangent_edges = linalg.normalized(dual_edge_vector)[B] * O[..., None]
+        tangent_edges = linalg.normalized(dual_edge_vector)[B] #* O[..., None]
         # compute pseudoinverse, to quickly construct velocities at dual vertices
         u, s, v = np.linalg.svd(tangent_edges)
         s = 1 / s
-        s[:, self.complex.topology.n_dim:] = 0
-        pinv = np.einsum('...ij,...j,...jk', u, s, v)
+        # s[:, self.complex.topology.n_dim:] = 0
+        pinv = np.einsum('...ij,...j,...jk->...ki', u, s, v)
 
         def dual_flux_to_dual_velocity(flux_d1):
             # compute velocity component in the direction of the dual edge
-            tangent_flux = (flux_d1 / self.complex.dual_metric[1])[B] * O
+            tangent_velocity_component = (flux_d1 / self.complex.dual_metric[1])[B] #* O
             # given these flows incident on the dual vertex, reconstruct the velocity vector there
-            velocity_d0 = np.einsum('...ji,...j->...i', pinv, tangent_flux)
+            velocity_d0 = np.einsum('...ij,...j->...i', pinv, tangent_velocity_component)
             return velocity_d0
 
         return dual_flux_to_dual_velocity
 
     @cached_property
     def dual_averages(self):
-         return self.complex.topology.dual.averaging_operators()
+         return self.complex.weighted_average_operators()
 
     def sample_dual_0(self, d0, points):
         # FIXME: make this a method on Complex? would need to cache the averaging operators

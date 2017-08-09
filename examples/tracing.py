@@ -71,9 +71,13 @@ def render_frame(p, x, y, z):
 
     # fig = plt.Figure(figsize=colors.shape[:-1], dpi=1, frameon=False)
     # canvas = FigureCanvas(fig)
-    # fig = plt.Figure(figsize=colors.shape[:-1], dpi=1, frameon=False)
-    plt.figimage(colors)
-    fig.tight_layout()
+    # fig = plt.Figure(figsize=(2, 2), dpi=300)
+    fig.figimage(colors, origin='upper')
+    shape = np.array(colors.shape[:-1])
+    dpi = fig.get_dpi()
+    fig.set_size_inches((shape / dpi) + 0.1, forward=True)
+
+    # fig.tight_layout()
 
     # plt.imshow(colors)
     plt.axis('off')
@@ -85,10 +89,10 @@ if __name__ == '__main__':
     stepsize = .2  # ray step size in degrees
     max_distance = 180  # trace rays half around the universe
     fov = 1  # higher values give a wider field of view
-    resolution = (256, 256)  # in pixels
+    resolution = (512, 512)  # in pixels
 
     from pycomplex.util import save_animation
-    path = r'c:\development\examples\hexacosichoron_4'
+    path = r'c:\development\examples\hexacosichoron_13'
 
     # generate a random starting position and orientation
     coordinate = linalg.orthonormalize(np.random.randn(4, 4))

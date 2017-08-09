@@ -12,6 +12,15 @@ Moreover, we seek to extend the method to cubical grids too, not just simplicial
 References
 ----------
 [1] http://www.geometry.caltech.edu/pubs/ETKSD07.pdf
+
+Notes
+-----
+mesh-edges are visible in the current implentation, during advection
+is this our averaging barycentric interpolant being funny?
+can we re-weight our averaging op such that it reconstructs all linear functions?
+yeah; weighting should not be linear; but rather proportional to the bary weights of that element!
+we can express this as a proportionality between the sum of fundamental-domain area incident to
+both the dual n-element and the dual 0-element
 """
 
 import numpy as np
@@ -70,7 +79,7 @@ class VorticityAdvector(Advector):
         laplacian = self.constrain_divergence_precompute
         phi_p0 = scipy.sparse.linalg.minres(laplacian, vorticity_d2, tol=1e-12)[0]
 
-        return P0D2 * vorticity_d2, D1P1 * (P1P0 * phi_p0), phi_p0
+        return D1P1 * (P1P0 * phi_p0)
 
     # def advect_d1(self):
     #
@@ -84,7 +93,7 @@ class VorticityAdvector(Advector):
 
         # advect the dual mesh
         advected_d0 = self.complex.dual_position[0] + velocity_d0 * dt
-        # advected_d0 = linalg.normalized(advected_d0)    # FIXME: this line is specific to working on a spherical complex!
+        advected_d0 = linalg.normalized(advected_d0)    # FIXME: this line is specific to working on a spherical complex!
 
         # sample at all advected dual vertices, average at the mid of dual edge, and dot with advected dual edge vector
         velocity_sampled_d0 = self.sample_dual_0(velocity_d0, advected_d0)
@@ -95,17 +104,16 @@ class VorticityAdvector(Advector):
         flux_d1_advected = linalg.dot(velocity_sampled_d1, advected_edge)
 
         return self.pressure_projection(flux_d1_advected)
-        # vorticity_p0, projected_flux_d1, phi_p0 = self.constrain_divergence(flux_d1_advected)
-        # return vorticity_p0, projected_flux_d1, phi_p0
+        # return self.constrain_divergence(flux_d1_advected)
 
 
 if __name__ == "__main__":
     sphere = synthetic.icosphere(refinement=5)
     dt = 1
-
+    sphere.weighted_average_operators()
     if False:
-        sphere.plot()
-
+        sphere.plot(plot_vertices=False, plot_dual=True)
+        # quit
     # # get initial conditions; solve for incompressible irrotational field
     from examples.harmonics import get_harmonics_1, get_harmonics_0
     # # H = get_harmonics_1(sphere)[:, 1]
@@ -137,8 +145,8 @@ if __name__ == "__main__":
 
     # phi_p0 = H
     advector = VorticityAdvector(sphere)
-    path = r'c:\development\examples\euler_12'
-
+    path = r'c:\development\examples\euler_25'
+    # path = None
     def advect(flux_d1, dt):
         return advector.advect_vorticity(flux_d1, dt)
         # return flux_d1

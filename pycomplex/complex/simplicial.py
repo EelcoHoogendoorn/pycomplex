@@ -2,12 +2,14 @@
 
 import numpy as np
 import numpy_indexed as npi
+import scipy.sparse
 from cached_property import cached_property
 
 from pycomplex.complex.base import BaseComplexEuclidian
 from pycomplex.geometry import euclidian
 from pycomplex.topology.simplicial import TopologyTriangular, TopologySimplicial
-from pycomplex.topology import index_dtype, sign_dtype
+from pycomplex.topology import index_dtype, sign_dtype, sparse_normalize_l1
+from pycomplex.math import linalg
 
 
 class ComplexSimplicial(BaseComplexEuclidian):
@@ -74,7 +76,6 @@ class ComplexSimplicial(BaseComplexEuclidian):
             ax.add_collection(lc)
 
         plt.axis('equal')
-        # plt.show()
 
     def as_spherical(self):
         from pycomplex.complex.spherical import ComplexSpherical
@@ -82,6 +83,141 @@ class ComplexSimplicial(BaseComplexEuclidian):
 
     def as_2(self):
         return ComplexTriangular(vertices=self.vertices, topology=self.topology.as_2())
+
+    def subdivide_fundamental(self):
+        return type(self)(
+            vertices=np.concatenate(self.primal_position, axis=0),
+            topology=self.topology.subdivide_fundamental()
+        )
+
+    @cached_property
+    def metric_experimental(self):
+        """Compute metrics from fundamental domain contributions
+
+        Notes
+        -----
+        Do not fully grasp yet the meaning of net negative dual areas
+        """
+        topology = self.topology
+        assert topology.is_oriented
+        PP = self.primal_position
+        domains = self.topology.fundamental_domains()
+
+        corners = self.vertices[self.topology.corners[-1]]
+        mean = corners.mean(axis=-2, keepdims=True)  # centering
+        corners = corners - mean
+        bary = euclidian.circumcenter_barycentric(corners)
+        signs = np.sign(bary)
+        signs = (signs.T * np.ones_like(domains[..., 0]).T).T.reshape(-1)
+
+        domains = domains.reshape(-1, domains.shape[-1])
+        corners = np.concatenate([p[d][:, None, :] for p, d in zip(PP, domains.T)], axis=1)
+
+        PN = topology.n_elements
+        DN = PN[::-1]
+
+        # metrics
+        PM = [np.zeros(n) for n in PN]
+        PM[0][...] = 1
+        DM = [np.zeros(n) for n in DN]
+        DM[0][...] = 1
+
+        unsigned = euclidian.unsigned_volume
+        from scipy.misc import factorial
+        groups = [npi.group_by(c) for c in domains.T]   # cache groupings since they may get reused
+
+        for i in range(1, self.topology.n_dim):
+            n = i + 1
+            d = self.topology.n_dim - i
+            PM[i] = groups[i].mean(unsigned(corners[:, :n]))[1] * factorial(n)
+            DM[i] = groups[d].sum (unsigned(corners[:, d:]) * signs)[1] / factorial(d+1)
+
+        # FIXME: negative signed volume should contribute to negative dual edge lengths; how to accomplish?
+        # would like this to working in embedded spaces too; should consider orientation relative to primal n-element perhaps?
+        # fundamental domain is inverted if its bary relative to the parent n-simplex is negative.
+        # if so, negate all dual contributions
+        V = euclidian.unsigned_volume(corners) * signs
+        PM[-1] = groups[-1].sum(V)[1]
+        DM[-1] = groups[+0].sum(V)[1]
+        # FIXME: can get negative net dual volume this way; solvers not happy
+
+        return PM, DM
+
+    @cached_property
+    def is_acute(self):
+        """Test that circumcenter is inside each simplex
+
+        Notes
+        -----
+        code duplication with spherical complex; need a mixin class i think
+        """
+        import pycomplex.geometry.euclidian
+        corners = self.vertices[self.topology.corners[-1]]
+        mean = corners.mean(axis=-2, keepdims=True)  # centering
+        corners = corners - mean
+        bary = pycomplex.geometry.euclidian.circumcenter_barycentric(corners)
+        return np.all(bary >= 0)
+
+    def weighted_average_operators(self):
+        """Weight averaging over the duals by their barycentric coordinates
+
+        Using mean coordinates for now, since they are simple to implement
+
+        Divide by distance to dual vertex to make all other zero when approaching vertex
+        Divide by distance to dual edge to make all other zero when approaching dual edge
+        Divide by distance to dual face to make all other zero when approaching dual face
+        and so on.
+
+        Base is surface area; circumferential surface area divided by all distances
+
+        References
+        ----------
+        http://vcg.isti.cnr.it/Publications/2004/HF04/coordinates_aicm04.pdf
+        https://www.researchgate.net/publication/2856409_Generalized_Barycentric_Coordinates_on_Irregular_Polygons
+
+        FIXME: only closed cases for now; need to add boundary handling
+        """
+        topology = self.topology
+        assert topology.is_oriented
+        assert self.topology.is_closed
+        assert self.is_acute
+
+        PP = self.primal_position
+        domains = self.topology.fundamental_domains()
+
+        domains = domains.reshape(-1, domains.shape[-1])
+        corners = np.concatenate([p[d][:, None, :] for p, d in zip(PP, domains.T)], axis=1)
+
+        unsigned = euclidian.unsigned_volume
+
+        # construct required distances; all edges lengths
+        def edge_length(a, b):
+            return unsigned(corners[:, [a, b]])
+        def edge_length_prod(n):
+            import functools
+            import operator
+            return functools.reduce(operator.mul, [edge_length(n, m + 1) for m in range(n, self.topology.n_dim)])
+
+        perimiter = [unsigned(corners[:, i+1:]) for i in range(self.topology.n_dim)]
+
+        W = [1] * (self.topology.n_dim + 1)
+        for i in range(self.topology.n_dim):
+            n = i + 1
+            c = self.topology.n_dim - n
+            W[n] = perimiter[c] / edge_length_prod(c)
+
+        res = [1]
+        for i, (w, a) in enumerate(zip(W[1:], self.topology.dual.averaging_operators()[1:])):
+
+            M = scipy.sparse.coo_matrix((
+                w,
+                (domains[:, -(i + 2)], domains[:, -1])),
+                shape=a.shape
+            )
+            q = a.multiply(M)
+            res.append(sparse_normalize_l1(q, axis=1))
+
+        return res
 
 
 class ComplexTriangular(ComplexSimplicial):
@@ -402,6 +538,7 @@ class ComplexTriangularEuclidian3(ComplexTriangular):
         else:
             plt.tripcolor(triang, c0, cmap=cmap, **kwargs)
 
+        ax.autoscale(tight=True)
         plt.axis('equal')
         # plt.show()
 
@@ -430,8 +567,17 @@ class ComplexTriangularEuclidian3(ComplexTriangular):
         facecolors = ScalarMappable(cmap=cmap).to_rgba(p2)
         ax.add_collection(PolyCollection(tris[:, :, :2], facecolors=facecolors[visible], edgecolors=None))
 
+        ax.autoscale(tight=True)
         plt.axis('equal')
-        plt.show()
+
+    def plot_dual_0_form_interpolated(self, d0, weighted=True, **kwargs):
+        if weighted:
+            average = self.weighted_average_operators()
+        else:
+            average = self.topology.dual.averaging_operators()
+        sub_form = np.concatenate([a * d0 for a in average[::-1]], axis=0)
+        sub = self.subdivide_fundamental()
+        sub.plot_primal_0_form(sub_form, **kwargs)
 
     def as_spherical(self):
         return ComplexTriangular(vertices=self.vertices, topology=self.topology)

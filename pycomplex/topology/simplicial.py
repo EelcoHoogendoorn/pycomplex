@@ -234,7 +234,7 @@ class TopologySimplicial(PrimalTopology):
         # flip the mirrored side to preserve orientation;
         # FIXME: in n-dim > 3 we still need a fix-orientation somehow...
         simplices[..., 0, :] = np.flip(simplices[..., 0, :], axis=-1)
-        return TopologySimplicial.from_simplices(simplices.reshape(-1, self.n_dim + 1))
+        return type(self).from_simplices(simplices.reshape(-1, self.n_dim + 1))
 
 
 class TopologyTriangular(TopologySimplicial):
@@ -442,7 +442,17 @@ class TopologyTriangular(TopologySimplicial):
 
     def to_cubical(self):
         """Convert the triangular complex into a cubical complex,
-        by forming 3 quads from each triangle"""
+        by forming 3 quads from each triangle
+
+        Notes
+        -----
+        Can generalize this to n-d; cube as union of fundamental domains
+        Grab all domains sharing a primal-dual combination
+        opposite corners are primal/dual vert
+        how to connect other cube corners though? can we derive this from the structuring of fundamental domain arrays?
+
+        Note that this is better named cubical_subdivision, to contrast with the pure cast that to_cubical implies in the 1d case
+        """
         N0, N1, N2 = self.n_elements
         I20 = self.incidence[2, 0]
         I21 = self.incidence[2, 1]

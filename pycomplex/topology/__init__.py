@@ -98,3 +98,12 @@ def generate_boundary_indices(this, that):
         np.sort(that.reshape(-1, n_vertices), axis=1),
     ).astype(index_dtype)
     return i.reshape(that.shape[:that.ndim - (this.ndim - 1)])
+
+
+def sparse_normalize_l1(A, axis=1):
+    """Return A scaled such that the sum over axis equals 1"""
+    D = scipy.sparse.diags(1. / np.array(A.sum(axis=axis)).flatten())
+    if axis == 0:
+        return A * D
+    elif axis == 1:
+        return D * A

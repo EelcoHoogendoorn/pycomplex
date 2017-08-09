@@ -9,7 +9,7 @@ import operator
 from cached_property import cached_property
 
 from pycomplex.topology import ManifoldException
-from pycomplex.topology import sign_dtype, index_dtype
+from pycomplex.topology import sign_dtype, index_dtype, sparse_normalize_l1
 
 
 class BaseTopology(object):
@@ -188,4 +188,4 @@ class BaseTopology(object):
 
     def averaging_operators(self):
         A = itertools.accumulate([np.abs(m) for m in self.matrices], func=operator.mul)
-        return [1] + [scipy.sparse.diags(1. / np.array(a.sum(axis=0)).flatten()) * a.T for a in A]
+        return [1] + [sparse_normalize_l1(a.T, axis=1) for a in A]

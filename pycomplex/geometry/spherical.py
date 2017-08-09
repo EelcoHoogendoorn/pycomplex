@@ -96,11 +96,13 @@ def unsigned_volume(pts):
 
     if n_pts == 3:
         if n_dim != 3:
+            # FIXME: crap; nd-case seems really hard: https://arxiv.org/pdf/1011.2584.pdf
+            # are we any better off working with fundamental domains with right angles?
             raise ValueError('Only embedding dimensions of 3 is currently supported')
         a, b, c = [pts.take(i, axis=-2) for i in range(3)]
-        return triangle_area_from_corners(a, b, c)
+        return np.abs(triangle_area_from_corners(a, b, c))
     if n_pts == 2:
-        return edge_length(*pts.take([0, 1], axis=-2))
+        return edge_length(*np.rollaxis(pts, axis=-2))
     if n_pts == 1:
         return np.ones_like(pts[..., 0, 0])
 

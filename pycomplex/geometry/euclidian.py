@@ -159,7 +159,7 @@ def unsigned_volume(pts):
         raise ValueError('array has invalid shape')
 
     if M == 0:
-        return np.zeros_like(pts[..., 0, 0])
+        return np.ones_like(pts[..., 0, 0])
 
     head, tail = np.split(pts, [1], axis=-2)
     A = tail - head

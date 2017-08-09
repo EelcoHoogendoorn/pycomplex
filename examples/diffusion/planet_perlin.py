@@ -11,6 +11,7 @@ from pycomplex import synthetic
 from pycomplex.math import linalg
 
 from examples.diffusion.explicit import Diffusor
+import matplotlib.pyplot as plt
 
 
 def perlin_noise(complex, octaves):
@@ -65,3 +66,4 @@ if __name__ == '__main__':
     for i in range(100):
         sphere = sphere.copy(vertices=np.dot(sphere.vertices, R))
         sphere.as_euclidian().plot_primal_0_form(field, cmap='terrain', plot_contour=False, shading='gouraud')
+        plt.show()

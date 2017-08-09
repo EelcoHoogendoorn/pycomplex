@@ -9,7 +9,7 @@ from pycomplex.complex.base import BaseComplexSpherical
 from pycomplex.geometry import spherical
 from pycomplex.math import linalg
 from pycomplex.topology.simplicial import TopologyTriangular, TopologySimplicial
-from pycomplex.topology import index_dtype
+from pycomplex.topology import index_dtype, sparse_normalize_l1
 
 
 class ComplexSpherical(BaseComplexSpherical):
@@ -64,7 +64,7 @@ class ComplexSpherical(BaseComplexSpherical):
 
         # plot primal edges
         edges = self.topology.corners[1]
-        steps = int(1000 / len(edges)) + 1
+        steps = int(1000 / len(edges)) + 2
         e = subdivide(self.vertices[edges], steps=steps*2)
         plot_edge(ax, e, color='b', alpha=0.5)
         if plot_vertices:
@@ -240,7 +240,6 @@ class ComplexSpherical(BaseComplexSpherical):
             p[..., i, :] = PP[i][domains[..., i]]
         return domains, np.linalg.inv(p).astype(np.float32)
 
-
     def pick_fundamental(self, points, domain=None):
         """Pick the fundamental domain
 
@@ -296,8 +295,6 @@ class ComplexSpherical(BaseComplexSpherical):
         baries /= baries.sum(axis=1, keepdims=True)
         return domain, baries
 
-        # return d, baries
-
     def pick_primal_alt(self, points, simplex=None):
         """
 
@@ -349,9 +346,134 @@ class ComplexSpherical(BaseComplexSpherical):
         # http://www.geometry.caltech.edu/pubs/MMdGD11.pdf
         # as is this...
 
+    @cached_property
+    def metric(self):
+        """Compute metrics from fundamental domain contributions
+
+        Notes
+        -----
+        There is a lot of duplication in metric calculation this way.
+        Would it pay to construct the fundamental topology first?
+        """
+        topology = self.topology
+        assert topology.is_oriented
+        assert self.is_acute
+        PP = self.primal_position
+        domains = self.topology.fundamental_domains()
+
+        domains = domains.reshape(-1, domains.shape[-1])
+        corners = np.concatenate([p[d][:, None, :] for p, d in zip(PP, domains.T)], axis=1)
+
+        PN = topology.n_elements
+        DN = PN[::-1]
+
+        # metrics
+        PM = [np.zeros(n) for n in PN]
+        PM[0][...] = 1
+        DM = [np.zeros(n) for n in DN]
+        DM[0][...] = 1
+
+        unsigned = spherical.unsigned_volume
+        from scipy.misc import factorial
+        groups = [npi.group_by(c) for c in domains.T]   # cache groupings since they may get reused
+
+        for i in range(1, self.topology.n_dim):
+            n = i + 1
+            d = self.topology.n_dim - i
+            PM[i] = groups[i].mean(unsigned(corners[:, :n]))[1] * factorial(n)
+            DM[i] = groups[d].sum (unsigned(corners[:, d:]))[1] / factorial(d+1)
+
+        V = spherical.unsigned_volume(corners)
+        PM[-1] = groups[-1].sum(V)[1]
+        DM[-1] = groups[+0].sum(V)[1]
+
+        return (
+            [m * (self.radius ** i) for i, m in enumerate(PM)],
+            [m * (self.radius ** i) for i, m in enumerate(DM)]
+        )
+
+    @cached_property
+    def is_acute(self):
+        """Test that circumcenter is inside each simplex
+
+        Notes
+        -----
+        code duplication with simplicial complex; need a mixin class i think
+        """
+        import pycomplex.geometry.euclidian
+        corners = self.vertices[self.topology.corners[-1]]
+        mean = corners.mean(axis=-2, keepdims=True)  # centering
+        corners = corners - mean
+        bary = pycomplex.geometry.euclidian.circumcenter_barycentric(corners)
+        return np.all(bary >= 0)
+
+    def weighted_average_operators(self):
+        """Weight averaging over the duals by their barycentric coordinates
+
+        Using mean coordinates for now, since they are simple to implement
+
+        Divide by distance to dual vertex to make all other zero when approaching vertex
+        Divide by distance to dual edge to make all other zero when approaching dual edge
+        Divide by distance to dual face to make all other zero when approaching dual face
+        and so on.
+
+        Base is surface area; circumferential surface area divided by all distances
+
+        References
+        ----------
+        http://vcg.isti.cnr.it/Publications/2004/HF04/coordinates_aicm04.pdf
+        https://www.researchgate.net/publication/2856409_Generalized_Barycentric_Coordinates_on_Irregular_Polygons
+
+        FIXME: only closed cases for now; need to add boundary handling
+
+        This also is pure duplication relative to simplicial case, except for choice of metric
+        """
+        topology = self.topology
+        assert topology.is_oriented
+        assert self.topology.is_closed
+        assert self.is_acute
+
+        PP = self.primal_position
+        domains = self.topology.fundamental_domains()
+
+        domains = domains.reshape(-1, domains.shape[-1])
+        corners = np.concatenate([p[d][:, None, :] for p, d in zip(PP, domains.T)], axis=1)
+
+        unsigned = spherical.unsigned_volume
+
+        # construct required distances; all edges lengths
+        def edge_length(a, b):
+            return unsigned(corners[:, [a, b]])
+        def edge_length_prod(n):
+            import functools
+            import operator
+            return functools.reduce(operator.mul, [edge_length(n, m + 1) for m in range(n, self.topology.n_dim)])
+
+        perimiter = [unsigned(corners[:, i+1:]) for i in range(self.topology.n_dim)]
+
+        W = [1] * (self.topology.n_dim + 1)
+        for i in range(self.topology.n_dim):
+            n = i + 1
+            c = self.topology.n_dim - n
+            W[n] = perimiter[c] / edge_length_prod(c)
+
+        res = [1]
+        for i, (w, a) in enumerate(zip(W[1:], self.topology.dual.averaging_operators()[1:])):
+
+            M = scipy.sparse.coo_matrix((
+                w,
+                (domains[:, -(i + 2)], domains[:, -1])),
+                shape=a.shape
+            )
+            q = a.multiply(M)
+            res.append(sparse_normalize_l1(q, axis=1))
+
+        return res
+
 
 class ComplexCircular(ComplexSpherical):
-    """Simplicial complex on the surface of a 1-sphere; cant really think of any applications"""
+    """Simplicial complex on the surface of a 1-sphere
+    cant really think of any applications, other than testing purposes"""
     pass
 
 
@@ -373,70 +495,6 @@ class ComplexSpherical2(ComplexSpherical):
         self.topology = topology
         self.radius = radius
 
-    @cached_property
-    def metric(self):
-        """Calc metric properties of a spherical complex
-
-        Parameters
-        ----------
-        radius : float
-            The radius of the n-sphere
-
-        Notes
-        -----
-        This currently assumes triangle circumcenters are inside their triangles
-        However, it should not be too hard to generalize it with signed metric calculations
-        """
-        def gather(idx, vals):
-            """return vals[idx]. return.shape = idx.shape + vals.shape[1:]"""
-            return vals[idx]
-        def scatter(idx, vals, target):
-            """target[idx] += vals. """
-            np.add.at(target.ravel(), idx.ravel(), vals.ravel())
-
-        topology = self.topology
-        PP = self.primal_position
-
-        #metrics
-        PN = topology.n_elements
-        DN = PN[::-1]
-
-        PM = [np.zeros(n) for n in PN]
-        PM[0][...] = 1
-        DM = [np.zeros(n) for n in DN]
-        DM[0][...] = 1
-
-        # precomputations
-        E21  = topology.incidence[2, 1]  # [faces, e3]
-        E10  = topology.incidence[1, 0]  # [edges, v2]
-        E210 = E10[E21]                  # [faces, e3, v2]
-
-        PP10  = PP[0][E10]                 # [edges, v2, c3]
-        PP210 = PP10[E21]                  # [faces, e3, v2, c3]
-        PP21  = PP[1][E21]                 # [faces, e3, c3] ; face-edge midpoints
-
-        # calculate areas; devectorization over e makes things a little more elegant, by avoiding superfluous stacking
-        for e in range(3):
-            # this is the area of two fundamental domains
-            # note that it is assumed here that the primal face center lies within the triangle
-            # could we just compute a signed area and would it generalize?
-            areas = spherical.triangle_area_from_corners(PP210[:,e,0,:], PP210[:,e,1,:], PP[2])
-            PM[2] += areas                    # add contribution to primal face
-            scatter(E210[:,e,0], areas/2, DM[2])
-            scatter(E210[:,e,1], areas/2, DM[2])
-
-        # calc edge lengths
-        PM[1] += spherical.edge_length(PP10[:,0,:], PP10[:,1,:])
-        for e in range(3):
-            # note: this calc would need to be signed too, to support external circumcenters
-            scatter(
-                E21[:,e],
-                spherical.edge_length(PP21[:,e,:], PP[2]),
-                DM[1])
-
-        return ([m * (self.radius ** i) for i, m in enumerate(PM)],
-                [m * (self.radius ** i) for i, m in enumerate(DM)])
-
     def subdivide(self):
         """Subdivide the complex, returning a refined complex where each edge inserts a vertex
 
@@ -451,3 +509,10 @@ class ComplexSpherical2(ComplexSpherical):
     def as_euclidian(self):
         from pycomplex.complex.simplicial import ComplexTriangularEuclidian3
         return ComplexTriangularEuclidian3(vertices=self.vertices, topology=self.topology)
+
+
+class ComplexSpherical3(ComplexSpherical):
+    """Figuring out the metric computations for this will be a hard one.
+    But doing physical simulations in a curved space should be fun
+    """
+    pass
