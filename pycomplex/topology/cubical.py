@@ -144,6 +144,14 @@ class TopologyCubical(PrimalTopology):
     def boundary_type(self):
         return TopologyCubical
 
+    @cached_property
+    def cube_shape(self):
+        return (2, ) * self.n_dim
+
+    @cached_property
+    def cube_corners(self):
+        return np.indices(self.cube_shape).reshape(self.n_dim, -1).T.astype(sign_dtype)
+
     @classmethod
     def from_elements(cls, elements):
         return cls.from_cubes(cubes=elements)
@@ -250,24 +258,21 @@ class TopologyCubical(PrimalTopology):
         -----
         currently, the transfer operators are set as a side effect of calling this function; not super happy with that
         """
-        cube_shape = (2,) * self.n_dim
-
         offset = np.cumsum([0] + self.n_elements)
         new_cubes = self.fundamental_domains().copy()
-        corners = np.indices(cube_shape).reshape(self.n_dim, -1).T
 
         # subdivision is essentially just remapping fundamental-domain n-cube indices to 0-cube indices
-        for c in corners:
+        for c in self.cube_corners:
             idx = (Ellipsis, ) + tuple(c)
             new_cubes[idx] += offset[c.sum()]
         # perform mirrors according to corners, to preserve orientation
-        for c in corners:
+        for c in self.cube_corners:
             idx = (slice(None), ) + tuple(c)
             for i, b in enumerate(c):
                 if b == 1:
                     new_cubes[idx] = np.flip(new_cubes[idx], 1 + i)
 
-        new_cubes = new_cubes.reshape((-1,) + cube_shape)
+        new_cubes = new_cubes.reshape((-1,) + self.cube_shape)
 
         sub = type(self).from_cubes(new_cubes)
 
@@ -321,10 +326,8 @@ class TopologyCubical(PrimalTopology):
         """
         # FIXME: fundamental domain isnt really the right word for what we are doing here;
         # that would be the direct analogue of the simplex case
-        cube_shape = [2] * self.n_dim
-        # corners = np.indices(cube_shape).reshape(self.n_dim, -1).T
 
-        shape = np.asarray([self.n_elements[-1]] + cube_shape + cube_shape)
+        shape = np.asarray((self.n_elements[-1],) + self.cube_shape + self.cube_shape)
 
         domains = -np.ones(shape, dtype=index_dtype)
         c = (Ellipsis,) + (1,) * self.n_dim

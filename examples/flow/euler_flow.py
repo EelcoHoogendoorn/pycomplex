@@ -31,6 +31,7 @@ from cached_property import cached_property
 from pycomplex import synthetic
 from pycomplex.math import linalg
 from pycomplex.util import save_animation
+from pycomplex.complex.spherical import ComplexSpherical
 from examples.advection import Advector
 
 
@@ -38,7 +39,6 @@ class VorticityAdvector(Advector):
 
     @cached_property
     def constrain_divergence_precompute(self):
-        import scipy.sparse
         T01, T12 = self.complex.topology.matrices
         P1P0 = T01.T
         D2D1 = T01
@@ -49,7 +49,6 @@ class VorticityAdvector(Advector):
 
     @cached_property
     def pressure_projection_precompute(self):
-        import scipy.sparse
         TnN = self.complex.topology.matrices[-1]
         hodge = scipy.sparse.diags(sphere.hodge_PD[-2])
         laplacian = TnN.T * hodge * TnN
@@ -81,25 +80,26 @@ class VorticityAdvector(Advector):
 
         return D1P1 * (P1P0 * phi_p0)
 
-    # def advect_d1(self):
-    #
-
     def advect_vorticity(self, flux_d1, dt):
         """The main method of vorticity advection"""
         T01, T12 = self.complex.topology.matrices
         D1D0 = T12
 
-        velocity_d0 = self.dual_flux_to_dual_velocity(flux_d1)
+        velocity_d0_inner = self.dual_flux_to_dual_velocity(flux_d1)
+        # implicitly set boundary velocities to all zero
+        velocity_d0 = np.zeros((self.complex.topology.dual.n_elements[0], velocity_d0_inner.shape[1]))
+        velocity_d0[:len(velocity_d0_inner)] = velocity_d0_inner
 
         # advect the dual mesh
         advected_d0 = self.complex.dual_position[0] + velocity_d0 * dt
-        advected_d0 = linalg.normalized(advected_d0)    # FIXME: this line is specific to working on a spherical complex!
+        if isinstance(self.complex, ComplexSpherical):
+            advected_d0 = linalg.normalized(advected_d0)    # FIXME: this line is specific to working on a spherical complex!
 
         # sample at all advected dual vertices, average at the mid of dual edge, and dot with advected dual edge vector
-        velocity_sampled_d0 = self.sample_dual_0(velocity_d0, advected_d0)
+        velocity_sampled_d0 = self.complex.sample_dual_0(velocity_d0, advected_d0)
 
         # integrate the tangent flux of the advected mesh
-        velocity_sampled_d1 = self.dual_averages[1] * velocity_sampled_d0
+        velocity_sampled_d1 = self.complex.cached_averages[1] * velocity_sampled_d0
         advected_edge = D1D0 * advected_d0
         flux_d1_advected = linalg.dot(velocity_sampled_d1, advected_edge)
 
@@ -108,9 +108,9 @@ class VorticityAdvector(Advector):
 
 
 if __name__ == "__main__":
-    sphere = synthetic.icosphere(refinement=5)
+    sphere = synthetic.icosphere(refinement=4)
     dt = 1
-    sphere.weighted_average_operators()
+
     if False:
         sphere.plot(plot_vertices=False, plot_dual=True)
         # quit
@@ -145,18 +145,24 @@ if __name__ == "__main__":
 
     # phi_p0 = H
     advector = VorticityAdvector(sphere)
-    path = r'c:\development\examples\euler_25'
+
+    # test that integrating over zero time does almost nothing
+    advected_0 = advector.advect_vorticity(flux_d1, dt=0)
+    print(np.abs(advected_0 - flux_d1).max())
+    print(np.abs(flux_d1).max())
+    assert np.allclose(advected_0, flux_d1, atol=1e-6)
+
+    path = r'c:\development\examples\euler_30'
     # path = None
     def advect(flux_d1, dt):
         return advector.advect_vorticity(flux_d1, dt)
-        # return flux_d1
 
     from examples.advection import MacCormack, BFECC
 
-    for i in save_animation(path, frames=100):
+    for i in save_animation(path, frames=200):
         for r in range(4):
-            flux_d1 = BFECC(advect, flux_d1, dt=2)
-            # flux_d1 = advect(flux_d1, dt=2)
+            # flux_d1 = BFECC(advect, flux_d1, dt=2)
+            flux_d1 = advect(flux_d1, dt=2)
         # sphere.as_euclidian().as_3().plot_primal_0_form(phi_p0, plot_contour=True, cmap='jet', vmin=-2e-2, vmax=+2e-2)
 
         vorticity_p0 = sphere.hodge_PD[0] * (T01 * flux_d1)

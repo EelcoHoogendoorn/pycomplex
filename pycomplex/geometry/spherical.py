@@ -98,6 +98,11 @@ def unsigned_volume(pts):
         if n_dim != 3:
             # FIXME: crap; nd-case seems really hard: https://arxiv.org/pdf/1011.2584.pdf
             # are we any better off working with fundamental domains with right angles?
+            # https://www.math.cornell.edu/~hatcher/Other/hopf-samelson.pdf
+            # this seems inspiring; seems like generalizing spherical excess formula should be possible
+            # 3 dihedral wedges cover the triangle three times, and the rest of the sphere once.
+            # 6 dihedral wedges on a tet should cover the tet 6 times, and the rest of the sphere once, no? do they indeed cocer the sphere?
+            # but what about areas of tet faces?
             raise ValueError('Only embedding dimensions of 3 is currently supported')
         a, b, c = [pts.take(i, axis=-2) for i in range(3)]
         return np.abs(triangle_area_from_corners(a, b, c))

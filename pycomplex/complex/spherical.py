@@ -1,9 +1,11 @@
 
+import functools
+import operator
+from cached_property import cached_property
+
 import numpy as np
 import numpy_indexed as npi
 import scipy.spatial
-
-from cached_property import cached_property
 
 from pycomplex.complex.base import BaseComplexSpherical
 from pycomplex.geometry import spherical
@@ -410,14 +412,15 @@ class ComplexSpherical(BaseComplexSpherical):
     def weighted_average_operators(self):
         """Weight averaging over the duals by their barycentric coordinates
 
-        Using mean coordinates for now, since they are simple to implement
+        Using mean coordinates for now, since they are simple to implement in a vectorized an nd-manner
+
+        General logic is pretty simple; take the perimeter of an n-element, and divide it by the distance to
+        all lower-order elements.
 
         Divide by distance to dual vertex to make all other zero when approaching vertex
         Divide by distance to dual edge to make all other zero when approaching dual edge
         Divide by distance to dual face to make all other zero when approaching dual face
         and so on.
-
-        Base is surface area; circumferential surface area divided by all distances
 
         References
         ----------
@@ -427,6 +430,7 @@ class ComplexSpherical(BaseComplexSpherical):
         FIXME: only closed cases for now; need to add boundary handling
 
         This also is pure duplication relative to simplicial case, except for choice of metric
+
         """
         topology = self.topology
         assert topology.is_oriented
@@ -445,8 +449,6 @@ class ComplexSpherical(BaseComplexSpherical):
         def edge_length(a, b):
             return unsigned(corners[:, [a, b]])
         def edge_length_prod(n):
-            import functools
-            import operator
             return functools.reduce(operator.mul, [edge_length(n, m + 1) for m in range(n, self.topology.n_dim)])
 
         perimiter = [unsigned(corners[:, i+1:]) for i in range(self.topology.n_dim)]
@@ -470,11 +472,34 @@ class ComplexSpherical(BaseComplexSpherical):
 
         return res
 
+    @cached_property
+    def cached_averages(self):
+        # note: weighted average is more correct, but the difference appears very minimal in practice
+        # return self.weighted_average_operators()
+        return self.topology.dual.averaging_operators()
+
+    def sample_dual_0(self, d0, points):
+        # extend dual 0 form to all other dual elements by averaging
+        dual_forms = [a * d0 for a in self.cached_averages]
+        domain, bary = self.pick_fundamental(points)
+        # do interpolation over fundamental domain
+        return sum([dual_forms[::-1][i][domain[:, i]] * bary[:, [i]]
+                    for i in range(self.topology.n_dim + 1)])
+    def sample_primal_0(self, p0, points):
+        element, bary = self.pick_primal(points)
+        IN0 = self.topology.incidence[-1, 0]
+        verts = IN0[element]
+        return (p0[verts] * bary).sum(axis=1)
+
 
 class ComplexCircular(ComplexSpherical):
     """Simplicial complex on the surface of a 1-sphere
-    cant really think of any applications, other than testing purposes"""
-    pass
+    cant really think of any applications, other than testing purposes
+
+    """
+
+    def subdivide(self):
+        return self.subdivide_fundamental()
 
 
 class ComplexSpherical2(ComplexSpherical):

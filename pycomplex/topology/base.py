@@ -187,5 +187,5 @@ class BaseTopology(object):
                 raise ValueError(f'chain [{i}, {i+1}] to [{i+1}, {i+2}] does not match')
 
     def averaging_operators(self):
-        A = itertools.accumulate([np.abs(m) for m in self.matrices], func=operator.mul)
+        A = itertools.accumulate([np.abs(m) for m in self.matrices_original], func=operator.mul)
         return [1] + [sparse_normalize_l1(a.T, axis=1) for a in A]

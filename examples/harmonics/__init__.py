@@ -20,7 +20,7 @@ def get_harmonics_0(complex2):
     laplacian = div * sparse_diag(complex2.hodge_DP[1]) * grad
     # solve for some eigenvectors
     w, v = scipy.sparse.linalg.eigsh(laplacian, M=sparse_diag(mass), which='SA', k=20)
-    print(w)
+    # print(w)
     return v
 
 
@@ -56,5 +56,5 @@ def get_harmonics_2(complex2):
     laplacian = div * sparse_diag(complex2.hodge_PD[n-1]) * grad
     # solve for some eigenvectors
     w, v = scipy.sparse.linalg.eigsh(laplacian, M=sparse_diag(mass), which='SA', k=20)
-    print(w)
+    # print(w)
     return v

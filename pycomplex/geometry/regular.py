@@ -5,4 +5,5 @@ def edge_length(s, e):
     return np.max(np.abs(s - e), axis=-1)
 
 def hypervolume(a, b):
+    """Compute unsigned hypervolume"""
     return np.abs(np.prod(a - b, axis=-1))

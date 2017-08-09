@@ -334,6 +334,15 @@ class ComplexTriangular(ComplexSimplicial):
     def as_3(self):
         return ComplexTriangularEuclidian3(vertices=self.vertices, topology=self.topology)
 
+    def plot_dual_0_form_interpolated(self, d0, weighted=True, **kwargs):
+        if weighted:
+            average = self.weighted_average_operators()
+        else:
+            average = self.topology.dual.averaging_operators()
+        sub_form = np.concatenate([a * d0 for a in average[::-1]], axis=0)
+        sub = self.subdivide_fundamental()
+        sub.plot_primal_0_form(sub_form, **kwargs)
+
 
 class ComplexTriangularEuclidian2(ComplexTriangular):
     """Triangular topology embedded in euclidian 2-space"""
@@ -569,15 +578,6 @@ class ComplexTriangularEuclidian3(ComplexTriangular):
 
         ax.autoscale(tight=True)
         plt.axis('equal')
-
-    def plot_dual_0_form_interpolated(self, d0, weighted=True, **kwargs):
-        if weighted:
-            average = self.weighted_average_operators()
-        else:
-            average = self.topology.dual.averaging_operators()
-        sub_form = np.concatenate([a * d0 for a in average[::-1]], axis=0)
-        sub = self.subdivide_fundamental()
-        sub.plot_primal_0_form(sub_form, **kwargs)
 
     def as_spherical(self):
         return ComplexTriangular(vertices=self.vertices, topology=self.topology)

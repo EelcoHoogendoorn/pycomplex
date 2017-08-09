@@ -26,6 +26,14 @@ class ClosedDual(BaseTopology):
 
     @cached_property
     def matrices(self):
+        return self.matrices_original
+
+    @cached_property
+    def matrices_2(self):
+        return self.matrices
+
+    @cached_property
+    def matrices_original(self):
         return [T.T for T in self.primal.matrices[::-1]]
 
     def __getitem__(self, item):
@@ -85,6 +93,10 @@ class Dual(BaseTopology):
         raise NotImplementedError
 
     @cached_property
+    def matrices_original(self):
+        return [T.T for T in self.primal.matrices[::-1]]
+
+    @cached_property
     def matrices_2(self):
         """Construct dual topology matrices stripped of dual boundary topology
         This leaves us at liberty to construct custom boundary conditions
@@ -93,12 +105,32 @@ class Dual(BaseTopology):
         -------
         array_like, [n_dim], sparse matrix
         """
+        M = self.matrices    # [D0D1 ... DnDN]
+        S = self.selector    # [P0DN ... PND0]
+        return [m * s.T for m, s in zip(M, S[::-1][1:])]
 
-        return [m * s.T for m, s in zip(self.matrices, self.selector[::-1][1:])]
+    # @cached_property
+    # def matrices_3(self):
+    #     """Construct dual topology matrices stripped of dual boundary topology
+    #     This leaves us at liberty to construct custom boundary conditions
+    #
+    #     Returns
+    #     -------
+    #     array_like, [n_dim], sparse matrix
+    #     """
+    #     S = self.selector[::-1]
+    #     return [l * m * r.T for l, m, r in zip(S[:-1], self.matrices, S[1:])]
 
     @cached_property
     def selector(self):
-        """Operators to select primal form from dual form"""
+        """Operators to select primal form from dual form
+
+        Returns
+        -------
+        selectors : list of len self.n_dim + 1
+            selectors mapping dual forms to primal subset
+            first element of this list is square; maps dual n-forms to primal 0-forms, which are one-to-one
+        """
 
         def s(np, nd):
             return scipy.sparse.eye(np, nd)
@@ -127,7 +159,7 @@ class Dual(BaseTopology):
 
             """
 
-            orientation = -np.ones_like(idx)
+            orientation = np.ones_like(idx)
 
             I = scipy.sparse.coo_matrix(
                 (orientation,
@@ -142,7 +174,7 @@ class Dual(BaseTopology):
             else:
                 blocks = [
                     [T, None],
-                    [I, -B]      # its far from obvious any application actually needs this term...
+                    [I, B]      # its far from obvious any application actually needs this term...
                 ]
             return (blocks)
 
