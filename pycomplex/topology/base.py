@@ -195,5 +195,5 @@ class BaseTopology(object):
             n-th element of the list maps 0-elements to n-elements
             all columns in each row sum to one
         """
-        A = itertools.accumulate([np.abs(m) for m in self.matrices_original], func=operator.mul)
-        return [scipy.sparse.identity(self.n_elements[0])] + [sparse_normalize_l1(a.T, axis=1) for a in A]
+        A = list(itertools.accumulate([np.abs(m) for m in self.matrices_original], func=operator.mul))
+        return [scipy.sparse.identity(A[0].shape[0])] + [sparse_normalize_l1(a.T, axis=1) for a in A]

@@ -129,7 +129,7 @@ class Dual(BaseTopology):
 
     @cached_property
     def selector(self):
-        """Operators to select primal form from dual form
+        """Operators to select primal form from dual form; or to strip boundary elements
 
         Returns
         -------

@@ -1,9 +1,12 @@
+
 import numpy as np
 import numpy.testing as npt
 import numpy_indexed as npi
+import scipy.sparse
+
 from cached_property import cached_property
 
-from pycomplex.topology import index_dtype, sign_dtype, topology_matrix
+from pycomplex.topology import index_dtype, sign_dtype, topology_matrix, selection_matrix
 from pycomplex.topology.base import BaseTopology
 
 
@@ -298,3 +301,23 @@ class PrimalTopology(BaseTopology):
         n_components, labels = self.label_connections()
         components = [self.select_subset(labels==i) for i in range(n_components)]
         return sorted(components, key=lambda c: -c.n_elements[-1])
+
+    @cached_property
+    def selector(self):
+        """Operators to select interior, or to strip boundary elements
+
+        Returns
+        -------
+        selectors : list of len self.n_dim + 1
+            selectors mapping all elements to the interior subset
+            first element of this list is square; maps dual n-forms to primal 0-forms, which are one-to-one
+        """
+        def s(i):
+            d = self.chain(n=i, fill=1, dtype=sign_dtype)
+            try:
+                d[self.boundary.parent_idx[i]] = 0
+            except:
+                pass
+            return selection_matrix(d)
+
+        return [s(i) for i in range(self.n_dim + 1)]

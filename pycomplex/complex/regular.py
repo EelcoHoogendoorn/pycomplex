@@ -142,8 +142,7 @@ class ComplexRegularMixin(object):
 
     @cached_property
     def cached_averages(self):
-        # note: weighted average is more correct, but the difference appears very minimal in practice
-        # return self.weighted_average_operators()
+        # for a truly regular grid, there is no need for weighting, unlike simplicial case
         return self.topology.dual.averaging_operators()
 
     def average_dual(self, d0):
@@ -152,6 +151,7 @@ class ComplexRegularMixin(object):
         Parameters
         ----------
         d0 : dual 0-form
+            dual 0-form, including boundary values
 
         Returns
         -------

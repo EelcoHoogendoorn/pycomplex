@@ -76,6 +76,25 @@ def sparse_to_elements(T):
     return q
 
 
+def selection_matrix(s):
+    """
+
+    Parameters
+    ----------
+    s : ndarray, [n], bool
+
+    Returns
+    -------
+    sparse, [nnz(s), len(s)]
+        sparse selector matrix according to nonzeros of s
+    """
+    cols = np.flatnonzero(s).astype(index_dtype)
+    rows = np.arange(len(cols), dtype=index_dtype)
+    data = np.ones(len(cols), dtype=sign_dtype)
+    return scipy.sparse.csr_matrix((data, (rows, cols)), shape=(len(rows), len(s)))
+
+
+
 def generate_boundary_indices(this, that):
     """map boundary in terms of vertices to their unique indices
 

@@ -29,6 +29,7 @@ def render_frame(p, x, y, z):
     # build up projection plane
     gx = np.linspace(-stepsize, +stepsize, num=resolution[0], endpoint=True)
     gy = np.linspace(-stepsize, +stepsize, num=resolution[1], endpoint=True)
+    # normalize step magnitude, so distance coloring is more correct?
     ray_step = np.einsum('xij,yjk,kl->xyil', linalg.power(dx, gx * fov), linalg.power(dy, gy * fov), linalg.power(dz, +stepsize))
 
     # all rays start from p
