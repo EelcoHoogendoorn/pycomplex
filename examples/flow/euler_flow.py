@@ -7,7 +7,7 @@ Euler equations:
 This example is an implementation of the excellent paper 'Stable, Circulation-Preserving, Simplicial Fluids'
 We depart from it in some aspects; primarily, the use of subdomain-interpolation rather than barycentric interpolation.
 This should have as advantage that it is easier to implement efficiently in python, and leads to a simpler formulation at the boundary.
-Moreover, we seek to extend the method to cubical grids too, not just simplicial ones.
+Moreover, we extend the method to cubical grids too, not just simplicial ones.
 
 References
 ----------
@@ -15,12 +15,9 @@ References
 
 Notes
 -----
-mesh-edges are visible in the current implentation, during advection
-is this our averaging barycentric interpolant being funny?
-can we re-weight our averaging op such that it reconstructs all linear functions?
-yeah; weighting should not be linear; but rather proportional to the bary weights of that element!
-we can express this as a proportionality between the sum of fundamental-domain area incident to
-both the dual n-element and the dual 0-element
+mesh-edges are visible in the current implementation, during advection over the sphere
+not sure what is the cause of this; the euclidian approximations made on the sphere when integrating flux perhaps?
+means it should respond posiively to grid refinemtn and it does not seem to
 """
 
 import numpy as np
@@ -57,7 +54,6 @@ class VorticityAdvector(Advector):
 
     @cached_property
     def constrain_divergence_precompute(self):
-        # FIXME: potential at boundary is unspecified; should be pinned at constant for zero-flux bc's
         T01, T12 = self.complex.topology.matrices
         P1P0 = T01.T
         D2D1 = T01
@@ -67,14 +63,10 @@ class VorticityAdvector(Advector):
         return laplacian
 
     def constrain_divergence(self, flux_d1):
-        # do streamfunction solve to recover incompressible component of (advected) flux
-        # why not just use pressure projection? need vorticity form anyway if we seek to do diffusion?
-        # otherwise we can do full time-dependent stokes; best for generality
         T01, T12 = self.complex.topology.matrices
         P1P0 = T01.T
         D2D1 = T01
         D1P1 = self.complex.hodge_DP[1]
-        P0D2 = self.complex.hodge_PD[0]
 
         vorticity_d2 = D2D1 * flux_d1
         laplacian = self.constrain_divergence_precompute
@@ -106,7 +98,6 @@ class VorticityAdvector(Advector):
         P1P0 = T01.T
         D2D1 = T01
         D1P1 = self.complex.hodge_DP[1]
-        P0D2 = self.complex.hodge_PD[0]
 
         vorticity_d2 = D2D1 * flux_d1
         vorticity_d2 = self.complex.topology.selector[0] * vorticity_d2
@@ -162,7 +153,7 @@ class VorticityAdvector(Advector):
         velocity_sampled_d1 = self.complex.average_dual(velocity_sampled_d0)[1]
         # velocity_sampled_d1 = self.complex.cached_averages[1] * velocity_sampled_d0
         advected_edge = D1D0 * advected_d0
-        flux_d1_advected = linalg.dot(velocity_sampled_d1, advected_edge)        # this does not include flux around boundary edges
+        flux_d1_advected = linalg.dot(velocity_sampled_d1, advected_edge)        # this does not include flux around boundary edges; but currently all zero anyway
 
         # return self.complex.topology.dual.selector[1].T * flux_d1_advected
         # return self.complex.topology.dual.selector[1].T * self.pressure_projection(flux_d1_advected)
@@ -173,10 +164,10 @@ class VorticityAdvector(Advector):
 if __name__ == "__main__":
     dt = 1
 
-    complex_type = 'grid'
+    complex_type = 'sphere'
 
     if complex_type == 'sphere':
-        complex = synthetic.icosphere(refinement=6)
+        complex = synthetic.icosphere(refinement=5)
         if False:
             complex.plot()
 
@@ -249,7 +240,7 @@ if __name__ == "__main__":
     print(np.abs(flux_d1).max())
     # assert np.allclose(advected_0, flux_d1, atol=1e-6)
 
-    path = r'c:\development\examples\euler_35'
+    path = r'c:\development\examples\euler_36'
     # path = None
     def advect(flux_d1, dt):
         return advector.advect_vorticity(flux_d1, dt)
@@ -263,7 +254,7 @@ if __name__ == "__main__":
         # sphere.as_euclidian().as_3().plot_primal_0_form(phi_p0, plot_contour=True, cmap='jet', vmin=-2e-2, vmax=+2e-2)
 
         vorticity_p0 = complex.hodge_PD[0] * (D2D1 * flux_d1)
-        vorticity_p0[complex.boundary.topology.parent_idx[0]] = 0   # dont care about shear in boundary layer
+        # vorticity_p0[complex.boundary.topology.parent_idx[0]] = 0   # dont care about shear in boundary layer
 
         if complex_type == 'sphere':
             complex.as_euclidian().as_3().plot_primal_0_form(
