@@ -5,6 +5,8 @@ import scipy
 from cached_property import cached_property
 import numpy_indexed as npi
 
+from pycomplex.topology import sign_dtype, sparse_normalize_l1
+
 
 class BaseComplex(object):
     """Complex, regardless of embedding space or element type"""
@@ -140,6 +142,46 @@ class BaseComplex(object):
                 vertices[vertex_i] = vertex_p
 
         return self.copy(vertices=vertices)
+
+    def smooth_operator(self, creases=None):
+        """Loop / catmul-clark / MLCA type smoothing operator
+
+        Parameters
+        ----------
+        creases : dict of (int, ndarray), optional
+            dict of n-chains, where nonzero elements denote crease elements
+
+        Returns
+        -------
+        sparse array, [n_vertices, n_vertices]
+            applies MLCA type smoothing to the primal vertices of a complex
+
+        Notes
+        -----
+        This is now a method on complex; but really does not rely on the vertices in any way;
+        perhaps better off in topology class
+
+        """
+
+        # creasing default behavior; all n-elements are 'creases', and none of the other topological elements are
+        C = [np.zeros(n, dtype=sign_dtype) for n in self.topology.n_elements]
+        C[-1][:] = 1
+        if creases:
+            for n, c in creases.items():
+                C[n] = c != 0
+
+        # need to decide for each fine vertex what n-elements it sources from; zero out others
+        S = np.zeros((self.topology.n_dim + 1, self.topology.n_elements[0]), dtype=sign_dtype)
+        for s, c, corners in zip(S, C, self.topology.corners):
+            influence = np.unique(corners[c != 0])
+            s[influence] = 1
+        # let lower n creases override higher ones
+        for i, a in enumerate(S):
+            for b in S[i + 1:]:
+                b[a != 0] = 0
+
+        averaging = self.topology.averaging_operators()
+        return sum([scipy.sparse.diags(s) * sparse_normalize_l1(a.T, axis=1) * a for a, s in zip(averaging, S)])
 
     @cached_property
     def primal_metric(self):

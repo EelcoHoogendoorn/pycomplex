@@ -2,11 +2,10 @@
 
 import numpy as np
 import numpy_indexed as npi
+import scipy.sparse
 from cached_property import cached_property
 
-import pycomplex.topology
-from pycomplex.topology import index_dtype, sign_dtype
-import pycomplex.topology.base
+from pycomplex.topology import index_dtype, sign_dtype, sparse_normalize_l1
 from pycomplex.complex.base import BaseComplexCubical
 from pycomplex.topology.cubical import TopologyCubical
 
@@ -41,6 +40,7 @@ class ComplexCubical(BaseComplexCubical):
             dict of n to n-chains, where nonzero elements denote crease elements
         smooth : bool
             if true, smoothing is performed after subdivision
+
         """
 
         fine = type(coarse)(
@@ -56,6 +56,53 @@ class ComplexCubical(BaseComplexCubical):
         if smooth:
             fine = fine.smooth(creases)
         return fine
+
+    def subdivide_operator(coarse, creases=None, smooth=False):
+        """By constructing this in operator form, rather than subdividing directly,
+        we can cache the expensive parts of this calculation,
+        and achieve very fast updates to our subdivision curves under change of vertex position
+
+        Parameters
+        ----------
+        creases : dict of (int: ndarray), optional
+            dict of n to n-chains, where nonzero elements denote crease elements
+        smooth : bool
+            if true, smoothing is performed after subdivision
+
+        Returns
+        -------
+        operator : sparse array, [coarse.n_vertices, fine.n_vertices]
+            sparse array mapping coarse to fine vertices
+
+        Notes
+        -----
+        How to construct subdivision matrix?
+        pure subdivision without smoothing:
+            Just stack the topology.averaging_operators of the coarse meshes,
+            to map coarse vertices to unsmooth fine vertices
+        to add smoothing:
+            add topology.averaging_operators of fine; mapping fine verts to centroids of fine n-elements
+            multiplied by transpose; average centroids back to new vert positions
+            transposed matrix product needs diagonal crease selector matrix inbetween
+
+        """
+        coarse_averaging = scipy.sparse.vstack(coarse.topology.averaging_operators())
+
+        if smooth:
+            fine = coarse.subdivide()
+
+            # propagate creases to lower level
+            if creases is not None:
+                creases = {n: fine.topology.transfer_matrices[n] * c
+                           for n, c in creases.items()}
+
+            operator = fine.smooth_operator(creases) * coarse_averaging
+
+        else:
+            operator = coarse_averaging
+
+        return operator
+
 
     def product(self, other):
         """Construct the product of two cubical complexes

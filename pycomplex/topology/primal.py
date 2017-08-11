@@ -131,6 +131,11 @@ class PrimalTopology(BaseTopology):
         return [self.matrix(i) for i in range(self.n_dim)]
 
     @cached_property
+    def matrices_original(self):
+        """For symmetry with dual, where there is a distinction"""
+        return self.matrices
+
+    @cached_property
     def elements(self):
         return self._elements
 

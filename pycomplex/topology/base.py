@@ -187,5 +187,13 @@ class BaseTopology(object):
                 raise ValueError(f'chain [{i}, {i+1}] to [{i+1}, {i+2}] does not match')
 
     def averaging_operators(self):
+        """
+
+        Returns
+        -------
+        list of sparse matrix, [n-n_elements, n_0-elements]
+            n-th element of the list maps 0-elements to n-elements
+            all columns in each row sum to one
+        """
         A = itertools.accumulate([np.abs(m) for m in self.matrices_original], func=operator.mul)
-        return [1] + [sparse_normalize_l1(a.T, axis=1) for a in A]
+        return [scipy.sparse.identity(self.n_elements[0])] + [sparse_normalize_l1(a.T, axis=1) for a in A]
