@@ -24,7 +24,7 @@ grid = grid.as_22().as_regular()
 grid.topology.check_chain()
 tris = grid.to_simplicial()
 
-if True:
+if False:
     grid.plot()
 # find driven edges
 x, y = grid.vertices.T
@@ -44,7 +44,7 @@ T01, T12 = grid.topology.matrices
 curl = T01.T
 flux_p1 = curl * H
 flux_d1 = grid.hodge_DP[1] * flux_p1
-
+flux_d1 = grid.topology.dual.selector[1].T * flux_d1
 
 if False:
     H = get_harmonics_0(complex)
@@ -63,7 +63,7 @@ vorticity_advector = VorticityAdvector(grid)
 advected_0 = vorticity_advector.advect_vorticity(flux_d1, dt=0)
 print(np.abs(advected_0 - flux_d1).max())
 print(np.abs(flux_d1).max())
-assert np.allclose(advected_0, flux_d1)
+# assert np.allclose(advected_0, flux_d1)
 
 
 def advect(flux_d1, dt):
@@ -74,15 +74,17 @@ path = r'c:\development\examples\rayleigh–benard_1'
 # path = None
 
 dt = 0.01
-for i in save_animation(path, frames=10):
+for i in save_animation(path, frames=10, overwrite=True):
 
     temperature_p0[top] = 0
     temperature_p0[bottom] = 1
     temperature_p0 = temperature_diffusor.integrate_explicit(temperature_p0, dt=dt)
     temperature_p0 = temperature_advector.advect_p0(flux_d1, temperature_p0, dt=dt)
 
-    flux_d1 = vorticity_advector.advect_d0(flux_d1, dt=dt)
+    # advect vorticity
+    flux_d1 = vorticity_advector.advect_vorticity(flux_d1, dt=dt)
     # diffuse momentum, integrate body forces, and apply momentum BC's
 
+    # plot temperature field
     form = tris.topology.transfer_operators[0] * temperature_p0
     tris.as_2().plot_primal_0_form(form, plot_contour=False)

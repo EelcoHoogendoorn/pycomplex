@@ -164,7 +164,7 @@ class VorticityAdvector(Advector):
 if __name__ == "__main__":
     dt = 1
 
-    complex_type = 'sphere'
+    complex_type = 'grid'
 
     if complex_type == 'sphere':
         complex = synthetic.icosphere(refinement=5)
@@ -172,7 +172,7 @@ if __name__ == "__main__":
             complex.plot()
 
     if complex_type == 'grid':
-        complex = synthetic.n_cube_grid((1, 1), False)
+        complex = synthetic.n_cube_grid((2, 1), False)
         for i in range(7):
             complex = complex.subdivide()
 
@@ -212,7 +212,7 @@ if __name__ == "__main__":
         flux_d1 = complex.hodge_DP[1] * (curl * (H_p0)) / 1000
 
     else:
-        # use perlin noise for more chaotic flow patter
+        # use perlin noise for more chaotic flow pattern
         H = get_harmonics_0(complex)[:, 2]
         from examples.diffusion.planet_perlin import perlin_noise
         H = perlin_noise(
@@ -240,21 +240,21 @@ if __name__ == "__main__":
     print(np.abs(flux_d1).max())
     # assert np.allclose(advected_0, flux_d1, atol=1e-6)
 
-    path = r'c:\development\examples\euler_36'
+    path = r'c:\development\examples\euler_37'
     # path = None
     def advect(flux_d1, dt):
         return advector.advect_vorticity(flux_d1, dt)
 
     from examples.advection import MacCormack, BFECC
 
-    for i in save_animation(path, frames=100, overwrite=True):
+    for i in save_animation(path, frames=1000, overwrite=True):
         for r in range(4):
             flux_d1 = BFECC(advect, flux_d1, dt=1)
             # flux_d1 = advect(flux_d1, dt=2)
         # sphere.as_euclidian().as_3().plot_primal_0_form(phi_p0, plot_contour=True, cmap='jet', vmin=-2e-2, vmax=+2e-2)
 
         vorticity_p0 = complex.hodge_PD[0] * (D2D1 * flux_d1)
-        # vorticity_p0[complex.boundary.topology.parent_idx[0]] = 0   # dont care about shear in boundary layer
+        vorticity_p0[complex.boundary.topology.parent_idx[0]] = 0   # dont care about shear in boundary layer
 
         if complex_type == 'sphere':
             complex.as_euclidian().as_3().plot_primal_0_form(
