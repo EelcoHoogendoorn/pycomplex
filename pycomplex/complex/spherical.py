@@ -25,10 +25,13 @@ class ComplexSpherical(BaseComplexSpherical):
         self.topology = topology
         self.radius = radius
 
-    def plot(self, plot_dual=True, backface_culling=False, plot_vertices=True):
+    def plot(self, plot_dual=True, backface_culling=False, plot_vertices=True, ax=None, primal_color='b', dual_color='r'):
         """Visualize a complex on a 2-sphere; a little more involved than the other 2d cases"""
         import matplotlib.pyplot as plt
         import matplotlib.collections
+
+        if ax is None:
+            fig, ax = plt.subplots(1, 1)
 
         def from_se(s, e):
             return np.concatenate([s[:, None, :], e[:, None, :]], axis=1)
@@ -59,7 +62,6 @@ class ComplexSpherical(BaseComplexSpherical):
                 points = points[drawn]
             ax.scatter(*points.T[:2], **kwargs)
 
-        fig, ax = plt.subplots(1, 1)
         # plot outline of embedding space
         angles = np.linspace(0, 2*np.pi, 1000)
         ax.plot(np.cos(angles), np.sin(angles), color='k')
@@ -68,9 +70,9 @@ class ComplexSpherical(BaseComplexSpherical):
         edges = self.topology.corners[1]
         steps = int(1000 / len(edges)) + 2
         e = subdivide(self.vertices[edges], steps=steps*2)
-        plot_edge(ax, e, color='b', alpha=0.5)
+        plot_edge(ax, e, color=primal_color, alpha=0.5)
         if plot_vertices:
-            plot_vertex(ax, self.vertices, color='b')
+            plot_vertex(ax, self.vertices, color=primal_color)
 
         if plot_dual:
             # plot dual edges
@@ -82,14 +84,13 @@ class ComplexSpherical(BaseComplexSpherical):
             de = dual_vertices[de]
             s, e = de[:, 0], de[:, 1]
             s = subdivide(from_se(dual_edges, s), steps=steps)
-            plot_edge(ax, s, color='r', alpha=0.5)
+            plot_edge(ax, s, color=dual_color, alpha=0.5)
             e = subdivide(from_se(dual_edges, e), steps=steps)
-            plot_edge(ax, e, color='r', alpha=0.5)
+            plot_edge(ax, e, color=dual_color, alpha=0.5)
             if plot_vertices:
-                plot_vertex(ax, dual_vertices, color='r')
+                plot_vertex(ax, dual_vertices, color=dual_color)
 
         plt.axis('equal')
-        plt.show()
 
     def as_2(self):
         return ComplexSpherical2(vertices=self.vertices, topology=self.topology.as_2())
@@ -478,12 +479,15 @@ class ComplexSpherical(BaseComplexSpherical):
         # return self.weighted_average_operators()
         return self.topology.dual.averaging_operators()
 
+    def average_dual(self, d0):
+        return [a * d0 for a in self.cached_averages]
+
     def sample_dual_0(self, d0, points):
         # extend dual 0 form to all other dual elements by averaging
-        dual_forms = [a * d0 for a in self.cached_averages]
+        dual_forms = self.average_dual(d0)[::-1]
         domain, bary = self.pick_fundamental(points)
         # do interpolation over fundamental domain
-        return sum([dual_forms[::-1][i][domain[:, i]] * bary[:, [i]]
+        return sum([dual_forms[i][domain[:, i]] * bary[:, [i]]
                     for i in range(self.topology.n_dim + 1)])
     def sample_primal_0(self, p0, points):
         element, bary = self.pick_primal(points)
@@ -534,6 +538,14 @@ class ComplexSpherical2(ComplexSpherical):
     def as_euclidian(self):
         from pycomplex.complex.simplicial import ComplexTriangularEuclidian3
         return ComplexTriangularEuclidian3(vertices=self.vertices, topology=self.topology)
+
+    def multigrid_transfers(self):
+        """Port multigrid transfers from escheresque.
+        Can we re-use weighted averaging bary logic for this?
+        No, seems we are mostly stuck with existing logic.
+        Crux is in the middle triangle.
+        We can query coarse dual vertices with fine dual vertices of central triangles to figure out the conditional
+        """
 
 
 class ComplexSpherical3(ComplexSpherical):

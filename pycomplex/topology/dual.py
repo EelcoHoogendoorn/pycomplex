@@ -36,6 +36,12 @@ class ClosedDual(BaseTopology):
     def matrices_original(self):
         return [T.T for T in self.primal.matrices[::-1]]
 
+    @cached_property
+    def selector(self):
+        def s(np):
+            return scipy.sparse.eye(np)
+        return [s(np) for np in self.primal.n_elements]
+
     def __getitem__(self, item):
         """alias for matrix"""
         return self.matrices[item]

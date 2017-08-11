@@ -65,25 +65,16 @@ def render_frame(p, x, y, z):
     alpha = np.exp(-depth / 100)
     colors[:, :, :3] *= alpha[:, :, None]
 
-
-    # from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
-    # from matplotlib.figure import Figure
-
-    # fig = plt.Figure(figsize=colors.shape[:-1], dpi=1, frameon=False)
-    # canvas = FigureCanvas(fig)
-    # fig = plt.Figure(figsize=(2, 2), dpi=300)
     fig.figimage(colors, origin='upper')
     shape = np.array(colors.shape[:-1])
     dpi = fig.get_dpi()
     fig.set_size_inches((shape / dpi) + 0.1, forward=True)
 
-    # fig.tight_layout()
-
-    # plt.imshow(colors)
     plt.axis('off')
 
 
 if __name__ == '__main__':
+
     space = synthetic.hexacosichoron()
 
     stepsize = .2  # ray step size in degrees

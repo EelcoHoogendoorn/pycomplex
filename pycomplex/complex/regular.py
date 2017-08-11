@@ -146,9 +146,30 @@ class ComplexRegularMixin(object):
         # return self.weighted_average_operators()
         return self.topology.dual.averaging_operators()
 
+    def average_dual(self, d0):
+        """Average a dual 0-form to obtain values on all dual elements
+
+        Parameters
+        ----------
+        d0 : dual 0-form
+
+        Returns
+        -------
+        list of dual n-forms
+            n-th element is a dual n-form
+        """
+        interior_d0, boundary_d0 = np.split(d0, [self.topology.n_elements[-1]], axis=0)
+        dual_forms = [a * interior_d0 for a in self.cached_averages]    # these are duals without boundary
+        if len(boundary_d0) and False:
+            boundary_forms = [a * boundary_d0 for a in self.boundary.topology.dual.averaging_operators()]
+            for i, (d, b, p) in enumerate(zip(dual_forms, boundary_forms, self.boundary.topology.parent_idx)):
+                # raise Exception('check this logic')
+                d[p] = b
+        return dual_forms
+
     def sample_dual_0(self, d0, points):
         # extend dual 0 form to all other dual elements by averaging
-        dual_forms = [a * d0 for a in self.cached_averages][::-1]
+        dual_forms = self.average_dual(d0)[::-1]
         domain, bary = self.pick_fundamental(points)
         bary = np.clip(bary, 0, 1)
         # do interpolation over fundamental domain

@@ -10,7 +10,7 @@ from pycomplex import synthetic
 from pycomplex.util import save_animation
 
 from examples.flow.euler_flow import VorticityAdvector
-from examples.harmonics import get_harmonics_0
+from examples.harmonics import get_harmonics_0, get_harmonics_2
 from examples.advection import MacCormack, BFECC, Advector
 from examples.diffusion.explicit import Diffusor
 
@@ -45,6 +45,17 @@ curl = T01.T
 flux_p1 = curl * H
 flux_d1 = grid.hodge_DP[1] * flux_p1
 
+
+if False:
+    H = get_harmonics_0(complex)
+    T01, T12 = grid.topology.matrices
+    curl = T01.T
+else:
+    H_d0 = get_harmonics_2(grid)[:, 2]
+
+    A = grid.topology.dual.averaging_operators()
+    H_p0 = grid.hodge_PD[0] * (A[2] * H_d0)
+    H_p0[grid.boundary.topology.parent_idx[0]] = 0
 
 vorticity_advector = VorticityAdvector(grid)
 

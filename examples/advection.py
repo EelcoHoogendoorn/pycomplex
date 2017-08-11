@@ -42,6 +42,7 @@ class Advector(object):
         pinv = np.einsum('...ij,...j,...jk->...ki', u[..., :s.shape[-1]], s, v)
 
         def dual_flux_to_dual_velocity(flux_d1):
+            flux_d1 = self.complex.topology.dual.selector[1] * flux_d1
             # compute velocity component in the direction of the dual edge
             tangent_velocity_component = (flux_d1 / self.complex.dual_metric[1])[B] #* O
             # given these flows incident on the dual vertex, reconstruct the velocity vector there
@@ -50,6 +51,9 @@ class Advector(object):
             # project out part not on the sphere
             if isinstance(self.complex, ComplexSpherical):
                 velocity_d0 = velocity_d0 - dual_vertex * (velocity_d0 * dual_vertex).sum(axis=1, keepdims=True)
+
+            # cast away dual boundary flux, then pad velocity with zeros... not quite right, should use the boundary
+            velocity_d0 = self.complex.topology.dual.selector[-1].T * velocity_d0
 
             return velocity_d0
 
@@ -103,7 +107,7 @@ if __name__ == "__main__":
 
     if complex_type == 'grid':
         complex = synthetic.n_cube_grid((1, 1), False)
-        for i in range(7):
+        for i in range(5):
             complex = complex.subdivide()
 
         complex = complex.as_22().as_regular()
@@ -137,9 +141,11 @@ if __name__ == "__main__":
         A = complex.topology.dual.averaging_operators()
         H_p0 = complex.hodge_PD[0] * (A[2] * H_d0)
         H_p0[complex.boundary.topology.parent_idx[0]] = 0
-        form = tris.topology.transfer_operators[0] * H_p0
-        tris.as_2().plot_primal_0_form(form)
-        plt.show()
+
+        if False:
+            form = tris.topology.transfer_operators[0] * H_p0
+            tris.as_2().plot_primal_0_form(form)
+            plt.show()
 
         # form = tris.topology.transfer_operators[0] * H[:, 2]
         # tris.as_2().plot_dual_2_form_interpolated(
@@ -149,7 +155,7 @@ if __name__ == "__main__":
     flux_d1 = complex.hodge_DP[1] * (curl * (H_p0)) / 100
 
 
-    path = r'c:\development\examples\advection_13'
+    path = r'c:\development\examples\advection_14'
 
     advector = Advector(complex)
     def advect(p0, dt):
@@ -157,7 +163,7 @@ if __name__ == "__main__":
 
     for i in save_animation(path, frames=50, overwrite=True):
         for r in range(1):
-            # texture_p0 = BFECC(advect, texture_p0, dt=20)
+            # texture_p0 = MacCormack(advect, texture_p0, dt=20)
             texture_p0 = advect(texture_p0, dt=1)
 
         if complex_type == 'sphere':
