@@ -168,7 +168,7 @@ class BaseComplex(object):
         C[-1][:] = 1
         if creases:
             for n, c in creases.items():
-                C[n] = c != 0
+                C[n][:] = c != 0
 
         # need to decide for each fine vertex what n-elements it sources from; zero out others
         S = np.zeros((self.topology.n_dim + 1, self.topology.n_elements[0]), dtype=sign_dtype)
@@ -181,7 +181,8 @@ class BaseComplex(object):
                 b[a != 0] = 0
 
         averaging = self.topology.averaging_operators()
-        return sum([scipy.sparse.diags(s) * sparse_normalize_l1(a.T, axis=1) * a for a, s in zip(averaging, S)])
+        return sum([scipy.sparse.diags(s) * sparse_normalize_l1(a.T * scipy.sparse.diags(c), axis=1) * a
+                    for a, s, c in zip(averaging, S, C)])
 
     @cached_property
     def primal_metric(self):

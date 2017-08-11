@@ -77,11 +77,30 @@ def create_letter_3d(quads, subdivisions=2):
     fc = grid.topology.chain(2, 0)
     fc[fi] = 1
     c1 = grid.topology.matrix(1, 2) * fc
+    c0 = grid.topology.chain(0)
+    if False:
+        # test interaction between crease-types
+        c0[0] = 1
 
+    total_operator = 1
+    original = grid
     # subdivide; propagate crease along the subdivision
     for i in range(subdivisions):
-        grid = grid.subdivide(smooth=True, creases={1:c1})
+        operator = grid.subdivide_operator(smooth=True, creases={0:c0, 1:c1})
+        total_operator = operator * total_operator
+
+        grid = grid.subdivide(smooth=True, creases={0:c0, 1:c1})
         c1 = grid.topology.transfer_matrices[1] * c1
+        c0 = grid.topology.transfer_matrices[0] * c0
+
+    if True:
+        import matplotlib.pyplot as plt
+        t = total_operator.tocoo()
+        plt.scatter(t.row, t.col, c=t.data)
+        # plt.axis('equal')
+        plt.show()
+        # test if operator approach gives identical results
+        grid.vertices = total_operator * original.vertices
 
     return grid.as_23()
 
@@ -92,9 +111,10 @@ def create_letter(subdivisions):
 
 if __name__ == '__main__':
     letter = create_letter_2d()
-    letter.plot(plot_dual=True)
+    if False:
+        letter.plot(plot_dual=True)
 
-    letter = create_letter_3d(letter)
+    letter = create_letter_3d(letter, subdivisions=3)
 
     # add random rotation
     np.random.seed(6)

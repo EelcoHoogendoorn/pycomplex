@@ -15,5 +15,8 @@ for i in range(5):
     curve = curve.subdivide(smooth=True, creases={0: crease})
     crease = curve.topology.transfer_matrices[0] * crease
 
+
+curve.as_12().plot(plot_vertices=False)
+# overwrite vertices with operator based ones to demonstrate equivalence
 curve.vertices = total_operator * root.vertices
 curve.as_12().plot(plot_vertices=False)
