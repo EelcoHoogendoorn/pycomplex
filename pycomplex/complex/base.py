@@ -166,6 +166,7 @@ class BaseComplex(object):
         # creasing default behavior; all n-elements are 'creases', and none of the other topological elements are
         C = [np.zeros(n, dtype=sign_dtype) for n in self.topology.n_elements]
         C[-1][:] = 1
+        # set crease overrides from the given dict
         if creases:
             for n, c in creases.items():
                 C[n][:] = c != 0
@@ -175,14 +176,14 @@ class BaseComplex(object):
         for s, c, corners in zip(S, C, self.topology.corners):
             influence = np.unique(corners[c != 0])
             s[influence] = 1
-        # let lower n creases override higher ones
-        for i, a in enumerate(S):
+        # let lower n creases override higher ones; this could be tweaked for partial creases
+        for i, a in enumerate(S[:-1]):
             for b in S[i + 1:]:
                 b[a != 0] = 0
 
         averaging = self.topology.averaging_operators()
-        return sum([scipy.sparse.diags(s) * sparse_normalize_l1(a.T * scipy.sparse.diags(c), axis=1) * a
-                    for a, s, c in zip(averaging, S, C)])
+        smoothers = [scipy.sparse.diags(s) * a.T * scipy.sparse.diags(c) * a for a, s, c in zip(averaging, S, C)]
+        return sparse_normalize_l1(sum(smoothers), axis=1)
 
     @cached_property
     def primal_metric(self):

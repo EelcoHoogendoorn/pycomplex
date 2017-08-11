@@ -38,6 +38,29 @@ from examples.advection import Advector
 class VorticityAdvector(Advector):
 
     @cached_property
+    def pressure_projection_boundary_precompute(self):
+        """solve for the pressure which results in velocity, minus the gradient of the that pressure,
+        is divergence free velocity field. also, the field should respect boundary conditions
+        this means leaving the boundary pressure unconstrained
+
+        projected = advected - grad P
+        div projected = 0
+        bc @ projected = 0
+
+        div advected - div grad P = 0
+
+        """
+        # from examples.linear_system import *
+        # equations
+        # system = BlockSystem(equations, knowns, unknowns)
+
+        # FIXME: this leaves all pressure boundary terms implicitly at zero. need control over bc's.
+        TnN = self.complex.topology.matrices[-1]
+        hodge = scipy.sparse.diags(self.complex.hodge_PD[-2])
+        laplacian = TnN.T * hodge * TnN
+        return laplacian
+
+    @cached_property
     def pressure_projection_precompute(self):
         # FIXME: this leaves all pressure boundary terms implicitly at zero. need control over bc's.
         TnN = self.complex.topology.matrices[-1]
