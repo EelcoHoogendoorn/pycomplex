@@ -11,13 +11,14 @@ Applications
 ------------
 This library provides useful functionality in a wide range of computational and graphical modelling contexts
 - Computational modelling, such as fluid dynamics and electromagnetics
-- Surface modelling, subdivision curves, surface smoothing
+- Surface modelling, subdivision curves, and other surface manupilations
 
 The examples folder contains a comprehensive set of brief but illustrative use cases.
 
 Features
 --------
 - All functionality is vectorized and efficiently implemented, so useful for real-world problem sizes
+- (almost all) functionality is agnostic to the number of dimensions used
 - Complete separation of topology and geometry
 - Handling of different geometries (spherical, Euclidian, and perhaps others)
 - Handling of simplicial and cubical complexes
@@ -37,8 +38,6 @@ Todo
 - Build up all different interpolation and restriction multigrid transfer operators over all topologies
 - Black box multigrid (at least for 0-forms)
 - Multigrid eigen solver
-- Add mesh picking functionality to complexes
-- Work out simple examples for pretty much all simple vector calculus problems
 
 Speculative todo
 ----------------

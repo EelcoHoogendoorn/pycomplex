@@ -2,8 +2,10 @@
 
 import numpy as np
 np.random.seed(21)
+
 from pycomplex import synthetic
 from pycomplex.math import linalg
+
 
 sphere = synthetic.icosahedron().as_euclidian()
 # map sphere complex to triangle complex

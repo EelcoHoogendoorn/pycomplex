@@ -1,21 +1,19 @@
 """Example illustrating convection between plates with a temperature differential. or Rayleigh–Bénard convection
+
+Note that this example does not really introduce any new functionality; it merely add buoyancy forces to an euler flow
 """
 # FIXME: add weighted averaging for regular grids
 # FIXME: add boundary handling to dual averaging
 
-import numpy as np
 import matplotlib.pyplot as plt
 
-from pycomplex import synthetic
-from pycomplex.util import save_animation
-from pycomplex.math import linalg
-
-from examples.flow.euler_flow import VorticityAdvector
-from examples.harmonics import get_harmonics_0, get_harmonics_2
-from examples.advection import MacCormack, BFECC, Advector
+from examples.advection import Advector
 from examples.diffusion.explicit import Diffusor
-from examples.diffusion.planet_perlin import perlin_noise
-
+from examples.diffusion.perlin_noise import perlin_noise
+from examples.flow.euler_flow import VorticityAdvector
+from examples.util import save_animation
+from pycomplex import synthetic
+from pycomplex.math import linalg
 
 # set up grid
 grid = synthetic.n_cube_grid((4, 1), False)
@@ -43,7 +41,7 @@ temperature_p0 = perlin_noise(
     [
         (.05, .05),
         (.1, .1),
-        (.2, .2),
+        # (.2, .2),
         # (.4, .4),
     ]
 )
@@ -52,15 +50,15 @@ temperature_p0 = perlin_noise(
 flux_d1 = grid.topology.dual.chain(n=1)
 
 
-vorticity_advector = VorticityAdvector(grid, diffusion=5e-4)
+vorticity_advector = VorticityAdvector(grid, diffusion=2e-4)
 edges_d1 = grid.topology.dual.matrices_2[0].T * grid.dual_position[0]
 
 
-path = r'c:\development\examples\rayleigh–benard_7'
+path = r'c:\development\examples\rayleigh–benard_8'
 
 dt = 0.005
 gravity = [0, -1000]
-for i in save_animation(path, frames=400, overwrite=True):
+for i in save_animation(path, frames=1000, overwrite=True):
 
     temperature_p0[top] = 0
     temperature_p0[bottom] = 1

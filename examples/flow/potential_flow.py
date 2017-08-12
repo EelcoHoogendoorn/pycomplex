@@ -64,12 +64,14 @@ which reflects physical intuition; smallest velocity squared is the
 least energetic / smoothest field
 
 """
+from time import clock
 
 import numpy as np
 import scipy.sparse
+import matplotlib.pyplot as plt
 
-from pycomplex.topology import sign_dtype
 from examples.linear_system import *
+from examples.flow.stream import stream
 
 
 def grid(shape):
@@ -87,7 +89,7 @@ def concave():
     mesh = mesh.select_subset(mask.flatten())
 
     # subdivide
-    for i in range(2):
+    for i in range(4):
         mesh = mesh.subdivide()
 
     # identify boundaries
@@ -112,7 +114,8 @@ def concave():
 
 
 mesh, all, inlet, outlet, closed, interior, exterior, top_right = concave()
-mesh.plot(plot_dual=False, plot_vertices=False)
+if False:
+    mesh.plot(plot_dual=False, plot_vertices=False)
 
 
 def potential_flow(complex2):
@@ -190,13 +193,13 @@ def potential_flow(complex2):
 
 
 system = potential_flow(mesh)
-system.plot()
+if False:
+    system.plot()
 
 
 # formulate normal equations and solve
 normal = system.normal_equations()
 # normal.precondition().plot()
-from time import clock
 t = clock()
 print('starting solving')
 solution, residual = normal.precondition().solve_minres(tol=1e-16)
@@ -211,11 +214,9 @@ tris = mesh.to_simplicial()
 
 # now we compute a streamfunction after all; just for visualization.
 # no streamfunctions were harmed in the finding of the flowfield.
-from examples.flow.stream import stream
 primal_flux = mesh.hodge_PD[1] * (mesh.topology.dual.selector[1] * flux)
 phi = stream(mesh, primal_flux)
 phi = tris.topology.transfer_operators[0] * phi
 tris.as_2().plot_primal_0_form(phi, cmap='jet', plot_contour=True, levels=49)
 
-import matplotlib.pyplot as plt
 plt.show()

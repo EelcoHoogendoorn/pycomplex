@@ -518,7 +518,6 @@ class ComplexTriangularEuclidian3(ComplexTriangular):
                 ax.scatter(*dual_vertices.T[:2], color='r')
 
         plt.axis('equal')
-        plt.show()
 
     def plot_primal_0_form(self, c0, backface_culling=True, plot_contour=True, cmap='viridis', **kwargs):
         """plot a primal 0-form

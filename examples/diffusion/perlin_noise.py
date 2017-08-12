@@ -1,17 +1,18 @@
 """"Generate Perlin noise on a sphere
 
 This serves as an illustration of the utility of the ability to diffuse things over a general manifold.
-Having such functionality makes it trivial to generalize Perlin noise to arbitrary manifolds,
+Having such functionality makes it trivial to generalize Perlin noise to arbitrary manifolds for instance,
 without any distortion or warping that might otherwise result from texture-mapping type operations
+
 """
 
+import matplotlib.pyplot as plt
 import numpy as np
 
+from examples.diffusion.explicit import Diffusor
+from examples.util import save_animation
 from pycomplex import synthetic
 from pycomplex.math import linalg
-
-from examples.diffusion.explicit import Diffusor
-import matplotlib.pyplot as plt
 
 
 def perlin_noise(complex, octaves):
@@ -39,7 +40,7 @@ def perlin_noise(complex, octaves):
 
 
 if __name__ == '__main__':
-    sphere = synthetic.icosphere(refinement=5).copy(radius=30)
+    sphere = synthetic.icosphere(refinement=6).copy(radius=30)
 
     field = perlin_noise(
         sphere,
@@ -62,8 +63,11 @@ if __name__ == '__main__':
         [0, 1, 0],
         [1, 0, 0]
     ]
-    R = linalg.power(R, 0.1)
-    for i in range(100):
+    R = linalg.power(R, 1./30)
+
+    path = r'c:\development\examples\planet_perlin_1'
+
+    for i in save_animation(path, frames=30*4, overwrite=True):
         sphere = sphere.copy(vertices=np.dot(sphere.vertices, R))
         sphere.as_euclidian().plot_primal_0_form(field, cmap='terrain', plot_contour=False, shading='gouraud')
-        plt.show()
+        plt.axis('off')

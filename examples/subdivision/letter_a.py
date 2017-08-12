@@ -93,7 +93,7 @@ def create_letter_3d(quads, subdivisions=2):
         c1 = grid.topology.transfer_matrices[1] * c1
         c0 = grid.topology.transfer_matrices[0] * c0
 
-    if True:
+    if False:
         import matplotlib.pyplot as plt
         t = total_operator.tocoo()
         plt.scatter(t.row, t.col, c=t.data)

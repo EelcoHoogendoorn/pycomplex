@@ -1,9 +1,10 @@
 """2d spherical raytracer, constructed as visuale analogue of the 3d case"""
 
 import numpy as np
+import matplotlib.pyplot as plt
+
 from pycomplex import synthetic
 from pycomplex.math import linalg
-import matplotlib.pyplot as plt
 
 
 space = synthetic.icosahedron()

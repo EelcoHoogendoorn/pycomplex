@@ -1,14 +1,15 @@
 """Advection equations are a good illustration of the mesh picking functionality"""
 
+# FIXME: remove any dependencies on 2d complexes
+
+import matplotlib.pyplot as plt
 import numpy as np
 from cached_property import cached_property
-import scipy.sparse
-import matplotlib.pyplot as plt
-from pycomplex.util import save_animation
 
+from examples.util import save_animation
 from pycomplex import synthetic
-from pycomplex.math import linalg
 from pycomplex.complex.spherical import ComplexSpherical
+from pycomplex.math import linalg
 
 
 class Advector(object):
@@ -52,13 +53,12 @@ class Advector(object):
             if isinstance(self.complex, ComplexSpherical):
                 velocity_d0 = velocity_d0 - dual_vertex * (velocity_d0 * dual_vertex).sum(axis=1, keepdims=True)
 
-            # cast away dual boundary flux, then pad velocity with zeros... not quite right, should use the boundary
+            # cast away dual boundary flux, then pad velocity with zeros... not quite right, should use the boundary information
             velocity_d0 = self.complex.topology.dual.selector[-1].T * velocity_d0
 
             return velocity_d0
 
         return dual_flux_to_dual_velocity
-
 
     def advect_p0(self, flux_d1, field_p0, dt):
         velocity_d0 = self.dual_flux_to_dual_velocity(flux_d1)
@@ -90,7 +90,7 @@ def MacCormack(advector, state, dt):
     # FIXME: add limiter restricted to range of values in upwind sampling domain?
     forward = advector(state, dt)
     backward = advector(forward, -dt)
-    return forward + (state - backward) / 3
+    return forward + (state - backward) / 2
 
 
 
@@ -116,7 +116,7 @@ if __name__ == "__main__":
 
 
     # generate an interesting texture using RD
-    from examples.diffusion.planet_perlin import perlin_noise
+    from examples.diffusion.perlin_noise import perlin_noise
     texture_p0 = perlin_noise(
         complex,
         [
@@ -138,7 +138,7 @@ if __name__ == "__main__":
     if True:
         H_d0 = get_harmonics_2(complex)[:, 2]
 
-        A = complex.topology.dual.averaging_operators()
+        A = complex.topology.dual.averaging_operators
         H_p0 = complex.hodge_PD[0] * (A[2] * H_d0)
         H_p0[complex.boundary.topology.parent_idx[0]] = 0
 
@@ -155,7 +155,7 @@ if __name__ == "__main__":
     flux_d1 = complex.hodge_DP[1] * (curl * (H_p0)) / 100
 
 
-    path = r'c:\development\examples\advection_14'
+    path = r'c:\development\examples\advection_15'
 
     advector = Advector(complex)
     def advect(p0, dt):

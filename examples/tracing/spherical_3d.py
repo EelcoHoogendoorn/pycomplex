@@ -16,10 +16,16 @@ so whatever it is we are looking at here isnt that. Still, this isnt something t
 
 """
 
+import time
+
 import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.cm import ScalarMappable
+
 from pycomplex import synthetic
 from pycomplex.math import linalg
-import time
+
+from examples.util import save_animation
 
 
 def render_frame(p, x, y, z):
@@ -55,11 +61,7 @@ def render_frame(p, x, y, z):
     print(time.clock() - t)
 
     # plot the result
-    import matplotlib.pyplot as plt
-    from matplotlib.cm import ScalarMappable
-
     fig, ax = plt.subplots(1, 1)
-
     cmap = plt.get_cmap('hsv')
     colors = ScalarMappable(cmap=cmap).to_rgba(pick)
     colors[pick==-1, :3] = 0
@@ -83,7 +85,6 @@ if __name__ == '__main__':
     fov = 1  # higher values give a wider field of view
     resolution = (512, 512)  # in pixels
 
-    from pycomplex.util import save_animation
     path = r'c:\development\examples\hexacosichoron_13'
 
     # generate a random starting position and orientation

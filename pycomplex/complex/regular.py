@@ -160,10 +160,10 @@ class ComplexRegularMixin(object):
         """
         interior_d0, boundary_d0 = np.split(d0, [self.topology.n_elements[-1]], axis=0)
         dual_forms = [a * interior_d0 for a in self.cached_averages]    # these are duals without boundary
-        if len(boundary_d0) and False:
+        if len(boundary_d0):
             boundary_forms = [a * boundary_d0 for a in self.boundary.topology.dual.averaging_operators()]
             for i, (d, b, p) in enumerate(zip(dual_forms, boundary_forms, self.boundary.topology.parent_idx)):
-                # raise Exception('check this logic')
+                raise Exception('check this logic')
                 d[p] = b
         return dual_forms
 
@@ -278,7 +278,7 @@ class ComplexRegular1(ComplexCubical1Euclidian1):
 
         return PM, DM
 
-    def plot_primal_0_form(self, f0, ax, **kwargs):
+    def plot_primal_0_form(self, f0, ax=None, **kwargs):
         import matplotlib.pyplot as plt
         import matplotlib.collections
 

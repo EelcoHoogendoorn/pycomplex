@@ -9,6 +9,8 @@ from cached_property import cached_property
 
 
 class Diffusor(object):
+    """Object to manage diffusion operations over primal 0-forms"""
+
     def __init__(self, complex):
         self.complex = complex
         self.laplacian, self.mass, self.inverse_mass_operator = self.laplacian_0()
@@ -25,22 +27,15 @@ class Diffusor(object):
         # construct our laplacian
         laplacian = div * D1P1 * grad
         mass = complex.hodge_DP[0]
-        return laplacian, mass, P0D2
+        return laplacian.tocsc(), mass, P0D2
 
     @cached_property
     def largest_eigenvalue(self):
         # compute largest eigenvalue, for optimally scaled explicit timestepping
         return scipy.sparse.linalg.eigsh(
             self.laplacian,
-            M=scipy.sparse.diags(self.mass),
+            M=scipy.sparse.diags(self.mass).tocsc(),
             k=1, which='LM', tol=1e-6, return_eigenvectors=False)
-
-    # def eigen(self):
-    #     """Compute small magnitude eigencomponents; those that are hard to solve explicitly"""
-    #     D2P0 = scipy.sparse.diags(complex.D2P0)
-    #     values, vectors = scipy.sparse.linalg.eigsh(
-    #         self.laplacian, M=D2P0, k=64, which='SM', tol=1e-6, return_eigenvectors=True)
-    #     return values, vectors
 
     def explicit_step(self, field, fraction=1):
         """Forward Euler timestep
@@ -61,7 +56,21 @@ class Diffusor(object):
         return field - (self.inverse_mass_operator * (self.laplacian * field)) * (fraction / self.largest_eigenvalue)
 
     def integrate_explicit(self, field, dt):
-        """Integrate diffusion equation over a timestep dt"""
+        """Integrate diffusion equation over a timestep dt
+
+        Parameters
+        ----------
+        field : ndarray, [n_vertices], float
+            primal 0-form
+        dt : float
+            timestep
+
+        Returns
+        -------
+        field : ndarray, [n_vertices], float
+            diffused primal 0-form
+
+        """
         distance = self.largest_eigenvalue * dt
         steps = int(np.ceil(distance))
         fraction = distance / steps
@@ -71,13 +80,28 @@ class Diffusor(object):
 
     def integrate_explicit_sigma(self, field, sigma):
         """Integrate for such a length of time,
-         as to be equivalent to a gaussian blur with the given sigma"""
+         as to be equivalent to a gaussian blur with the given sigma
+
+        Parameters
+        ----------
+        field : ndarray, [n_vertices], float
+            primal 0-form
+        sigma : float
+            sigma of gaussian smoothing kernel
+
+        Returns
+        -------
+        field : ndarray, [n_vertices], float
+            diffused primal 0-form
+
+         """
         dt = sigma ** 2 / np.sqrt(np.pi)
         return self.integrate_explicit(field, dt)
 
 
 if __name__ == '__main__':
-    kind = 'sphere'
+    import matplotlib.pyplot as plt
+    kind = 'regular'
 
     if kind == 'sphere':
         from pycomplex import synthetic
@@ -115,3 +139,5 @@ if __name__ == '__main__':
         tris.as_2().plot_primal_0_form(field)
     if kind == 'letter':
         complex.plot_primal_0_form(field, plot_contour=False)
+
+    plt.show()

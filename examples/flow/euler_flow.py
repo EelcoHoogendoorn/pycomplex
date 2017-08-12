@@ -17,21 +17,20 @@ Notes
 -----
 mesh-edges are visible in the current implementation, during advection over the sphere
 not sure what is the cause of this; the euclidian approximations made on the sphere when integrating flux perhaps?
-means it should respond posiively to grid refinemtn and it does not seem to
+means it should respond posiively to grid refinement and it does not seem to
 """
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 import scipy.sparse
 from cached_property import cached_property
 
-from pycomplex import synthetic
-from pycomplex.math import linalg
-from pycomplex.util import save_animation
-from pycomplex.complex.spherical import ComplexSpherical
-
 from examples.advection import Advector
 from examples.diffusion.explicit import Diffusor
+from examples.util import save_animation
+from pycomplex import synthetic
+from pycomplex.complex.spherical import ComplexSpherical
+from pycomplex.math import linalg
 
 
 class VorticityAdvector(Advector):
@@ -230,7 +229,7 @@ if __name__ == "__main__":
     else:
         # use perlin noise for more chaotic flow pattern
         H = get_harmonics_0(complex)[:, 2]
-        from examples.diffusion.planet_perlin import perlin_noise
+        from examples.diffusion.perlin_noise import perlin_noise
         H = perlin_noise(
             complex,
             [
@@ -256,18 +255,17 @@ if __name__ == "__main__":
     print(np.abs(flux_d1).max())
     # assert np.allclose(advected_0, flux_d1, atol=1e-6)
 
-    path = r'c:\development\examples\euler_37'
+    path = r'c:\development\examples\euler_38'
     # path = None
     def advect(flux_d1, dt):
         return advector.advect_vorticity(flux_d1, dt)
 
-    from examples.advection import MacCormack, BFECC
+    from examples.advection import BFECC
 
-    for i in save_animation(path, frames=1000, overwrite=True):
+    for i in save_animation(path, frames=200, overwrite=True):
         for r in range(4):
             flux_d1 = BFECC(advect, flux_d1, dt=1)
             # flux_d1 = advect(flux_d1, dt=2)
-        # sphere.as_euclidian().as_3().plot_primal_0_form(phi_p0, plot_contour=True, cmap='jet', vmin=-2e-2, vmax=+2e-2)
 
         vorticity_p0 = complex.hodge_PD[0] * (D2D1 * flux_d1)
         vorticity_p0[complex.boundary.topology.parent_idx[0]] = 0   # dont care about shear in boundary layer
@@ -288,5 +286,4 @@ if __name__ == "__main__":
 
         plt.axis('off')
 
-    # do momentum diffusion, if desired
 

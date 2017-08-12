@@ -1,10 +1,7 @@
-"""Gray-Scott Reaction-Diffusion example
+"""Gray-Scott Reaction-Diffusion example, on a variety of complexes
 
-This example should work on any complex, although only 2d complexes are supported at the moment
+This should be trivial to apply to complexes of any dimension, although only 2d complexes are implemented at the moment
 
-TODO
-----
-Add animated results
 """
 
 import numpy as np
@@ -56,7 +53,7 @@ class ReactionDiffusion(object):
 
         self.coefficients = self.params[key]
 
-        # setting this much higher destabilizes the integrator.
+        # setting this much higher will have numerical error affect the physical behavior.
         # also, doesnt add much since even on regular grid, on of the diffusions needs a double step
         self.dt = 1
         # Diffusion constants for u and v. Probably best not to touch these. ratio is important
@@ -98,48 +95,53 @@ class ReactionDiffusion(object):
 
 
 if __name__ == '__main__':
-    kind = 'regular'
+    from examples.util import save_animation
+    import matplotlib.pyplot as plt
+
+    kind = 'letter'
     if kind == 'sphere':
         from pycomplex import synthetic
-        surface = synthetic.icosphere(refinement=5).copy(radius=50)
+        surface = synthetic.icosphere(refinement=6).copy(radius=50)
     if kind == 'letter':
         from examples.subdivision import letter_a
-        surface = letter_a.create_letter(4).to_simplicial().as_3()
-        surface = surface.copy(vertices=surface.vertices * 30)
+        surface = letter_a.create_letter(5).to_simplicial().as_3()
+        surface = surface.copy(vertices=surface.vertices * 40)
+        surface = surface.copy(vertices=np.dot(surface.vertices, linalg.power(linalg.orthonormalize(np.random.randn(3, 3)).T, 0.2)))
+
     if kind == 'regular':
         from pycomplex import synthetic
         if True:
-            surface = synthetic.n_cube_grid((64, 64))
+            surface = synthetic.n_cube_grid((256, 256))
         else:
             surface = synthetic.n_cube(2)
             surface = surface.copy(vertices=surface.vertices * 128)
             for i in range(1):
                 surface = surface.subdivide()
         surface = surface.as_22().as_regular()
+        tris = surface.to_simplicial()
 
 
     assert surface.topology.is_oriented
     print(surface.topology.n_elements)
-    if True:
+    if False:
         surface.plot(plot_dual=False, plot_vertices=False)
 
-    rd = ReactionDiffusion(surface)
-    print('starting sim')
-    rd.simulate(200)
-    print('done with sim')
-    form = rd.state[1]
+    path = r'c:\development\examples\reaction_diffusion_4'
+    rd = ReactionDiffusion(surface, key='swimming_medusae')
 
-    # plot the resulting pattern
+    for i in save_animation(path, frames=200, overwrite=True):
 
-    if kind == 'sphere':
-        surface = surface.as_euclidian()
-        surface.plot_primal_0_form(form, plot_contour=False)
-    if kind == 'regular':
-        tris = surface.to_simplicial()
-        form = tris.topology.transfer_operators[0] * form
-        tris.as_2().plot_primal_0_form(form, plot_contour=False)
-    if kind == 'letter':
-        for i in range(100):
-            surface.vertices = np.dot(surface.vertices, linalg.power(linalg.orthonormalize(np.random.randn(3, 3)), 0.2))
+        rd.simulate(1)
+        form = rd.state[1]
+
+        # plot the resulting pattern
+
+        if kind == 'sphere':
+            surface.as_euclidian().plot_primal_0_form(form, plot_contour=False)
+        if kind == 'regular':
+            form = tris.topology.transfer_operators[0] * form
+            tris.as_2().plot_primal_0_form(form, plot_contour=False)
+        if kind == 'letter':
             surface.plot_primal_0_form(form, plot_contour=False)
 
+        plt.axis('off')

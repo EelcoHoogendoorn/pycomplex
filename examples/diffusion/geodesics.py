@@ -131,9 +131,10 @@ class MyComplex(ComplexTriangularEuclidian3):
 
 if __name__ == '__main__':
     from examples.subdivision.letter_a import create_letter
+    import matplotlib.pyplot as plt
 
+    # create an interesting shape to compute geodesics over
     letter = create_letter(3).as_23().to_simplicial().as_3()
-
     letter = MyComplex(vertices=letter.vertices, topology=letter.topology)
 
     seed = letter.topology.chain(0, dtype=np.float)
@@ -145,3 +146,4 @@ if __name__ == '__main__':
     letter.vertices = np.dot(letter.vertices, linalg.power(linalg.orthonormalize(np.random.randn(3, 3)), 0.2))
     letter.plot_3d(plot_dual=False, backface_culling=True, plot_vertices=False)
     letter.plot_primal_0_form(geo)
+    plt.show()

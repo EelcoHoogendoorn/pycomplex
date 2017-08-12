@@ -24,8 +24,13 @@ The reduced condition number could be very valuable if variable mu renders the e
 Alternatively, we may eliminate flux and solve for pressure alone.
 """
 
+from time import clock
+
 import numpy as np
 import scipy.sparse
+import matplotlib.pyplot as plt
+
+from examples.flow.stream import stream
 from examples.linear_system import *
 
 
@@ -57,7 +62,8 @@ def concave():
 
 
 mesh, inlet, outlet, closed = concave()
-# mesh.plot()
+if False:
+    mesh.plot()
 
 
 def darcy_flow(complex2, mu):
@@ -89,14 +95,11 @@ def darcy_flow(complex2, mu):
     B0, B1 = boundary.n_elements
 
     P1D1 = sparse_diag(complex2.hodge_PD[1])
-    # P2D0 = sparse_diag(complex2.P2D0)
-    # P0D2 = sparse_diag(complex2.P0D2)
     mu = sparse_diag(mu)
 
 
     P2D0_0 = sparse_zeros((P2, D0))
 
-    # S = complex2.topology.dual.selector
 
     momentum   = [P1D1       , mu * P1D1 * D1D0]      # darcy's law
     continuity = [P2P1 * P1D1, P2D0_0          ]
@@ -134,7 +137,6 @@ def darcy_flow(complex2, mu):
     return system
 
 
-
 if True:
     # Use reaction-diffusion to set up an interesting permeability-pattern
     # high min/max mu ratios make the equations very stiff, but gives the coolest looking results
@@ -158,12 +160,11 @@ else:
 
 # formulate darcy flow equations
 system = darcy_flow(mesh, mu)
-
-# system.plot()
+if False:
+    system.plot()
 
 # formulate normal equations and solve
 normal = system.normal_equations()
-from time import clock
 t = clock()
 print('starting solving')
 solution, residual = normal.precondition().solve_minres(tol=1e-16)
@@ -178,11 +179,9 @@ pressure = mesh.hodge_PD[2] * pressure
 pressure = tris.topology.transfer_operators[2] * pressure
 tris.as_2().plot_primal_2_form(pressure)
 
-from examples.flow.stream import stream
 primal_flux = mesh.hodge_PD[1] * flux
 phi = stream(mesh, primal_flux)
 phi = tris.topology.transfer_operators[0] * phi
 tris.as_2().plot_primal_0_form(phi, cmap='jet', plot_contour=True, levels=50)
 
-import matplotlib.pyplot as plt
 plt.show()
