@@ -25,8 +25,8 @@ import numpy as np
 import scipy.sparse
 from cached_property import cached_property
 
-from examples.advection import Advector
 from examples.diffusion.explicit import Diffusor
+from examples.flow.advection import Advector
 from examples.util import save_animation
 from pycomplex import synthetic
 from pycomplex.complex.spherical import ComplexSpherical
@@ -105,10 +105,12 @@ class VorticityAdvector(Advector):
         P1P0 = T01.T
         D2D1 = T01
         D1P1 = self.complex.hodge_DP[1]
+        D2P0 = self.complex.hodge_DP[0]
+        P0D2 = self.complex.hodge_PD[0]
 
         vorticity_d2 = D2D1 * flux_d1
         if self.diffusion:
-            vorticity_d2 = self.vorticity_diffusor.integrate_explicit(vorticity_d2, dt=self.diffusion)
+            vorticity_d2 = D2P0 * self.vorticity_diffusor.integrate_explicit(P0D2 * vorticity_d2, dt=self.diffusion)
 
         vorticity_d2 = self.complex.topology.selector[0] * vorticity_d2
         laplacian = self.constrain_divergence_precompute_boundary
@@ -170,16 +172,18 @@ class VorticityAdvector(Advector):
         if force is not None:
             # add force impulse, if given
             flux_d1_advected += force * dt
-        # return self.complex.topology.dual.selector[1].T * flux_d1_advected
-        # return self.complex.topology.dual.selector[1].T * self.pressure_projection(flux_d1_advected)
-        # return self.complex.topology.dual.selector[1].T * self.constrain_divergence(flux_d1_advected)
-        return self.complex.topology.dual.selector[1].T * self.constrain_divergence_boundary(flux_d1_advected)
+
+        if self.complex.boundary:
+            return self.complex.topology.dual.selector[1].T * self.constrain_divergence_boundary(flux_d1_advected)
+        else:
+            # on boundary-free domains, using pressure projection is simpler, since it does not
+            return self.complex.topology.dual.selector[1].T * self.pressure_projection(flux_d1_advected)
 
 
 if __name__ == "__main__":
     dt = 1
 
-    complex_type = 'grid'
+    complex_type = 'sphere'
 
     if complex_type == 'sphere':
         complex = synthetic.icosphere(refinement=5)
@@ -260,7 +264,7 @@ if __name__ == "__main__":
     def advect(flux_d1, dt):
         return advector.advect_vorticity(flux_d1, dt)
 
-    from examples.advection import BFECC
+    from examples.flow.advection import BFECC
 
     for i in save_animation(path, frames=200, overwrite=True):
         for r in range(4):

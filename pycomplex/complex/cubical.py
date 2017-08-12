@@ -103,7 +103,6 @@ class ComplexCubical(BaseComplexCubical):
 
         return operator
 
-
     def product(self, other):
         """Construct the product of two cubical complexes
 
@@ -193,7 +192,6 @@ class ComplexCubical(BaseComplexCubical):
                 ax.scatter(*dual_vertices.T[:2], color='r')
 
         plt.axis('equal')
-        plt.show()
 
     @cached_property
     def metric(self):
@@ -232,6 +230,7 @@ class ComplexCubical1(ComplexCubical):
             vertices=self.vertices,
             topology=self.topology.as_1().to_simplicial()
         )
+
 
 class ComplexCubical2(ComplexCubical):
     """Specialization for 2d quads"""

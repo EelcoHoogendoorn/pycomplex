@@ -1,5 +1,4 @@
-
-
+import numpy
 import numpy as np
 
 
@@ -193,3 +192,10 @@ def inverse(A):
 
     """
     return np.swapaxes( inverse_transpose(A), -1,-2)
+
+
+def pinv(A):
+    u, s, v = np.linalg.svd(A)
+    s = 1 / s
+    # s[:, self.complex.topology.n_dim:] = 0
+    return np.einsum('...ij,...j,...jk->...ki', u[..., :s.shape[-1]], s, v)

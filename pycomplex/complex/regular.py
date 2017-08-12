@@ -1,8 +1,8 @@
 
-from cached_property import cached_property
+import scipy.spatial
 
-from pycomplex.geometry import regular
 from pycomplex.complex.cubical import *
+from pycomplex.geometry import regular
 
 
 def gather(idx, vals):
@@ -15,19 +15,24 @@ def scatter(idx, vals, target):
     np.add.at(target.ravel(), idx.ravel(), vals.ravel())
 
 
-def pinv(A):
-    u, s, v = np.linalg.svd(A)
-    s = 1 / s
-    # s[:, self.complex.topology.n_dim:] = 0
-    return np.einsum('...ij,...j,...jk->...ki', u[..., :s.shape[-1]], s, v)
-
-
 class ComplexRegularMixin(object):
 
     @cached_property
     def pick_primal_precomp(self):
-        cubes = self.topology.elements[-1]
+        """Precompute things for efficient picking of primal regular n-cubes
 
+        Returns
+        -------
+        tree : scipy.spatial.cKDTree
+            tree built around centroid of each primal cube.
+            querying the centroid will give us the index of the closest cube
+        basis : ndarray, [n_domains, 2, n_dim], float
+            first component is the first corner of the n-cube
+            second component is the diagonal to the opposite corner
+            this allows for efficient computation of barycentric coordinates within the cube
+
+        """
+        cubes = self.topology.elements[-1]
         # basis is just first vert of cube and diagonal of cube
         corners = self.vertices[cubes]
         corners = corners.reshape(-1, np.prod(self.topology.cube_shape), self.n_dim)
@@ -35,9 +40,8 @@ class ComplexRegularMixin(object):
         basis[:, 0] = corners[:, 0]
         basis[:, 1] = corners[:, -1] - corners[:, 0]
 
-        import scipy.spatial
         tree = scipy.spatial.cKDTree(corners.mean(axis=1))
-        return tree, cubes, basis
+        return tree, basis
 
     def pick_primal(self, points, cube=None):
         """Pick the primal cubes
@@ -46,16 +50,19 @@ class ComplexRegularMixin(object):
         ----------
         points : ndarray, [n_points, n_dim], float
             points to pick
+        cube : ndarray, [n_points], index_dtype, optional
+            primal cube indices
+            can be given as an initial guess for the cube to be picked
 
         Returns
         -------
-        cubes : ndarray, [n_points, ], index_dtype
-            n-th column corresponds to indices of n-element
+        cubes : ndarray, [n_points], index_dtype
+            picked primal cube indices
         baries : ndarray, [n_points, n_dim] float
             barycentric weights corresponding to the domain indices
 
         """
-        tree, cubes, basis = self.pick_primal_precomp
+        tree, basis = self.pick_primal_precomp
 
         def compute_baries(basis, points):
             r = points - basis[:, 0]
@@ -82,6 +89,21 @@ class ComplexRegularMixin(object):
 
     @cached_property
     def pick_fundamental_precomp(self):
+        """Precompute things for efficient picking of fundamental domain regular n-cubes
+
+        Returns
+        -------
+        tree : scipy.spatial.cKDTree
+            tree built around centroid of each fundamental cube.
+            querying the centroid will give us the index of the closest cube
+        domains : ndarray, [n_domains + cube_shape], index_dtype
+            each n-cube contains references to n-cubes of various degrees
+        basis : ndarray, [n_domains, 2, n_dim], float
+            first component is the first corner of the n-cube
+            second component is the diagonal to the opposite corner
+            this allows for efficient computation of barycentric coordinates within the cube
+        """
+
         domains = self.topology.fundamental_domains()
         PP = self.primal_position
 
@@ -97,20 +119,24 @@ class ComplexRegularMixin(object):
         basis[:, 1] = cubes[:, -1] - cubes[:, 0]
         import scipy.spatial
         tree = scipy.spatial.cKDTree(cubes.mean(axis=1))
+
         return tree, domains.reshape((-1,) + self.topology.cube_shape), basis
 
-    def pick_fundamental(self, points, domain=None):
+    def pick_fundamental(self, points, domain_idx=None):
         """Pick the fundamental domain cubes
 
         Parameters
         ----------
         points : ndarray, [n_points, n_dim], float
             points to pick
+        domain_idx : ndarray, [n_points], index_dtype, optional
+            fundamental domain indices
+            can be given as an initial guess for the domain to be picked
 
         Returns
         -------
         domains : ndarray, [n_points + cube_shape], index_dtype
-            n-th column corresponds to indices of n-element
+            each n-cube contains references to n-cubes of various degrees
         baries : ndarray, [n_points, n_dim] float
             barycentric weights corresponding to the domain indices
 
@@ -127,13 +153,13 @@ class ComplexRegularMixin(object):
             baries = compute_baries(b, points)
             return domains[domain], baries
 
-        if domain is None:
+        if domain_idx is None:
             domain, baries = query(points)
         else:
-            baries = compute_baries(basis[domain], points)
+            baries = compute_baries(basis[domain_idx], points)
             update = np.any(baries < 0, axis=1)
             if np.any(update):
-                domain = domain.copy()
+                domain = domains[domain_idx]
                 d, b = query(points[update])
                 domain[update] = d
                 baries[update] = b
@@ -157,13 +183,16 @@ class ComplexRegularMixin(object):
         -------
         list of dual n-forms
             n-th element is a dual n-form
+
+        Notes
+        -----
+        Is there a link here with subdivision surfaces? would say so; could precompute this into a single linear operator
         """
         interior_d0, boundary_d0 = np.split(d0, [self.topology.n_elements[-1]], axis=0)
         dual_forms = [a * interior_d0 for a in self.cached_averages]    # these are duals without boundary
         if len(boundary_d0):
-            boundary_forms = [a * boundary_d0 for a in self.boundary.topology.dual.averaging_operators()]
+            boundary_forms = [a * boundary_d0 for a in self.boundary.topology.dual.averaging_operators]
             for i, (d, b, p) in enumerate(zip(dual_forms, boundary_forms, self.boundary.topology.parent_idx)):
-                raise Exception('check this logic')
                 d[p] = b
         return dual_forms
 
@@ -195,91 +224,89 @@ class ComplexRegularMixin(object):
             total = total + (p0[verts[idx]].T * B.T).T
         return total
 
-
-#     @cached_property
-#     def metric(self):
-#         """Compute metrics from fundamental domain contributions"""
-#         topology = self.topology
-#         assert topology.is_oriented
-#         PP = self.primal_position
-#         domains = self.topology.fundamental_domains()
-#
-#         domains = domains.reshape(-1, domains.shape[-1])
-#         corners = np.concatenate([p[d][:, None, :] for p, d in zip(PP, domains.T)], axis=1)
-#
-#         # assemble cube vertices
-#         cubes =
-#
-#         PN = topology.n_elements
-#         DN = PN[::-1]
-#
-#         # metrics
-#         PM = [np.zeros(n) for n in PN]
-#         PM[0][...] = 1
-#         DM = [np.zeros(n) for n in DN]
-#         DM[0][...] = 1
-#
-#         unsigned = regular.unsigned_volume
-#         groups = [npi.group_by(c) for c in domains.T]   # cache groupings since they may get reused
-#
-#         for i in range(1, self.topology.n_dim):
-#             n = i + 1
-#             d = self.topology.n_dim - i
-#             PM[i] = groups[i].mean(unsigned(corners[:, :n]))[1] * factorial(n)
-#             DM[i] = groups[d].sum (unsigned(corners[:, d:]))[1] / factorial(d+1)
-#
-#         V = regular.hypervolume(cubes[:, corners[0]], cubes[:, corners[-1]])
-#         PM[-1] = groups[-1].sum(V)[1]
-#         DM[-1] = groups[+0].sum(V)[1]
-#
-#         return (
-#             [m * (self.radius ** i) for i, m in enumerate(PM)],
-#             [m * (self.radius ** i) for i, m in enumerate(DM)]
-#         )
+    # @cached_property
+    # def metric(self):
+    #     """Compute metrics from fundamental domain contributions"""
+    #     topology = self.topology
+    #     assert topology.is_oriented
+    #     PP = self.primal_position
+    #     domains = self.topology.fundamental_domains()
+    #
+    #     domains = domains.reshape(-1, domains.shape[-1])
+    #     corners = np.concatenate([p[d][:, None, :] for p, d in zip(PP, domains.T)], axis=1)
+    #
+    #     # assemble subdomain cube vertices
+    #     cubes =
+    #
+    #     PN = topology.n_elements
+    #     DN = PN[::-1]
+    #
+    #     # metrics
+    #     PM = [np.zeros(n) for n in PN]
+    #     PM[0][...] = 1
+    #     DM = [np.zeros(n) for n in DN]
+    #     DM[0][...] = 1
+    #
+    #     unsigned = regular.unsigned_volume
+    #     groups = [npi.group_by(c) for c in domains.T]   # cache groupings since they may get reused
+    #
+    #     for i in range(1, self.topology.n_dim):
+    #         n = i + 1
+    #         d = self.topology.n_dim - i
+    #         PM[i] = groups[i].mean(unsigned(corners[:, :n]))[1] * factorial(n)
+    #         DM[i] = groups[d].sum (unsigned(corners[:, d:]))[1] / factorial(d+1)
+    #
+    #     V = regular.hypervolume(cubes[:, corners[0]], cubes[:, corners[-1]])
+    #     PM[-1] = groups[-1].sum(V)[1]
+    #     DM[-1] = groups[+0].sum(V)[1]
+    #
+    #     return (
+    #         [m * (self.radius ** i) for i, m in enumerate(PM)],
+    #         [m * (self.radius ** i) for i, m in enumerate(DM)]
+    #     )
 
 
 class ComplexRegular1(ComplexCubical1Euclidian1):
     """Regular cubical 1 complex; or line segment"""
 
-    @cached_property
-    def metric(self):
-        """Calc metric properties and hodges for a 1d regular cubical complex
-
-        Returns
-        -------
-        primal : list of ndarray
-        dual : list of ndarray
-
-        """
-
-        topology = self.topology
-        PP = self.primal_position
-
-        PN = topology.n_elements
-        DN = PN[::-1]
-
-        #metrics
-        PM = [np.zeros(n) for n in PN]
-        PM[0][...] = 1
-        DM = [np.zeros(n) for n in DN]
-        DM[0][...] = 1
-
-        # precomputations
-        E10  = topology.incidence[1, 0].reshape(-1, 2)  # [edges, v2]          vertex indices per edge
-        PP10  = PP[0][E10]                 # [edges, v2]
-
-        # calc edge lengths
-        PM[1] += regular.edge_length(PP10[:, 0, :], PP10[:, 1, :])
-        for d1 in range(2):
-            scatter(
-                E10[:,d1],
-                regular.edge_length(PP10[:, d1, :], PP[1]),
-                DM[1])
-
-        return PM, DM
+    # @cached_property
+    # def metric(self):
+    #     """Calc metric properties and hodges for a 1d regular cubical complex
+    #
+    #     Returns
+    #     -------
+    #     primal : list of ndarray
+    #     dual : list of ndarray
+    #
+    #     """
+    #
+    #     topology = self.topology
+    #     PP = self.primal_position
+    #
+    #     PN = topology.n_elements
+    #     DN = PN[::-1]
+    #
+    #     #metrics
+    #     PM = [np.zeros(n) for n in PN]
+    #     PM[0][...] = 1
+    #     DM = [np.zeros(n) for n in DN]
+    #     DM[0][...] = 1
+    #
+    #     # precomputations
+    #     E10  = topology.incidence[1, 0].reshape(-1, 2)  # [edges, v2]          vertex indices per edge
+    #     PP10  = PP[0][E10]                 # [edges, v2]
+    #
+    #     # calc edge lengths
+    #     PM[1] += regular.edge_length(PP10[:, 0, :], PP10[:, 1, :])
+    #     for d1 in range(2):
+    #         scatter(
+    #             E10[:,d1],
+    #             regular.edge_length(PP10[:, d1, :], PP[1]),
+    #             DM[1])
+    #
+    #     return PM, DM
 
     def plot_primal_0_form(self, f0, ax=None, **kwargs):
-        import matplotlib.pyplot as plt
         import matplotlib.collections
 
         edges = self.topology.elements[1]

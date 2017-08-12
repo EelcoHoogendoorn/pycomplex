@@ -1,4 +1,4 @@
-"""2d spherical raytracer, constructed as visuale analogue of the 3d case"""
+"""2d spherical raytracer, constructed as visual analogue of the 3d case"""
 
 import numpy as np
 import matplotlib.pyplot as plt

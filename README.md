@@ -11,7 +11,7 @@ Applications
 ------------
 This library provides useful functionality in a wide range of computational and graphical modelling contexts
 - Computational modelling, such as fluid dynamics and electromagnetics
-- Surface modelling, subdivision curves, and other surface manupilations
+- Surface modelling, subdivision curves, and other surface manipulations
 
 The examples folder contains a comprehensive set of brief but illustrative use cases.
 
@@ -38,6 +38,7 @@ Todo
 - Build up all different interpolation and restriction multigrid transfer operators over all topologies
 - Black box multigrid (at least for 0-forms)
 - Multigrid eigen solver
+
 
 Speculative todo
 ----------------
