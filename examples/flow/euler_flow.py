@@ -29,10 +29,16 @@ from pycomplex import synthetic
 from pycomplex.math import linalg
 from pycomplex.util import save_animation
 from pycomplex.complex.spherical import ComplexSpherical
+
 from examples.advection import Advector
+from examples.diffusion.explicit import Diffusor
 
 
 class VorticityAdvector(Advector):
+
+    def __init__(self, complex, diffusion=None):
+        super(VorticityAdvector, self).__init__(complex)
+        self.diffusion = diffusion
 
     @cached_property
     def pressure_projection_precompute(self):
@@ -83,6 +89,10 @@ class VorticityAdvector(Advector):
         laplacian = D2D1 * D1P1 * P1P0
         return laplacian
 
+    @cached_property
+    def vorticity_diffusor(self):
+        return Diffusor(self.complex)
+
     def constrain_divergence_boundary(self, flux_d1, return_phi=False):
         """
 
@@ -90,8 +100,6 @@ class VorticityAdvector(Advector):
         ----------
         flux_d1 : ndarray, [n_dual_edges], float
             dual 1-form, excluding values on the dual boundary
-        dt : float
-            timestep
 
         """
         T01, T12 = self.complex.topology.matrices
@@ -100,9 +108,12 @@ class VorticityAdvector(Advector):
         D1P1 = self.complex.hodge_DP[1]
 
         vorticity_d2 = D2D1 * flux_d1
+        if self.diffusion:
+            vorticity_d2 = self.vorticity_diffusor.integrate_explicit(vorticity_d2, dt=self.diffusion)
+
         vorticity_d2 = self.complex.topology.selector[0] * vorticity_d2
         laplacian = self.constrain_divergence_precompute_boundary
-        phi_p0 = scipy.sparse.linalg.minres(laplacian, vorticity_d2, tol=1e-12)[0]
+        phi_p0 = scipy.sparse.linalg.minres(laplacian, vorticity_d2, tol=1e-14)[0]
         # add the boundary zeros back in
         phi_p0 = self.complex.topology.selector[0].T * phi_p0
 
@@ -119,7 +130,7 @@ class VorticityAdvector(Advector):
         Much more principles approach than either vorticity or pressure based step only
         """
 
-    def advect_vorticity(self, flux_d1, dt):
+    def advect_vorticity(self, flux_d1, dt, force=None):
         """The main method of vorticity advection
 
         Parameters
@@ -128,6 +139,8 @@ class VorticityAdvector(Advector):
             dual 1-form, including values on the dual boundary
         dt : float
             timestep
+        force : ndarray, [n_dual_edges], float, optional
+            dual 1-form, including values on the dual boundary
 
         Returns
         ----------
@@ -155,6 +168,9 @@ class VorticityAdvector(Advector):
         advected_edge = D1D0 * advected_d0
         flux_d1_advected = linalg.dot(velocity_sampled_d1, advected_edge)        # this does not include flux around boundary edges; but currently all zero anyway
 
+        if force is not None:
+            # add force impulse, if given
+            flux_d1_advected += force * dt
         # return self.complex.topology.dual.selector[1].T * flux_d1_advected
         # return self.complex.topology.dual.selector[1].T * self.pressure_projection(flux_d1_advected)
         # return self.complex.topology.dual.selector[1].T * self.constrain_divergence(flux_d1_advected)

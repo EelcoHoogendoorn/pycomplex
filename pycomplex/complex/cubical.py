@@ -86,7 +86,7 @@ class ComplexCubical(BaseComplexCubical):
             transposed matrix product needs diagonal crease selector matrix inbetween
 
         """
-        coarse_averaging = scipy.sparse.vstack(coarse.topology.averaging_operators())
+        coarse_averaging = scipy.sparse.vstack(coarse.topology.averaging_operators)
 
         if smooth:
             fine = coarse.subdivide()

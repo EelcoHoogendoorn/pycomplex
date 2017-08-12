@@ -186,6 +186,7 @@ class BaseTopology(object):
             if not (a * b).nnz == 0:
                 raise ValueError(f'chain [{i}, {i+1}] to [{i+1}, {i+2}] does not match')
 
+    @cached_property
     def averaging_operators(self):
         """
 
@@ -194,6 +195,10 @@ class BaseTopology(object):
         list of sparse matrix, [n-n_elements, n_0-elements]
             n-th element of the list maps 0-elements to n-elements
             all columns in each row sum to one
+
+        Notes
+        -----
+        Primal could override with a more efficient implementation based on corners
         """
         A = list(itertools.accumulate([np.abs(m) for m in self.matrices_original], func=operator.mul))
         return [scipy.sparse.identity(A[0].shape[0])] + [sparse_normalize_l1(a.T, axis=1) for a in A]

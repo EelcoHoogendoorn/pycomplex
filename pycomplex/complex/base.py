@@ -181,7 +181,7 @@ class BaseComplex(object):
             for b in S[i + 1:]:
                 b[a != 0] = 0
 
-        averaging = self.topology.averaging_operators()
+        averaging = self.topology.averaging_operators
         smoothers = [scipy.sparse.diags(s) * a.T * scipy.sparse.diags(c) * a for a, s, c in zip(averaging, S, C)]
         return sparse_normalize_l1(sum(smoothers), axis=1)
 
