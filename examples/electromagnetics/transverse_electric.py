@@ -10,6 +10,10 @@ d/dt H = curl(E)
 References
 ----------
 https://jyx.jyu.fi/dspace/bitstream/handle/123456789/44630/978-951-39-5951-7_vaitos26112014.pdf?sequence=1
+
+Todo
+----
+Add some nontrivial materials; dielectrics and so on
 """
 
 import numpy as np
@@ -18,7 +22,6 @@ import matplotlib.pyplot as plt
 from cached_property import cached_property
 
 from pycomplex import synthetic
-from pycomplex.topology import sign_dtype
 
 
 def make_mesh():
@@ -27,32 +30,7 @@ def make_mesh():
     for i in range(6):
         mesh = mesh.subdivide()
 
-    # identify boundaries
-    edge_position = mesh.boundary.primal_position[1]
-    BPP = mesh.boundary.primal_position
-    left  = (BPP[1][:, 0] == BPP[1][:, 0].min()).astype(sign_dtype)
-
-    # right = (BPP[1][:, 0] == BPP[1][:, 0].max()).astype(sign_dtype)
-    # construct closed part of the boundary
-    all = mesh.boundary.topology.chain(1, fill=1)
-    closed = (BPP[1][:, 1] != BPP[1][:, 1].min()).astype(sign_dtype)
-
-    left_0  = (BPP[0][:, 0] == BPP[0][:, 0].min()).astype(sign_dtype)
-    right_0  = (BPP[0][:, 0] == BPP[0][:, 0].max()).astype(sign_dtype)
-
-    bottom_0  = (BPP[0][:, 1] == BPP[0][:, 1].min()).astype(sign_dtype)
-    bottom_0 = bottom_0 * (1-left_0) * (1-right_0)
-
-    # construct surface current
-    PP = mesh.primal_position
-    magnet_width = 0.25
-    magnet_height = 0.05
-    magnet_width = PP[0][:, 0][np.argmin(np.abs(PP[0][:, 0] - magnet_width))]
-    current = (PP[0][:, 0] == magnet_width) * (PP[0][:, 1] < magnet_height)
-
-    return mesh, all, left, bottom_0, current, closed
-
-
+    return mesh
 
 
 class Transverse(object):
@@ -61,11 +39,18 @@ class Transverse(object):
     def __init__(self, complex):
         self.complex = complex
 
+    @cached_property
+    def operators(self):
+        dE = P1P0.multiply(self.step)
+        dH = (P0D2 * D2D1 * D1P1).multiply(self.step)
+        return dE.tocsr(), dH.tocsr()
+
     def leapfrog(self, E_p1, H_p0):
         """single leapfrog step"""
-        nE_p1 = E_p1 + P1P0 * H_p0 * self.step
-        nH_p0 = H_p0 - P0D2 * D2D1 * D1P1 * nE_p1 * self.step
-        return nE_p1, nH_p0
+        dE, dH = self.operators
+        E_p1 = E_p1 + dE * H_p0
+        H_p0 = H_p0 - dH * E_p1
+        return E_p1, H_p0
 
     @cached_property
     def step(self):
@@ -74,22 +59,6 @@ class Transverse(object):
     @cached_property
     def largest_eigenvalue(self):
         return Diffusor(self.complex).largest_eigenvalue
-
-        # T01, T12 = self.complex.topology.matrices
-        # P1P0 = T01.T
-        # D2D1 = T01
-        # P2P1 = T12.T
-        # D1D0 = T12
-        # 
-        # P0D2, P1D1, P2D0 = [scipy.sparse.diags(h) for h in self.complex.hodge_PD]
-        # D2P0, D1P1, D0P2 = [scipy.sparse.diags(h) for h in self.complex.hodge_DP]
-        #
-        # # construct our laplacian-beltrami
-        # L = D1D0 * D0P2 * P2P1 - D1P1 * P1P0 * P0D2 * D2D1 * D1P1
-        # return scipy.sparse.linalg.eigsh(
-        #     L,
-        #     M=D1P1.tocsc(),
-        #     k=1, which='LM', tol=1e-6, return_eigenvectors=False)
 
 
 if __name__ == "__main__":
