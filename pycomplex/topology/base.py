@@ -9,7 +9,8 @@ import operator
 from cached_property import cached_property
 
 from pycomplex.topology import ManifoldException
-from pycomplex.topology import sign_dtype, index_dtype, sparse_normalize_l1
+from pycomplex.topology import sign_dtype, index_dtype
+from pycomplex import sparse
 
 
 class BaseTopology(object):
@@ -18,12 +19,6 @@ class BaseTopology(object):
 
     """
     # FIXME: add matrix chain part of constructor here
-
-    def vertex_degree(self):
-        """Compute the degree of each vertex; or the number of adjecent n-elements"""
-        IN0 = self.incidence[-1, 0]
-        _, count = npi.count(IN0.flatten())
-        return count
 
     @cached_property
     def regions_per_vertex(self):
@@ -186,9 +181,38 @@ class BaseTopology(object):
             if not (a * b).nnz == 0:
                 raise ValueError(f'chain [{i}, {i+1}] to [{i+1}, {i+2}] does not match')
 
-    @cached_property
-    def averaging_operators(self):
+    def accumulated_operators_0(self):
         """
+
+        Returns
+        -------
+        list of sparse matrix, [n_0-elements, n-n_elements]
+            n-th element of the list maps 0-elements to n-elements
+
+        Notes
+        -----
+        Primal could override this implementation with a more efficient implementation based on elements/corners arrays
+
+        """
+        A = list(itertools.accumulate([np.abs(m) for m in self.matrices], func=operator.mul))
+        return [scipy.sparse.identity(A[0].shape[0], dtype=sign_dtype)] + A
+
+    def accumulated_operators_N(self):
+        """
+
+        Returns
+        -------
+        list of sparse matrix, [n_N-elements, n-n_elements]
+            n-th element of the list maps n-elements to N-elements
+
+        """
+        A = list(itertools.accumulate([np.abs(m.T) for m in self.matrices[::-1]], func=operator.mul))
+        A = [scipy.sparse.identity(A[0].shape[0], dtype=sign_dtype)] + A
+        return A[::-1]
+
+    @cached_property
+    def averaging_operators_0(self):
+        """Linear operators that average over all 0-elements of each n-element
 
         Returns
         -------
@@ -196,9 +220,27 @@ class BaseTopology(object):
             n-th element of the list maps 0-elements to n-elements
             all columns in each row sum to one
 
-        Notes
-        -----
-        Primal could override with a more efficient implementation based on corners
         """
-        A = list(itertools.accumulate([np.abs(m) for m in self.matrices_original], func=operator.mul))
-        return [scipy.sparse.identity(A[0].shape[0])] + [sparse_normalize_l1(a.T, axis=1) for a in A]
+        return [sparse.normalize_l1(a.T, axis=1) for a in self.accumulated_operators_0()]
+
+    @cached_property
+    def averaging_operators_N(self):
+        """Linear operators that average over all N-elements of each n-element
+
+        Returns
+        -------
+        list of sparse matrix, [n-n_elements, n_N-elements]
+            n-th element of the list maps N-elements to n-elements
+            all columns in each row sum to one
+
+        """
+        return [sparse.normalize_l1(a.T, axis=1) for a in self.accumulated_operators_N()]
+
+    @cached_property
+    def degree(self):
+        """Compute the degree of each n-element; or the number of adjecent N-elements"""
+        A = self.accumulated_operators_N()
+        N_elements = self.chain(-1, fill=1)
+        return [sparse.ones_like(a.T) * N_elements for a in A]
+
+

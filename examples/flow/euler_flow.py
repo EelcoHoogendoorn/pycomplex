@@ -166,8 +166,10 @@ class VorticityAdvector(Advector):
         # FIXME: average_dual here is overkill, but want to reuse boundary sampling
         velocity_sampled_d1 = self.complex.average_dual(velocity_sampled_d0)[1]
         # velocity_sampled_d1 = self.complex.cached_averages[1] * velocity_sampled_d0
-        advected_edge = D1D0 * advected_d0
+        advected_edge = self.complex.topology.dual.matrices[0].T * advected_d0
         flux_d1_advected = linalg.dot(velocity_sampled_d1, advected_edge)        # this does not include flux around boundary edges; but currently all zero anyway
+        # drop
+        flux_d1_advected = self.complex.topology.dual.selector[1] * flux_d1_advected
 
         if force is not None:
             # add force impulse, if given
@@ -181,9 +183,9 @@ class VorticityAdvector(Advector):
 
 
 if __name__ == "__main__":
-    dt = 1
+    dt = .1
 
-    complex_type = 'sphere'
+    complex_type = 'grid'
 
     if complex_type == 'sphere':
         complex = synthetic.icosphere(refinement=5)
@@ -192,7 +194,7 @@ if __name__ == "__main__":
 
     if complex_type == 'grid':
         complex = synthetic.n_cube_grid((2, 1), False)
-        for i in range(7):
+        for i in range(6):
             complex = complex.subdivide()
 
         complex = complex.as_22().as_regular()
@@ -214,7 +216,7 @@ if __name__ == "__main__":
         # H = get_harmonics_0(complex)
         H_d0 = get_harmonics_2(complex)[:, 2]
 
-        A = complex.topology.dual.averaging_operators()
+        A = complex.topology.dual.averaging_operators_0()
         H_p0 = complex.hodge_PD[0] * (A[2] * H_d0)
         H_p0[complex.boundary.topology.parent_idx[0]] = 0
 
@@ -259,7 +261,7 @@ if __name__ == "__main__":
     print(np.abs(flux_d1).max())
     # assert np.allclose(advected_0, flux_d1, atol=1e-6)
 
-    path = r'c:\development\examples\euler_38'
+    path = r'c:\development\examples\euler_39'
     # path = None
     def advect(flux_d1, dt):
         return advector.advect_vorticity(flux_d1, dt)

@@ -78,6 +78,25 @@ def render_frame(p, x, y, z):
 
 if __name__ == '__main__':
 
+    if True:
+        # visualize a randomly tesselated space
+        space = synthetic.optimal_delaunay_sphere(n_dim=4, n_points=200)
+        stepsize = .2  # ray step size in degrees
+        max_distance = 360  # trace rays all around the universe
+        fov = 1  # higher values give a wider field of view
+        resolution = (512, 512)  # in pixels
+
+        # generate a random starting position and orientation
+        coordinate = linalg.orthonormalize(np.random.randn(4, 4))
+        p, x, y, z = coordinate
+        dx, dy, dz = [linalg.power(linalg.rotation_from_plane(p, d), 1. / 90) for d in [x, y, z]]
+
+        coordinate = np.einsum('...ij,...j->...i', dz, coordinate)
+        render_frame(*coordinate)
+        plt.show()
+        quit()
+
+
     space = synthetic.hexacosichoron()
 
     stepsize = .2  # ray step size in degrees

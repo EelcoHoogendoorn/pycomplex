@@ -430,7 +430,7 @@ class TopologyCubical2(TopologyCubical):
         import scipy.sparse
         # FIXME: implement edge operator
         simplicial.transfer_operators = [
-            scipy.sparse.vstack(cubical.averaging_operators[::2]),
+            scipy.sparse.vstack(cubical.averaging_operators_0[::2]),
             None,
             transfer_matrix(
                 simplicial.range(2),

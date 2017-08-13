@@ -16,3 +16,15 @@ def test_pick_primal_2():
 
     assert np.alltrue(bary >= 0)
     assert np.alltrue(bary <= 1)
+
+
+def test_metric():
+    n = 2
+    grid = synthetic.n_cube_grid((3, ) * n, centering=False).as_22().as_regular()
+    PM, DM = grid.metric
+    print(DM)
+    for pm in PM:
+        assert np.allclose(pm, 1)
+
+
+test_metric()

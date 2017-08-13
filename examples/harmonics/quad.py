@@ -1,6 +1,8 @@
 """Harmonics of a square"""
 
 import numpy as np
+import matplotlib.pyplot as plt
+
 from pycomplex import synthetic
 from examples.harmonics import get_harmonics_0, get_harmonics_2
 
@@ -27,4 +29,7 @@ f2 = v[:, 12]
 # do plotting via mapping to simplicial complex
 tris = quad.to_simplicial()
 f2 = tris.topology.transfer_operators[2] * f2
+tris.as_2().plot_dual_0_form_interpolated(f2, weighted=False, plot_contour=False, shading='gouraud')
 tris.as_2().plot_primal_2_form(f2)
+
+plt.show()

@@ -138,8 +138,8 @@ if __name__ == "__main__":
     if True:
         H_d0 = get_harmonics_2(complex)[:, 2]
 
-        A = complex.topology.dual.averaging_operators
-        H_p0 = complex.hodge_PD[0] * (A[2] * H_d0)
+        A = complex.topology.averaging_operators_N
+        H_p0 = complex.hodge_PD[0] * (A[0] * H_d0)
         H_p0[complex.boundary.topology.parent_idx[0]] = 0
 
         if False:
@@ -153,9 +153,9 @@ if __name__ == "__main__":
         # plt.show()
 
     flux_d1 = complex.hodge_DP[1] * (curl * (H_p0)) / 100
+    flux_d1 = complex.topology.dual.selector[1].T * flux_d1
 
-
-    path = r'c:\development\examples\advection_15'
+    path = r'c:\development\examples\advection_16'
 
     advector = Advector(complex)
     def advect(p0, dt):

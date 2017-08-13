@@ -1,25 +1,22 @@
+"""Generate harmonic functions"""
+
+# FIXME: generate this to full nd
+
 import numpy as np
 import scipy.sparse
 
 
-def sparse_diag(diag):
-    s = len(diag)
-    i = np.arange(s)
-    return scipy.sparse.csc_matrix((diag, (i, i)), shape=(s, s))
-
-
-# FIXME: need to make common laplacians centrally available somewhere
 def get_harmonics_0(complex2):
     # grab all the operators we will be needing
     T01 = complex2.topology.matrix(0, 1).T
     grad = T01
     div = T01.T
-    mass = complex2.hodge_PD[0]
+    mass = complex2.hodge_DP[0]
 
     # construct our laplacian
-    laplacian = div * sparse_diag(complex2.hodge_DP[1]) * grad
+    laplacian = div * scipy.sparse.diags(complex2.hodge_DP[1]) * grad
     # solve for some eigenvectors
-    w, v = scipy.sparse.linalg.eigsh(laplacian, M=sparse_diag(mass), which='SA', k=20)
+    w, v = scipy.sparse.linalg.eigsh(laplacian, M=scipy.sparse.diags(mass), which='SA', k=20)
     # print(w)
     return v
 
@@ -32,10 +29,8 @@ def get_harmonics_1(complex2):
     P2P1 = T12.T
     D1D0 = T12
 
-    n = complex2.topology.n_dim
-
-    P0D2, P1D1, P2D0 = [sparse_diag(h) for h in complex2.hodge_PD]
-    D2P0, D1P1, D0P2 = [sparse_diag(h) for h in complex2.hodge_DP]
+    P0D2, P1D1, P2D0 = [scipy.sparse.diags(h) for h in complex2.hodge_PD]
+    D2P0, D1P1, D0P2 = [scipy.sparse.diags(h) for h in complex2.hodge_DP]
 
     # construct our laplacian-beltrami
     L = D1D0 * D0P2 * P2P1 - D1P1 * P1P0 * P0D2 * D2D1 * D1P1
@@ -53,8 +48,8 @@ def get_harmonics_2(complex2):
     mass = complex2.hodge_DP[n]
 
     # construct our laplacian
-    laplacian = div * sparse_diag(complex2.hodge_PD[n-1]) * grad
+    laplacian = div * scipy.sparse.diags(complex2.hodge_PD[n-1]) * grad
     # solve for some eigenvectors
-    w, v = scipy.sparse.linalg.eigsh(laplacian, M=sparse_diag(mass), which='SA', k=20)
+    w, v = scipy.sparse.linalg.eigsh(laplacian, M=scipy.sparse.diags(mass), which='SA', k=20)
     # print(w)
     return v

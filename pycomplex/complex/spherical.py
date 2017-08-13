@@ -11,7 +11,8 @@ from pycomplex.complex.base import BaseComplexSpherical
 from pycomplex.geometry import spherical
 from pycomplex.math import linalg
 from pycomplex.topology.simplicial import TopologyTriangular, TopologySimplicial
-from pycomplex.topology import index_dtype, sparse_normalize_l1
+from pycomplex.topology import index_dtype
+from pycomplex.sparse import normalize_l1
 
 
 class ComplexSpherical(BaseComplexSpherical):
@@ -461,7 +462,7 @@ class ComplexSpherical(BaseComplexSpherical):
             W[n] = perimiter[c] / edge_length_prod(c)
 
         res = [1]
-        for i, (w, a) in enumerate(zip(W[1:], self.topology.dual.averaging_operators()[1:])):
+        for i, (w, a) in enumerate(zip(W[1:], self.topology.dual.averaging_operators_0[1:])):
 
             M = scipy.sparse.coo_matrix((
                 w,
@@ -469,7 +470,7 @@ class ComplexSpherical(BaseComplexSpherical):
                 shape=a.shape
             )
             q = a.multiply(M)
-            res.append(sparse_normalize_l1(q, axis=1))
+            res.append(normalize_l1(q, axis=1))
 
         return res
 
@@ -477,7 +478,7 @@ class ComplexSpherical(BaseComplexSpherical):
     def cached_averages(self):
         # note: weighted average is more correct, but the difference appears very minimal in practice
         # return self.weighted_average_operators()
-        return self.topology.dual.averaging_operators()
+        return self.topology.dual.averaging_operators_0()
 
     def average_dual(self, d0):
         return [a * d0 for a in self.cached_averages]

@@ -187,3 +187,50 @@ def hexacosichoron():
     tets = scipy.spatial.ConvexHull(vertices).simplices
     topology = TopologySimplicial.from_simplices(tets).fix_orientation()
     return ComplexSpherical(vertices=vertices, topology=topology)
+
+
+def optimal_delaunay_sphere(n_points, n_dim):
+    """Try and construct an optimal delaunay mesh on the sphere, in the sense described in [1]
+
+    References
+    ----------
+    [1] https://www.math.uci.edu/~chenlong/mesh.html
+
+    """
+    # FIXME: convergence here is extremely sensitive to parameter tuning, and only really seems to converge in the n=3 case
+    points = np.random.randn(n_points, n_dim)
+
+    def complex_from_points(points):
+        points = linalg.normalized(points)
+        delaunay = scipy.spatial.ConvexHull(points)
+        topology = TopologySimplicial.from_simplices(delaunay.simplices).fix_orientation()
+        complex = ComplexSpherical(vertices=points, topology=topology)
+        return complex
+
+    def push_points(points, r=5, magnitude=.1):
+        r = r / np.power(n_points, 1 / (n_dim - 1))
+        print(r)
+        tree = scipy.spatial.cKDTree(points)
+        s, e = tree.query_pairs(r=r, output_type='ndarray').T
+        n, d = linalg.normalized(points[s] - points[e], return_norm=True)
+        f = n * (r - d)[:, None] * magnitude
+        import numpy_indexed as npi
+        a, b = npi.group_by(s).sum(f)
+        points[a] += b
+        a, b = npi.group_by(e).sum(f)
+        points[a] -= b
+        return linalg.normalized(points)
+
+    for i in range(50):
+        print(i)
+        for i in range(20):
+            points = push_points(points)
+        complex = complex_from_points(points)
+        cc = complex.dual_position[0]
+        # take the average at each dual n-simplex, of all incident
+        points = complex.topology.dual.averaging_operators_0[-1] * cc
+        complex = complex_from_points(points)
+        if complex.is_acute:
+            break
+
+    return complex

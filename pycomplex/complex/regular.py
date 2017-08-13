@@ -1,18 +1,11 @@
+"""A regular oomplex is a cubical complex with the restriction that all cubes are axis-aligned
+
+"""
 
 import scipy.spatial
 
 from pycomplex.complex.cubical import *
 from pycomplex.geometry import regular
-
-
-def gather(idx, vals):
-    """return vals[idx]. return.shape = idx.shape + vals.shape[1:]"""
-    return vals[idx]
-
-
-def scatter(idx, vals, target):
-    """target[idx] += vals. """
-    np.add.at(target.ravel(), idx.ravel(), vals.ravel())
 
 
 class ComplexRegularMixin(object):
@@ -166,11 +159,6 @@ class ComplexRegularMixin(object):
 
         return domain, baries
 
-    @cached_property
-    def cached_averages(self):
-        # for a truly regular grid, there is no need for weighting, unlike simplicial case
-        return self.topology.dual.averaging_operators
-
     def average_dual(self, d0):
         """Average a dual 0-form to obtain values on all dual elements
 
@@ -184,22 +172,30 @@ class ComplexRegularMixin(object):
         list of dual n-forms
             n-th element is a dual n-form
 
-        Notes
-        -----
-        Is there a link here with subdivision surfaces? would say so; could precompute this into a single linear operator
         """
-        interior_d0, boundary_d0 = np.split(d0, [self.topology.n_elements[-1]], axis=0)
-        dual_forms = [a * interior_d0 for a in self.cached_averages]    # these are duals without boundary
-        if len(boundary_d0):
-            boundary_forms = [a * boundary_d0 for a in self.boundary.topology.dual.averaging_operators]
-            for i, (d, b, p) in enumerate(zip(dual_forms, boundary_forms, self.boundary.topology.parent_idx)):
-                d[p] = b
+        dual_forms = [a * d0 for a in self.topology.dual.averaging_operators_0]
         return dual_forms
 
     def sample_dual_0(self, d0, points):
+        """Sample a dual 0-form at the given points, using barycentric interpolation over the fundamental domains
+
+        Parameters
+        ----------
+        d0 : ndarray, [n_dual_vertices, ...], float
+            dual 0-form
+        points : ndarray, [n_points, n_dim], float
+            points to sample at
+
+        Returns
+        -------
+        ndarray : [n_points, ...], float
+            d0 sampled at the given points
+
+        """
         # extend dual 0 form to all other dual elements by averaging
         dual_forms = self.average_dual(d0)[::-1]
         domain, bary = self.pick_fundamental(points)
+        # no extrapolation
         bary = np.clip(bary, 0, 1)
         # do interpolation over fundamental domain
         total = 0
@@ -211,6 +207,21 @@ class ComplexRegularMixin(object):
         return total
 
     def sample_primal_0(self, p0, points):
+        """Sample a primal 0-form at the given points, using barycentric interpolation over the primal cubes
+
+        Parameters
+        ----------
+        p0 : ndarray, [n_primal_vertices, ...], float
+            primal 0-form
+        points : ndarray, [n_points, n_dim], float
+            points to sample at
+
+        Returns
+        -------
+        ndarray : [n_points, ...], float
+            p0 sampled at the given points
+
+        """
         element, bary = self.pick_primal(points)
         bary = np.clip(bary, 0, 1)
         IN0 = self.topology.incidence[-1, 0]
@@ -224,90 +235,80 @@ class ComplexRegularMixin(object):
             total = total + (p0[verts[idx]].T * B.T).T
         return total
 
-    # @cached_property
-    # def metric(self):
-    #     """Compute metrics from fundamental domain contributions"""
-    #     topology = self.topology
-    #     assert topology.is_oriented
-    #     PP = self.primal_position
-    #     domains = self.topology.fundamental_domains()
-    #
-    #     domains = domains.reshape(-1, domains.shape[-1])
-    #     corners = np.concatenate([p[d][:, None, :] for p, d in zip(PP, domains.T)], axis=1)
-    #
-    #     # assemble subdomain cube vertices
-    #     cubes =
-    #
-    #     PN = topology.n_elements
-    #     DN = PN[::-1]
-    #
-    #     # metrics
-    #     PM = [np.zeros(n) for n in PN]
-    #     PM[0][...] = 1
-    #     DM = [np.zeros(n) for n in DN]
-    #     DM[0][...] = 1
-    #
-    #     unsigned = regular.unsigned_volume
-    #     groups = [npi.group_by(c) for c in domains.T]   # cache groupings since they may get reused
-    #
-    #     for i in range(1, self.topology.n_dim):
-    #         n = i + 1
-    #         d = self.topology.n_dim - i
-    #         PM[i] = groups[i].mean(unsigned(corners[:, :n]))[1] * factorial(n)
-    #         DM[i] = groups[d].sum (unsigned(corners[:, d:]))[1] / factorial(d+1)
-    #
-    #     V = regular.hypervolume(cubes[:, corners[0]], cubes[:, corners[-1]])
-    #     PM[-1] = groups[-1].sum(V)[1]
-    #     DM[-1] = groups[+0].sum(V)[1]
-    #
-    #     return (
-    #         [m * (self.radius ** i) for i, m in enumerate(PM)],
-    #         [m * (self.radius ** i) for i, m in enumerate(DM)]
-    #     )
+    def fundamental_domain_postions(self):
+        domains = self.topology.fundamental_domains()
+        PP = self.primal_position
+
+        cubes = np.ones(domains.shape + (self.n_dim,))
+        for c in self.topology.cube_corners:
+            idx1 = (Ellipsis,) + tuple(c) + (slice(None),)
+            idx2 = (Ellipsis,) + tuple(c)
+            cubes[idx1] = PP[c.sum()][domains[idx2]]
+        return cubes
+
+    @cached_property
+    def metric(self):
+        """Compute metrics from fundamental domain contributions
+
+        A bit ugly and not super efficient, but it does work in n-d
+        """
+        topology = self.topology
+        assert topology.is_oriented
+
+        domains = self.topology.fundamental_domains().reshape((-1, ) + self.topology.cube_shape)
+        corners = self.topology.cube_corners
+
+        # assemble subdomain cube vertices
+        cubes = self.fundamental_domain_postions().reshape((-1, ) + self.topology.cube_shape + (self.n_dim, ))
+
+        PN = topology.n_elements
+        DN = PN[::-1]
+
+        # metrics
+        PM = [np.zeros(n) for n in PN]
+        PM[0][...] = 1
+        DM = [np.zeros(n) for n in DN]
+        DM[0][...] = 1
+
+        def idx(c):
+            return (slice(None),) + tuple(c)
+
+        groups = [npi.group_by(domains[idx(c)]) for c in corners]   # cache groupings since they may get reused
+
+        # do summation of primal terms; feels like there should be a simpler way
+        for i, c in list(enumerate(corners))[1:-1]:
+            n = c.sum()
+            hypervolume = regular.hypervolume(cubes[idx(corners[0])], cubes[idx(c)], n=n)
+            g, sums = groups[i].sum(hypervolume)
+            PM[n][g] += sums
+        # now we divide by the number of primal N-cubes contributing to each primal n-cube
+        for n in range(1, self.n_dim):
+            PM[n] /= self.topology.degree[n]
+
+        # do summation of dual terms
+        for i, c in list(enumerate(corners))[1:-1]:
+            n = self.n_dim - c.sum()
+            hypervolume = regular.hypervolume(cubes[idx(c)], cubes[idx(corners[-1])], n=n)
+            g, sums = groups[i].sum(hypervolume)
+            DM[n][g] += sums / (2 ** c.sum())
+
+        # do summation over N-cubes; these are simple
+        V = regular.hypervolume(cubes[idx(corners[0])], cubes[idx(corners[-1])])
+        PM[-1] = groups[-1].sum(V)[1]
+        DM[-1] = groups[+0].sum(V)[1]
+
+        return PM, DM
 
 
-class ComplexRegular1(ComplexCubical1Euclidian1):
+class ComplexRegular1(ComplexRegularMixin, ComplexCubical1Euclidian1):
     """Regular cubical 1 complex; or line segment"""
 
-    # @cached_property
-    # def metric(self):
-    #     """Calc metric properties and hodges for a 1d regular cubical complex
-    #
-    #     Returns
-    #     -------
-    #     primal : list of ndarray
-    #     dual : list of ndarray
-    #
-    #     """
-    #
-    #     topology = self.topology
-    #     PP = self.primal_position
-    #
-    #     PN = topology.n_elements
-    #     DN = PN[::-1]
-    #
-    #     #metrics
-    #     PM = [np.zeros(n) for n in PN]
-    #     PM[0][...] = 1
-    #     DM = [np.zeros(n) for n in DN]
-    #     DM[0][...] = 1
-    #
-    #     # precomputations
-    #     E10  = topology.incidence[1, 0].reshape(-1, 2)  # [edges, v2]          vertex indices per edge
-    #     PP10  = PP[0][E10]                 # [edges, v2]
-    #
-    #     # calc edge lengths
-    #     PM[1] += regular.edge_length(PP10[:, 0, :], PP10[:, 1, :])
-    #     for d1 in range(2):
-    #         scatter(
-    #             E10[:,d1],
-    #             regular.edge_length(PP10[:, d1, :], PP[1]),
-    #             DM[1])
-    #
-    #     return PM, DM
-
     def plot_primal_0_form(self, f0, ax=None, **kwargs):
+        import matplotlib.pyplot as plt
         import matplotlib.collections
+
+        if ax is None:
+            fig, ax = plt.subplots(1, 1)
 
         edges = self.topology.elements[1]
         x = self.vertices[:, 0][edges]
@@ -323,62 +324,12 @@ class ComplexRegular1(ComplexCubical1Euclidian1):
 
 
 class ComplexRegular2(ComplexRegularMixin, ComplexCubical2Euclidian2):
-    """Regular cubical 2-complex
-    makes for easy metric calculations, and guarantees orthogonal primal and dual
-    """
-    # FIXME: drop dependence on euclidian2; would like to be able to process boundaries of regulars as well
-    # FIXME: if we are in 22-space, can we use more efficient plotting?
+    """Regular cubical 2-complex"""
 
-    @cached_property
-    def metric(self):
-        """Calc metric properties and hodges for a 2d regular cubical complex
 
-        Returns
-        -------
-        primal : list of ndarray
-        dual : list of ndarray
+class ComplexRegular3(ComplexRegularMixin, ComplexCubical3Euclidian3):
+    """Regular cubical 3-complex"""
 
-        Notes
-        -----
-        Should be relatively easy to generalize to n-dimensions
 
-        """
-        topology = self.topology
-        PP = self.primal_position
-
-        PN = topology.n_elements
-        DN = PN[::-1]
-
-        # metrics
-        PM = [np.zeros(n) for n in PN]
-        PM[0][...] = 1
-        DM = [np.zeros(n) for n in DN]
-        DM[0][...] = 1
-
-        # precomputations
-        E20  = topology.incidence[2, 0]  # [faces, e2, e2]      vertex indices per face
-        E21  = topology.incidence[2, 1]  # [faces, e2, e2]      edge indices per face
-        E10  = topology.incidence[1, 0].reshape(-1, 2)  # [edges, v2]          vertex indices per edge
-
-        PP10  = PP[0][E10]                 # [edges, v2, c3]
-        PP21  = PP[1][E21]                 # [faces, e2, e2, c3] ; face-edge midpoints
-        PP20  = PP[0][E20]                 # [faces, e2, e2, c3]
-
-        # calc areas of fundamental squares
-        for d1 in range(2):
-            for d2 in range(2):
-                # this is the area of one fundamental domain, assuming regular coords
-                areas = regular.hypervolume(PP20[:, d1, d2, :], PP[2])
-                PM[2] += areas                    # add contribution to primal face
-                scatter(E20[:,d1,d2], areas, DM[2])
-
-        # calc edge lengths
-        PM[1] += regular.edge_length(PP10[:, 0, :], PP10[:, 1, :])
-        for d1 in range(2):
-            for d2 in range(2):
-                scatter(
-                    E21[:,d1,d2],
-                    regular.edge_length(PP21[:, d1, d2, :], PP[2]),
-                    DM[1])
-
-        return PM, DM
+class ComplexRegular4(ComplexRegularMixin, ComplexCubical4Euclidian4):
+    """Regular cubical 4-complex"""

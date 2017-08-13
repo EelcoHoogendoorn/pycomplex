@@ -41,7 +41,7 @@ temperature_p0 = perlin_noise(
     [
         (.01, .01),
         (.02, .02),
-        # (.2, .2),
+        (.04, .04),
         # (.4, .4),
     ]
 )
@@ -73,7 +73,7 @@ for i in save_animation(path, frames=1000, overwrite=True):
 
 
     force_p0 = temperature_p0[:, None] * [gravity]
-    force_edge = grid.topology.averaging_operators[1] * force_p0
+    force_edge = grid.topology.averaging_operators_0[1] * force_p0
     force_d1 = linalg.dot(edges_d1, force_edge)
 
     # advect vorticity

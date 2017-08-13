@@ -5,7 +5,8 @@ import numpy_indexed as npi
 import scipy.sparse
 from cached_property import cached_property
 
-from pycomplex.topology import index_dtype, sign_dtype, sparse_normalize_l1
+from pycomplex.topology import index_dtype, sign_dtype
+from pycomplex.sparse import normalize_l1
 from pycomplex.complex.base import BaseComplexCubical
 from pycomplex.topology.cubical import TopologyCubical
 
@@ -86,7 +87,7 @@ class ComplexCubical(BaseComplexCubical):
             transposed matrix product needs diagonal crease selector matrix inbetween
 
         """
-        coarse_averaging = scipy.sparse.vstack(coarse.topology.averaging_operators)
+        coarse_averaging = scipy.sparse.vstack(coarse.topology.averaging_operators_N)
 
         if smooth:
             fine = coarse.subdivide()
@@ -158,6 +159,11 @@ class ComplexCubical(BaseComplexCubical):
             raise TypeError('invalid cast')
         return ComplexCubical3Euclidian3(vertices=self.vertices, topology=self.topology)
 
+    def as_44(self):
+        if not (self.n_dim == 4 and self.topology.n_dim == 4):
+            raise TypeError('invalid cast')
+        return ComplexCubical4Euclidian4(vertices=self.vertices, topology=self.topology)
+
     def plot(self, plot_dual=True, plot_vertices=False):
         """Generic 2d projected plotting of primal and dual lines and edges"""
         import matplotlib.pyplot as plt
@@ -192,29 +198,6 @@ class ComplexCubical(BaseComplexCubical):
                 ax.scatter(*dual_vertices.T[:2], color='r')
 
         plt.axis('equal')
-
-    @cached_property
-    def metric(self):
-        """Calc metrics of all primal and dual n-cubes
-
-        Returns
-        -------
-        primal : list of ndarray
-        dual : list of ndarray
-
-        """
-        topology = self.topology
-        PP = self.primal_position
-        domains = self.topology.fundamental_domains()
-
-        PN = topology.n_elements
-        DN = PN[::-1]
-
-        # metrics
-        PM = [np.zeros(n) for n in PN]
-        PM[0][...] = 1
-        DM = [np.zeros(n) for n in DN]
-        DM[0][...] = 1
 
 
 
@@ -288,6 +271,18 @@ class ComplexCubical3Euclidian3(ComplexCubical):
 
     def plot_slice(self, affine, ):
         pass
+
+    def as_regular(self):
+        from pycomplex.complex.regular import ComplexRegular3
+        return ComplexRegular3(vertices=self.vertices, topology=self.topology)
+
+
+class ComplexCubical4Euclidian4(ComplexCubical):
+    """No use yet whatsoever, but nice to test on"""
+
+    def as_regular(self):
+        from pycomplex.complex.regular import ComplexRegular4
+        return ComplexRegular4(vertices=self.vertices, topology=self.topology)
 
 
 class ComplexCubicalToroidal(ComplexCubical):

@@ -8,7 +8,23 @@ could generalize this into an ndsparse type; thatd be awesome
 
 import numpy as np
 import numpy_indexed as npi
+import scipy
 from cached_property import cached_property
+
+
+def ones_like(a):
+    a = a.copy()
+    a.data = np.ones_like(a.data)
+    return a
+
+
+def normalize_l1(A, axis=1):
+    """Return A scaled such that the sum over axis equals 1"""
+    D = scipy.sparse.diags(1. / np.array(A.sum(axis=axis)).flatten())
+    if axis == 0:
+        return A * D
+    elif axis == 1:
+        return D * A
 
 
 # class Diagonal(object):
@@ -198,3 +214,4 @@ class Sparse(object):
     def filter(self, condition):
         mask = condition(self.data)
         return Sparse([a[mask] for a in self.axes], self.data[mask])
+

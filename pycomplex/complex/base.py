@@ -5,7 +5,8 @@ import scipy
 from cached_property import cached_property
 import numpy_indexed as npi
 
-from pycomplex.topology import sign_dtype, sparse_normalize_l1
+from pycomplex.topology import sign_dtype
+from pycomplex.sparse import normalize_l1
 
 
 class BaseComplex(object):
@@ -181,9 +182,9 @@ class BaseComplex(object):
             for b in S[i + 1:]:
                 b[a != 0] = 0
 
-        averaging = self.topology.averaging_operators
+        averaging = self.topology.averaging_operators_0
         smoothers = [scipy.sparse.diags(s) * a.T * scipy.sparse.diags(c) * a for a, s, c in zip(averaging, S, C)]
-        return sparse_normalize_l1(sum(smoothers), axis=1)
+        return normalize_l1(sum(smoothers), axis=1)
 
     @cached_property
     def primal_metric(self):

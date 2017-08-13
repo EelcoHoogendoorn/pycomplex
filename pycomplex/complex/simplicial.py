@@ -8,7 +8,8 @@ from cached_property import cached_property
 from pycomplex.complex.base import BaseComplexEuclidian
 from pycomplex.geometry import euclidian
 from pycomplex.topology.simplicial import TopologyTriangular, TopologySimplicial
-from pycomplex.topology import index_dtype, sign_dtype, sparse_normalize_l1
+from pycomplex.topology import index_dtype, sign_dtype
+from pycomplex.sparse import normalize_l1
 from pycomplex.math import linalg
 
 
@@ -20,14 +21,15 @@ class ComplexSimplicial(BaseComplexEuclidian):
             topology = TopologySimplicial.from_simplices(simplices)
         self.topology = topology
 
-    def plot(self, ax, plot_dual=True, plot_vertices=True, plot_lines=True):
+    def plot(self, ax=None, plot_dual=True, plot_vertices=True, plot_lines=True):
         """Plot projection on plane"""
         import matplotlib.pyplot as plt
         import matplotlib.collections
         edges = self.topology.elements[1]
         e = self.vertices[edges]
 
-        # fig, ax = plt.subplots(1, 1)
+        if ax is None:
+            fig, ax = plt.subplots(1, 1)
         if plot_lines:
             lc = matplotlib.collections.LineCollection(e[..., :2], color='b', alpha=0.5)
             ax.add_collection(lc)
@@ -53,7 +55,6 @@ class ComplexSimplicial(BaseComplexEuclidian):
             if plot_vertices:
                 ax.scatter(*dual_vertices.T[:2], color='r')
         plt.axis('equal')
-        # plt.show()
 
     def plot_domains(self, ax):
         """Plot projection of fundamental domain onto plane"""
@@ -124,7 +125,7 @@ class ComplexSimplicial(BaseComplexEuclidian):
 
         unsigned = euclidian.unsigned_volume
         from scipy.misc import factorial
-        groups = [npi.group_by(c) for c in domains.T]   # cache groupings since they may get reused
+        groups = [npi.group_by(c) for c in domains.T]   # cache groupings since they can be reused
 
         for i in range(1, self.topology.n_dim):
             n = i + 1
@@ -198,16 +199,16 @@ class ComplexSimplicial(BaseComplexEuclidian):
             import operator
             return functools.reduce(operator.mul, [edge_length(n, m + 1) for m in range(n, self.topology.n_dim)])
 
-        perimiter = [unsigned(corners[:, i+1:]) for i in range(self.topology.n_dim)]
+        perimeter = [unsigned(corners[:, i+1:]) for i in range(self.topology.n_dim)]
 
         W = [1] * (self.topology.n_dim + 1)
         for i in range(self.topology.n_dim):
             n = i + 1
             c = self.topology.n_dim - n
-            W[n] = perimiter[c] / edge_length_prod(c)
+            W[n] = perimeter[c] / edge_length_prod(c)
 
         res = [1]
-        for i, (w, a) in enumerate(zip(W[1:], self.topology.dual.averaging_operators()[1:])):
+        for i, (w, a) in enumerate(zip(W[1:], self.topology.dual.averaging_operators_0()[1:])):
 
             M = scipy.sparse.coo_matrix((
                 w,
@@ -215,7 +216,7 @@ class ComplexSimplicial(BaseComplexEuclidian):
                 shape=a.shape
             )
             q = a.multiply(M)
-            res.append(sparse_normalize_l1(q, axis=1))
+            res.append(normalize_l1(q, axis=1))
 
         return res
 
@@ -338,7 +339,7 @@ class ComplexTriangular(ComplexSimplicial):
         if weighted:
             average = self.weighted_average_operators()
         else:
-            average = self.topology.dual.averaging_operators()
+            average = self.topology.dual.averaging_operators_0
         sub_form = np.concatenate([a * d0 for a in average[::-1]], axis=0)
         sub = self.subdivide_fundamental()
         sub.plot_primal_0_form(sub_form, **kwargs)
@@ -430,12 +431,11 @@ class ComplexTriangularEuclidian3(ComplexTriangular):
 
     def vertex_areas(self):
         """Compute circumcentric area here"""
-        # FIXME: this is not a circumcentric area! wil do for now...
+        # FIXME: this is not a circumcentric area! wil do for now... we have the circumcentric area now but not happy with it yet..
         I20 = self.topology.incidence[2, 0]
         t_a = np.linalg.norm(self.triangle_normals(), axis=1)
         vertex_idx, v_a = npi.group_by(I20.flatten()).sum(np.repeat(t_a, 3, axis=0))
         return v_a / 3
-        raise NotImplementedError()
 
     def edge_lengths(self):
         """Compute primal edge lengths
