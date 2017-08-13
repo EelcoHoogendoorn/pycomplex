@@ -99,8 +99,8 @@ def create_letter_3d(quads, subdivisions=2):
         plt.scatter(t.row, t.col, c=t.data)
         # plt.axis('equal')
         plt.show()
-        # test if operator approach gives identical results
-        grid.vertices = total_operator * original.vertices
+    # test if operator approach gives identical results
+    grid.vertices = total_operator * original.vertices
 
     return grid.as_23()
 
@@ -110,6 +110,7 @@ def create_letter(subdivisions):
 
 
 if __name__ == '__main__':
+    import matplotlib.pyplot as plt
     letter = create_letter_2d()
     if False:
         letter.plot(plot_dual=True)
@@ -126,3 +127,4 @@ if __name__ == '__main__':
 
     letter.as_3().plot_3d(plot_dual=False, plot_vertices=False)
 
+    plt.show()

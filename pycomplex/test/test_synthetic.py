@@ -8,3 +8,5 @@ def test_optimal_sphere():
     complex.plot(backface_culling=n_dim==3, plot_vertices=False)
     import matplotlib.pyplot as plt
     plt.show()
+
+test_optimal_sphere()

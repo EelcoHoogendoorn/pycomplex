@@ -15,6 +15,7 @@ This library provides useful functionality in a wide range of computational and 
 
 The examples folder contains a comprehensive set of brief but illustrative use cases.
 
+
 Features
 --------
 - All functionality is vectorized and efficiently implemented, so useful for real-world problem sizes
@@ -35,14 +36,15 @@ which will become the first real use-cases of this package.
 Todo
 ----
 - Add electrodynamics example
-- Add hierarchy class, to manage all transfers across levels
-- Build up all different interpolation and restriction multigrid transfer operators over all topologies
-- Black box multigrid (at least for 0-forms)
-- Multigrid eigen solver
+- Multigrid support
+    - Add hierarchy class, to manage all transfers across levels
+    - Black box multigrid (at least for 0-forms)
+    - Multigrid eigen solver
 - Implement picking on euclidian simplicial complexes (requires dealing with non-acute simplices)
 - Implement hodge-optimized meshes (http://www.geometry.caltech.edu/pubs/MMdGD11.pdf)
 - Implement geometric elasticity (http://imechanica.org/files/Geometry_Elasticity.pdf)
 - Clean up boundary condition handling in examples
+- Replace ugly casting system with some more automagic dynamic dispatch
 
 Speculative todo
 ----------------

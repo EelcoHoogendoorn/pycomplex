@@ -159,6 +159,23 @@ class ComplexRegularMixin(object):
 
         return domain, baries
 
+    def pick_dual(self, points):
+        """Pick the dual cubes
+
+        Parameters
+        ----------
+        points : ndarray, [n_points, n_dim], float
+            points to pick
+
+        Returns
+        -------
+        cubes : ndarray, [n_points], index_dtype
+            picked dual cube indices
+
+        """
+        domains, _ = self.pick_fundamental(points)
+        return domains.reshape(len(domains), -1)[:, 0]
+
     def average_dual(self, d0):
         """Average a dual 0-form to obtain values on all dual elements
 

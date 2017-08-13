@@ -131,6 +131,12 @@ class BaseTopology(object):
     def range(self, n):
         """Construct an n-chain filled with an integer range"""
         return np.arange(self.n_elements[n], dtype=index_dtype)
+    def form(self, n, fill=0, dtype=np.float32):
+        """Construct an n-form"""
+        c = np.empty(self.n_elements[n], dtype=dtype)
+        c.fill(fill)
+        return c
+
 
     def relative_orientation(self):
         """Try to find the relative orientation of all n-elements
