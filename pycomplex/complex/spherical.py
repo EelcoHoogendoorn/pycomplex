@@ -225,9 +225,9 @@ class ComplexSpherical(BaseComplexSpherical):
         T = self.topology.matrices[-1]
         L = T.T * T
         rhs = T.T * q
-        power = scipy.sparse.linalg.minres(L, rhs, tol=1e-16)[0]
-        power -= power.max()
-        offset = (-power) ** 0.5
+        weight = scipy.sparse.linalg.minres(L, rhs, tol=1e-16)[0]
+        weight -= weight.max()
+        offset = (-weight) ** 0.5
 
         augmented = np.concatenate([PP[-1], offset[:, None]], axis=1)
         tree = scipy.spatial.cKDTree(augmented)
@@ -447,8 +447,8 @@ class ComplexSpherical(BaseComplexSpherical):
         """
         topology = self.topology
         assert topology.is_oriented
-        assert self.topology.is_closed
-        assert self.is_well_centered
+        assert self.topology.is_closed  # is this really necessary? havnt really tested it
+        assert self.is_well_centered    # FIXME: should be able to relax this if we properly account for signs
 
         PP = self.primal_position
         domains = self.topology.fundamental_domains()
@@ -464,13 +464,13 @@ class ComplexSpherical(BaseComplexSpherical):
         def edge_length_prod(n):
             return functools.reduce(operator.mul, [edge_length(n, m + 1) for m in range(n, self.topology.n_dim)])
 
-        perimiter = [unsigned(corners[:, i+1:]) for i in range(self.topology.n_dim)]
+        perimeter = [unsigned(corners[:, i+1:]) for i in range(self.topology.n_dim)]
 
         W = [1] * (self.topology.n_dim + 1)
         for i in range(self.topology.n_dim):
             n = i + 1
             c = self.topology.n_dim - n
-            W[n] = perimiter[c] / edge_length_prod(c)
+            W[n] = perimeter[c] / edge_length_prod(c)
 
         res = [1]
         for i, (w, a) in enumerate(zip(W[1:], self.topology.dual.averaging_operators_0[1:])):
@@ -506,6 +506,41 @@ class ComplexSpherical(BaseComplexSpherical):
         IN0 = self.topology.incidence[-1, 0]
         verts = IN0[element]
         return (p0[verts] * bary).sum(axis=1)
+
+    def optimize_hodge(self):
+        """
+
+        Returns
+        -------
+        type(self)
+
+        References
+        ----------
+        http://www.geometry.caltech.edu/pubs/MMdGD11.pdf
+        http://www.geometry.caltech.edu/pubs/dGMMD14.pdf
+        """
+        T = self.topology.matrices[0]
+        P1P0 = T.T
+        DNDn = T
+        DnP1 = self.hodge_DP[1]
+        DNP0 = self.hodge_DP[0]
+        laplacian = DNDn * scipy.sparse.diags(DnP1) * P1P0
+
+        PP = self.primal_position
+        tri_edge = PP[-2][self.topology._boundary[-1]]
+        delta = PP[-1][:, None, :] - tri_edge
+        sign = np.sign(self.primal_barycentric[-1])
+        d = np.linalg.norm(delta, axis=2) #** 2
+        # q = self.remap_boundary(d * sign)
+
+        INn = self.topology.elements[-1]
+        _, field = npi.group_by(INn.flatten()).sum((d * sign).flatten())
+
+        field -= field.mean()
+        rhs = field
+        weights = scipy.sparse.linalg.minres(laplacian, rhs, tol=1e-16)[0]
+        weights = DNP0 * weights
+        return self.copy(weights=weights)
 
 
 class ComplexCircular(ComplexSpherical):

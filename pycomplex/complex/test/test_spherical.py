@@ -164,12 +164,15 @@ def test_picking_alt_visual():
 # test_picking_alt_visual()
 
 def test_picking_fundamental_visual():
-    subs=1
-    sphere = synthetic.icosphere(subs)
-    sphere = sphere.copy(
-        weights=np.random.uniform(0, 0.2 / (2**subs), sphere.topology.n_elements[0]),
-        vertices=np.dot(sphere.vertices, linalg.orthonormalize(np.random.randn(3, 3))),
-    )
+    # subs=1
+    # sphere = synthetic.icosphere(subs)
+    # sphere = sphere.copy(
+    #     # weights=np.random.uniform(0, 0.2 / (2**subs), sphere.topology.n_elements[0]),
+    #     vertices=np.dot(sphere.vertices, linalg.orthonormalize(np.random.randn(3, 3))),
+    # )
+    sphere = synthetic.optimal_delaunay_sphere(800, 3, iterations=50)
+
+    sphere = sphere.optimize_hodge()
 
     # sphere = synthetic.n_cube_dual(3).as_2().subdivide()
 
