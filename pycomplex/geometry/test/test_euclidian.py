@@ -4,6 +4,15 @@ import numpy as np
 from pycomplex.geometry import euclidian
 
 
+def test_circumcenter_barycentric_weighted():
+    c = euclidian.circumcenter_barycentric_weighted([[0], [4]], weights=[2, 0])
+    print(c)
+
+    c = euclidian.circumcenter_barycentric_weighted([[0, 0], [3, 0], [0, 4]], weights=[0, 2, 2])  # triangle in 2D
+    print(c)
+test_circumcenter_barycentric_weighted()
+
+
 def test_circumcenter_barycentric():
     c = euclidian.circumcenter_barycentric([[0], [4]])
     print(c)

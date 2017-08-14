@@ -35,7 +35,7 @@ which will become the first real use-cases of this package.
 
 Todo
 ----
-- Add electrodynamics example
+- Add 3d electrodynamics example
 - Multigrid support
     - Add hierarchy class, to manage all transfers across levels
     - Black box multigrid (at least for 0-forms)

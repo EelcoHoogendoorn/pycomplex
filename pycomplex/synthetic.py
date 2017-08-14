@@ -189,7 +189,7 @@ def hexacosichoron():
     return ComplexSpherical(vertices=vertices, topology=topology)
 
 
-def optimal_delaunay_sphere(n_points, n_dim):
+def optimal_delaunay_sphere(n_points, n_dim, iterations=50):
     """Try and construct an optimal delaunay mesh on the sphere, in the sense described in [1]
 
     References
@@ -199,6 +199,7 @@ def optimal_delaunay_sphere(n_points, n_dim):
     """
     # FIXME: convergence here is extremely sensitive to parameter tuning, and only really seems to converge in the n=3 case
     points = np.random.randn(n_points, n_dim)
+    import numpy_indexed as npi
 
     def complex_from_points(points):
         points = linalg.normalized(points)
@@ -214,23 +215,26 @@ def optimal_delaunay_sphere(n_points, n_dim):
         s, e = tree.query_pairs(r=r, output_type='ndarray').T
         n, d = linalg.normalized(points[s] - points[e], return_norm=True)
         f = n * (r - d)[:, None] * magnitude
-        import numpy_indexed as npi
         a, b = npi.group_by(s).sum(f)
         points[a] += b
         a, b = npi.group_by(e).sum(f)
         points[a] -= b
         return linalg.normalized(points)
 
-    for i in range(50):
+    for i in range(iterations):
         print(i)
         for i in range(20):
             points = push_points(points)
         complex = complex_from_points(points)
         cc = complex.dual_position[0]
+        from pycomplex.geometry import euclidian
+        W = euclidian.unsigned_volume(complex.vertices[complex.topology.corners[-1]])[:, None]
+        # W = complex.primal_metric[-1][:, None]
+        A = complex.topology.averaging_operators_N[0]
         # take the average at each dual n-simplex, of all incident
-        points = complex.topology.dual.averaging_operators_0[-1] * cc
+        points = (A * (cc * W)) / (A * W)
         complex = complex_from_points(points)
-        if complex.is_acute:
+        if complex.is_well_centered:
             break
 
     return complex

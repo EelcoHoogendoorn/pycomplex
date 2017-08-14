@@ -211,8 +211,27 @@ class BaseComplex(object):
     def pick_dual(self, points):
         raise NotImplementedError
 
+    @cached_property
+    def positive_dual_metric(self):
+        """Returns true if all dual metrics are positive"""
+        return all([np.all(m > 0) for m in self.dual_metric])
+
 
 class BaseComplexEuclidian(BaseComplex):
+
+    @cached_property
+    def primal_barycentric(self):
+        """barycentric positions of all primal elements
+
+        Returns
+        -------
+        pp : list of primal element positions, length n_dim
+        """
+        from pycomplex.geometry import euclidian
+        return [euclidian.circumcenter_barycentric_weighted(
+                    self.vertices[c],
+                    self.weights[c] if self.weights is not None else None)
+                for c in self.topology.corners]
 
     @cached_property
     def primal_position(self):
@@ -222,8 +241,8 @@ class BaseComplexEuclidian(BaseComplex):
         -------
         pp : list of primal element positions, length n_dim
         """
-        from pycomplex.geometry.euclidian import circumcenter
-        return [circumcenter(self.vertices[c]) for c in self.topology.corners]
+        return [np.einsum('...cn,...c->...n', self.vertices[c], b)
+                for c, b in zip(self.topology.corners, self.primal_barycentric)]
 
 
 class BaseComplexCubical(BaseComplex):

@@ -53,7 +53,19 @@ def test_subdivided_triangle():
     tri = synthetic.n_simplex(2).as_2().as_2()
     for i in range(5):
         tri = tri.subdivide()
+
+
+def test_power_dual():
+    tri = synthetic.n_simplex(2).as_2().as_2()
+    for i in range(3):
+        tri = tri.subdivide()
+    tri.weights = np.random.uniform(0, 0.1, tri.topology.n_elements[0])
     tri.plot()
+    import matplotlib.pyplot as plt
+    plt.show()
+
+test_power_dual()
+quit()
 
 
 def test_delaunay():
@@ -77,3 +89,50 @@ def test_delaunay():
     assert quad.topology.boundary.is_connected
     assert quad.topology.boundary.is_oriented
     quad.plot(plot_dual=False)
+
+
+def test_metric():
+    sphere = synthetic.icosahedron()
+
+    for i in range(2):
+        sphere = sphere.subdivide()
+
+    pm, dm = sphere.metric
+    for i, m in enumerate(pm):
+        print(i)
+        print(m.min(), m.max())
+    for i, m in enumerate(dm):
+        print(i)
+        print(m.min(), m.max())
+
+    sphere = sphere.as_euclidian()
+
+    print()
+    pm, dm = sphere.metric_experimental
+
+    for i, m in enumerate(pm):
+        print(i)
+        print(m.min(), m.max())
+    for i, m in enumerate(dm):
+        print(i)
+        print(m.min(), m.max())
+
+
+def test_metric_2():
+    sphere = synthetic.optimal_delaunay_sphere(200, 3).as_2().as_euclidian()
+    assert sphere.is_well_centered
+
+    pm, dm = sphere.metric_experimental
+    for i, m in enumerate(pm):
+        print(i)
+        print(m.min(), m.max())
+    for i, m in enumerate(dm):
+        print(i)
+        print(m.min(), m.max())
+
+    sphere.plot_3d(backface_culling=True)
+    import matplotlib.pyplot as plt
+    plt.show()
+
+
+test_metric_2()

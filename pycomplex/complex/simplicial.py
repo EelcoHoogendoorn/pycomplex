@@ -15,8 +15,9 @@ from pycomplex.math import linalg
 
 class ComplexSimplicial(BaseComplexEuclidian):
 
-    def __init__(self, vertices, simplices=None, topology=None):
+    def __init__(self, vertices, simplices=None, topology=None, weights=None):
         self.vertices = np.asarray(vertices)
+        self.weights = weights      # optional power dual weights
         if topology is None:
             topology = TopologySimplicial.from_simplices(simplices)
         self.topology = topology
@@ -97,8 +98,19 @@ class ComplexSimplicial(BaseComplexEuclidian):
 
         Notes
         -----
-        Do not fully grasp yet the meaning of net negative dual areas
+        Do not fully grasp yet the meaning of net negative dual areas.
+        according to [1], seems we can only have guaranteed non-negativity of vertex duals
+        if the mesh is pairwise-delaunay; but it need not be strictly well-centered!
+        quad subdivision surface to simplicial leads to negative vertex duals already
+        this appears to be expected then; but what to do with such meshes?
+        seems overly restrictive not to use them at all; vertex area hodges work quite alright
+
+        References
+        ----------
+        [1] http://www.math.uiuc.edu/~hirani/papers/HiKaVa2013_CAD.pdf
         """
+        # FIXME: always compute and cache all bary decompositions? can do proper well-centered calculation then
+        # does adding power dual help solve this problem? seems like it should; gives control over the area of dual cells
         topology = self.topology
         assert topology.is_oriented
         PP = self.primal_position
@@ -108,8 +120,8 @@ class ComplexSimplicial(BaseComplexEuclidian):
         mean = corners.mean(axis=-2, keepdims=True)  # centering
         corners = corners - mean
         bary = euclidian.circumcenter_barycentric(corners)
-        signs = np.sign(bary)
-        signs = (signs.T * np.ones_like(domains[..., 0]).T).T.reshape(-1)
+        signs = np.sign(bary)   # if the face opposing this vert is inverted wrt the circumcenter
+        signs = (signs.T * np.ones_like(domains[..., 0]).T).T.reshape(-1) # duplicate signs to all fundamental domains corresponding to each face
 
         domains = domains.reshape(-1, domains.shape[-1])
         corners = np.concatenate([p[d][:, None, :] for p, d in zip(PP, domains.T)], axis=1)
@@ -130,7 +142,7 @@ class ComplexSimplicial(BaseComplexEuclidian):
         for i in range(1, self.topology.n_dim):
             n = i + 1
             d = self.topology.n_dim - i
-            PM[i] = groups[i].mean(unsigned(corners[:, :n]))[1] * factorial(n)
+            PM[i] = groups[i].mean(unsigned(corners[:, :n]))[1] * factorial(n)  # FIXME: primal can be signed too! tri of tet for instance
             DM[i] = groups[d].sum (unsigned(corners[:, d:]) * signs)[1] / factorial(d+1)
 
         # FIXME: negative signed volume should contribute to negative dual edge lengths; how to accomplish?
@@ -145,13 +157,15 @@ class ComplexSimplicial(BaseComplexEuclidian):
         return PM, DM
 
     @cached_property
-    def is_acute(self):
+    def is_well_centered(self):
         """Test that circumcenter is inside each simplex
 
         Notes
         -----
         code duplication with spherical complex; need a mixin class i think
+
         """
+        # FIXME: does not suffice to test for only the N-simplices; need to check lower level too
         import pycomplex.geometry.euclidian
         corners = self.vertices[self.topology.corners[-1]]
         mean = corners.mean(axis=-2, keepdims=True)  # centering
@@ -181,7 +195,7 @@ class ComplexSimplicial(BaseComplexEuclidian):
         topology = self.topology
         assert topology.is_oriented
         assert self.topology.is_closed
-        assert self.is_acute
+        assert self.is_well_centered
 
         PP = self.primal_position
         domains = self.topology.fundamental_domains()
@@ -224,8 +238,9 @@ class ComplexSimplicial(BaseComplexEuclidian):
 class ComplexTriangular(ComplexSimplicial):
     """Triangular simplicial complex"""
 
-    def __init__(self, vertices, triangles=None, topology=None):
+    def __init__(self, vertices, triangles=None, topology=None, weights=None):
         self.vertices = np.asarray(vertices)
+        self.weights = weights
         if topology is None:
             topology = TopologyTriangular.from_simplices(triangles)
         self.topology = topology

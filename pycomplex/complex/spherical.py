@@ -213,24 +213,24 @@ class ComplexSpherical(BaseComplexSpherical):
         having those would make n-dim metric a lot easier too
 
         """
-        assert self.topology.is_closed
-        # DP = self.dual_position
-        PP = self.primal_position
-        tri_edge = PP[-2][self.topology._boundary[-1]]
-        delta = PP[-1][:, None, :] - tri_edge
-        d = np.linalg.norm(delta, axis=2) ** 2        # fixme: this should be signed distance
-        q = self.remap_boundary(d)
-        T = self.topology.matrices[-1]
-        rhs = T.T * q
-        L = T.T * T
-        power = scipy.sparse.linalg.minres(L, rhs, tol=1e-16)[0]
-        # print(np.abs(T * power - q).max())
+        assert self.topology.is_closed      # FIXME: is this restriction really required?
+        assert self.positive_dual_metric    # if we have net negative dual metrics, this logic fails
 
+        # formulate laplacian over primal N-simplices to solve for weight at each dual vertex
+        T = self.topology.matrices[-1]
+        laplacian = T.T * T
+        rhs = T.T * self.dual_metric[1]
+        power = scipy.sparse.linalg.minres(laplacian, rhs, tol=1e-16)[0]
+        # print(np.abs(T * power - q).max())
         # power += power.min()
         power -= power.max()
-        augmented = np.concatenate([PP[-1], ((-power) ** 0.5)[:, None]], axis=1)
+        offset = (-power) ** 0.5
+
+        PP = self.primal_position
+        augmented = np.concatenate([PP[-1], offset[:, None]], axis=1)
         tree = scipy.spatial.cKDTree(augmented)
 
+        # for rapid computation of barys of a point relative to a simplex
         basis = np.linalg.inv(self.vertices[self.topology.elements[-1]])
 
         return tree, basis
@@ -265,7 +265,7 @@ class ComplexSpherical(BaseComplexSpherical):
         def query(points):
             n_points, n_dim = points.shape
             # FiXME: can be unified with its own tree; midpoint between primals and duals
-            primal, bary = self.pick_primal(points)     # FIXME: use alt here? add kwarg for fast or stable
+            primal, bary = self.pick_primal_alt(points)     # FIXME: use alt here? add kwarg for fast or stable
             dual = self.pick_dual(points)
 
             # get all fundamental domains that match both primal and dual, and brute-force versus their precomputed inverses
@@ -358,10 +358,14 @@ class ComplexSpherical(BaseComplexSpherical):
         -----
         There is a lot of duplication in metric calculation this way.
         Would it pay to construct the fundamental topology first?
+
+        Only works up to ndim=2 for now. general spherical case seems hard
+        we might approximate by doing some additional subdivision steps, and approximating with euclidian measure
+        once sufficiently flat. still leaves the problem of subdividing arbitrary simplices however
         """
         topology = self.topology
         assert topology.is_oriented
-        assert self.is_acute
+        # assert self.is_well_centered
         PP = self.primal_position
         domains = self.topology.fundamental_domains()
 
@@ -397,7 +401,7 @@ class ComplexSpherical(BaseComplexSpherical):
         )
 
     @cached_property
-    def is_acute(self):
+    def is_well_centered(self):
         """Test that circumcenter is inside each simplex
 
         Notes
@@ -437,7 +441,7 @@ class ComplexSpherical(BaseComplexSpherical):
         topology = self.topology
         assert topology.is_oriented
         assert self.topology.is_closed
-        assert self.is_acute
+        assert self.is_well_centered
 
         PP = self.primal_position
         domains = self.topology.fundamental_domains()

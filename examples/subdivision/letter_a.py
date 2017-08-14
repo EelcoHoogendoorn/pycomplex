@@ -106,7 +106,7 @@ def create_letter_3d(quads, subdivisions=2):
 
 
 def create_letter(subdivisions):
-    return create_letter_3d(create_letter_2d(), subdivisions=subdivisions)
+    return create_letter_3d(create_letter_2d(handcrafted=True), subdivisions=subdivisions)
 
 
 if __name__ == '__main__':
@@ -115,7 +115,7 @@ if __name__ == '__main__':
     if False:
         letter.plot(plot_dual=True)
 
-    letter = create_letter_3d(letter, subdivisions=3)
+    letter = create_letter(subdivisions=3)
 
     # add random rotation
     np.random.seed(6)
@@ -125,6 +125,19 @@ if __name__ == '__main__':
 
     letter = letter.to_simplicial()#.smooth().smooth()
 
-    letter.as_3().plot_3d(plot_dual=False, plot_vertices=False)
 
+    letter.as_3().plot_3d(plot_dual=True, plot_vertices=False)
+
+    PM, DM = letter.as_3().metric_experimental
+    plt.scatter(*letter.vertices[DM[2]<0][:, :2].T, c='k')
+    for i, m in enumerate(PM):
+        print(i)
+        print(m.min(), m.max())
+    for i, m in enumerate(DM):
+        print(i)
+        print(m.min(), m.max())
+    plt.figure()
+    plt.hist(DM[2], bins=100)
+    plt.show()
+    quit()
     plt.show()

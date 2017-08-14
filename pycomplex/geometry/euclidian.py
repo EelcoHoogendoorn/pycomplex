@@ -16,6 +16,62 @@ def is_wellcentered(pts, tol=1e-8):
     return min(barycentric_coordinates) > tol
 
 
+def circumcenter_barycentric_weighted(pts, weights=None, ratio=1e6):
+    """Barycentric coordinates of the circumcenter of a set of points in euclidian space.
+
+    Parameters
+    ----------
+    pts : ndarray. [..., n_pts, n_dim], float
+        set of points euclidian space.
+    weights : ndarray, [..., n_pts], float
+        weight specifying the 'offset' of each vertex in an additional orthogonal coordinate
+        the greater the weight of a vertex, the smaller its dual metric will be.
+
+    Returns
+    -------
+    coords : ndarray. [..., n_pts], float
+        Barycentric coordinates of the circumcenter of the simplex defined by pts.
+
+    Notes
+    -----
+    ones * bary = 1
+    circ = pts.T * bary
+    circ - pts.T = dist
+
+    pts.T * bary - pts.T = dist     [n_dim, n_pts]
+
+    pts.T * bary = pts.T;   solve in minres sense
+
+    """
+    pts = np.asarray(pts)
+    if weights is not None:
+        weights = np.asarray(weights)
+
+    n_pts, n_dim = pts.shape[-2:]
+    gu = pts.shape[:-2]
+    N = n_pts + 1
+
+    A = np.ones(gu + (N, N))
+    A[..., -1, -1] = 0
+    A[..., :-1, :-1] = np.einsum('...ij,...kj->...ik', pts, pts) * 2
+
+    v, w = np.linalg.eigh(A)
+    vr = 1 / v
+    vr[np.abs(vr)>np.abs(vr).min()*ratio] = 0
+    pinv = np.einsum('...ij,...j,...kj', w, vr, w)
+
+    b = np.ones(gu + (N,))
+    b[..., :-1] = np.einsum('...ij,...ij->...i', pts, pts)
+    if weights is not None:
+        b[..., :-1] -= weights ** 2
+    x = np.einsum('...ij,...j->...i', pinv, b)
+    bary_coords = x[..., :-1]
+    # residual = x[..., -1]
+    # print(residual)
+
+    return bary_coords
+
+
 def circumcenter_barycentric(pts, ratio=1e6):
     """Barycentric coordinates of the circumcenter of a set of points in euclidian space.
 

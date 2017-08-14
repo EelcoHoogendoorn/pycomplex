@@ -127,6 +127,7 @@ def test_picking():
 def test_picking_alt():
     for n_dim in [2, 3, 4, 5]:
         sphere = synthetic.n_cube_dual(n_dim)
+
         points = linalg.normalized(np.random.randn(10, n_dim))
 
         sphere.pick_fundamental(points)
@@ -138,7 +139,33 @@ def test_picking_alt():
         npt.assert_allclose(bary, bary_alt)
 
 
-def test_picking_fundamental():
+def test_picking_alt_visual():
+    for n_dim in [3]:
+        sphere = synthetic.optimal_delaunay_sphere(400, n_dim, iterations=50)
+
+        p = np.linspace(-1, +1, 1024, endpoint=True)
+        x, y = np.meshgrid(p, p)
+        r2 = x ** 2 + y ** 2
+        mask = r2 < 1
+        z = np.sqrt(1 - np.clip(r2, 0, 1))
+
+        points = np.array([x, y, z]).T
+        domain, bary = sphere.pick_primal_alt(points.reshape(-1, 3))
+        # domain, bary = sphere.pick_primal(points.reshape(-1, 3))
+
+        color = bary.reshape(len(p), len(p), 3)
+
+
+        import matplotlib.pyplot as plt
+        plt.imshow(color)
+        plt.show()
+
+
+test_picking_alt_visual()
+
+
+
+def test_picking_fundamental_visual():
     sphere = synthetic.icosphere(1)
 
     # sphere = synthetic.n_cube_dual(3).as_2().subdivide()
@@ -157,6 +184,7 @@ def test_picking_fundamental():
     idx = npi.indices(D.reshape(-1, 3), domain)
     B = B.reshape(-1, 3, 3)[idx]
     color = np.linalg.det(B.astype(np.float32))
+    color = np.sign(color)
     color = color.reshape(len(p), len(p))
     color[np.logical_not(mask)] = 0
 
