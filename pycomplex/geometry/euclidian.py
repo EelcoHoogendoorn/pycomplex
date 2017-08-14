@@ -16,6 +16,44 @@ def is_wellcentered(pts, tol=1e-8):
     return min(barycentric_coordinates) > tol
 
 
+def circumcenter_construction(pts, weights=None):
+    """
+
+    Parameters
+    ----------
+    pts : ndarray. [..., n_pts, n_dim], float
+        set of points euclidian space.
+    weights : ndarray, [..., n_pts], float
+        weight specifying a squared distance offset
+
+    Returns
+    -------
+    circumcenter : ndarray. [..., n_dim], float
+        coordinates of the (weighted) circumcenter of the simplex defined by pts.
+
+    Notes
+    -----
+    Implemented after [1]; but 'without the Agonizing Pain', if I may say so myself
+
+    References
+    ----------
+    [1] http://www.geometry.caltech.edu/pubs/MMdGD11.pdf
+    """
+    pts = np.asarray(pts)
+    if weights is not None:
+        weights = np.asarray(weights)
+
+    first = pts[..., 0, :]
+    moved = pts[..., 1:, :] - first
+    e2 = linalg.dot(moved, moved)
+    if weights is not None:
+        e2 -= (weights[..., 1:] - weights[..., 0])
+    pinv = linalg.pinv(moved)
+
+    centroid = linalg.dot(pinv, e2) / 2 + first
+    return centroid
+
+
 def circumcenter_barycentric_weighted(pts, weights=None, ratio=1e6):
     """Barycentric coordinates of the circumcenter of a set of points in euclidian space.
 
@@ -24,24 +62,16 @@ def circumcenter_barycentric_weighted(pts, weights=None, ratio=1e6):
     pts : ndarray. [..., n_pts, n_dim], float
         set of points euclidian space.
     weights : ndarray, [..., n_pts], float
-        weight specifying the 'offset' of each vertex in an additional orthogonal coordinate
-        the greater the weight of a vertex, the smaller its dual metric will be.
+        weight specifying a squared distance offset
 
     Returns
     -------
     coords : ndarray. [..., n_pts], float
         Barycentric coordinates of the circumcenter of the simplex defined by pts.
 
-    Notes
-    -----
-    ones * bary = 1
-    circ = pts.T * bary
-    circ - pts.T = dist
-
-    pts.T * bary - pts.T = dist     [n_dim, n_pts]
-
-    pts.T * bary = pts.T;   solve in minres sense
-
+    References
+    ----------
+    https://westy31.home.xs4all.nl/Circumsphere/ncircumsphere.htm
     """
     pts = np.asarray(pts)
     if weights is not None:
@@ -52,27 +82,26 @@ def circumcenter_barycentric_weighted(pts, weights=None, ratio=1e6):
     N = n_pts + 1
 
     A = np.ones(gu + (N, N))
+    delta = pts[..., :, None, :] - pts[..., None, :, :]
     A[..., -1, -1] = 0
-    A[..., :-1, :-1] = np.einsum('...ij,...kj->...ik', pts, pts) * 2
+    a = linalg.dot(delta, delta)
+    if weights is not None:
+        a = a - (weights[..., :, None] + weights[..., None, :])
+    A[..., :-1, :-1] = a
 
     v, w = np.linalg.eigh(A)
     vr = 1 / v
-    vr[np.abs(vr)>np.abs(vr).min()*ratio] = 0
-    pinv = np.einsum('...ij,...j,...kj', w, vr, w)
+    pinv = np.einsum('...ij,...j,...kj->...ik', w, vr, w)
 
     b = np.ones(gu + (N,))
-    b[..., :-1] = np.einsum('...ij,...ij->...i', pts, pts)
-    if weights is not None:
-        b[..., :-1] -= weights ** 2
+    b[..., :-1] = 0
     x = np.einsum('...ij,...j->...i', pinv, b)
     bary_coords = x[..., :-1]
-    # residual = x[..., -1]
-    # print(residual)
 
     return bary_coords
 
 
-def circumcenter_barycentric(pts, ratio=1e6):
+def circumcenter_barycentric(pts, weights=None, ratio=1e6):
     """Barycentric coordinates of the circumcenter of a set of points in euclidian space.
 
     Parameters
@@ -98,13 +127,18 @@ def circumcenter_barycentric(pts, ratio=1e6):
     --------
     circumcenter_barycentric
 
+    Notes
+    -----
+    Note that the linear dependence on weights is trivially visible in this formulation
+
     References
     ----------
-    Uses an extension of the method described here:
-    http://www.ics.uci.edu/~eppstein/junkyard/circumcenter.html
+    https://github.com/hirani/pydec
     """
 
     pts = np.asarray(pts)
+    if weights is not None:
+        weights = np.asarray(weights)
 
     n_pts, n_dim = pts.shape[-2:]
     gu = pts.shape[:-2]
@@ -121,10 +155,10 @@ def circumcenter_barycentric(pts, ratio=1e6):
 
     b = np.ones(gu + (N,))
     b[..., :-1] = np.einsum('...ij,...ij->...i', pts, pts)
+    if weights is not None:
+        b[..., :-1] -= weights
     x = np.einsum('...ij,...j->...i', pinv, b)
     bary_coords = x[..., :-1]
-    # residual = x[..., -1]
-    # print(residual)
 
     return bary_coords
 

@@ -1,12 +1,13 @@
 from abc import abstractmethod
+from cached_property import cached_property
 
 import numpy as np
 import scipy
-from cached_property import cached_property
 import numpy_indexed as npi
 
 from pycomplex.topology import sign_dtype
 from pycomplex.sparse import normalize_l1
+from pycomplex.math import linalg
 
 
 class BaseComplex(object):
@@ -228,7 +229,7 @@ class BaseComplexEuclidian(BaseComplex):
         pp : list of primal element positions, length n_dim
         """
         from pycomplex.geometry import euclidian
-        return [euclidian.circumcenter_barycentric_weighted(
+        return [euclidian.circumcenter_barycentric(
                     self.vertices[c],
                     self.weights[c] if self.weights is not None else None)
                 for c in self.topology.corners]
@@ -261,12 +262,26 @@ class BaseComplexCubical(BaseComplex):
 class BaseComplexSpherical(BaseComplex):
 
     @cached_property
-    def primal_position(self):
-        """positions of all primal elements, determined as spherical circumcenters
+    def primal_barycentric(self):
+        """barycentric positions of all primal elements
 
         Returns
         -------
-        list of primal element positions, length n_dim
+        pp : list of primal element positions, length n_dim
         """
-        from pycomplex.geometry.spherical import circumcenter
-        return [circumcenter(self.vertices[c]) for c in self.topology.corners]
+        from pycomplex.geometry import euclidian
+        return [euclidian.circumcenter_barycentric(
+                    self.vertices[c],
+                    self.weights[c] if self.weights is not None else None)
+                for c in self.topology.corners]
+
+    @cached_property
+    def primal_position(self):
+        """positions of all primal elements
+
+        Returns
+        -------
+        pp : list of primal element positions, length n_dim
+        """
+        return [linalg.normalized(np.einsum('...cn,...c->...n', self.vertices[c], b))
+                for c, b in zip(self.topology.corners, self.primal_barycentric)]

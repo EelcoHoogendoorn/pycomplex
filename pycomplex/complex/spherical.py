@@ -18,8 +18,9 @@ from pycomplex.sparse import normalize_l1
 class ComplexSpherical(BaseComplexSpherical):
     """Complex on an n-sphere"""
 
-    def __init__(self, vertices, simplices=None, topology=None, radius=1):
+    def __init__(self, vertices, simplices=None, topology=None, radius=1, weights=None):
         self.vertices = np.asarray(vertices)
+        self.weights = weights
         if topology is None:
             topology = TopologySimplicial.from_simplices(simplices).fix_orientation()
             assert topology.is_oriented
@@ -97,9 +98,20 @@ class ComplexSpherical(BaseComplexSpherical):
         return ComplexSpherical2(vertices=self.vertices, topology=self.topology.as_2())
 
     @cached_property
-    def primal_lookup(self):
+    def pick_precompute(self):
         """Cached precomputations for spherical picking operations"""
-        tree = scipy.spatial.cKDTree(self.primal_position[0])
+        c = self.primal_position[0]
+        if self.weights is not None:
+            # weights are the r2 to be added to the distance in the plane
+            # high weight should lead to low-sitting point
+            w = self.weights
+            # w = np.sqrt(self.weights)
+            # r = np.sqrt(self.weights)
+            w = w - w.max()
+            offsets = np.power(-w, 0.5)
+            # offsets = -w
+            c = np.concatenate([c, offsets[:, None]], axis=1)
+        tree = scipy.spatial.cKDTree(c)
         basis = np.linalg.inv(self.vertices[self.topology.elements[-1]])
         return tree, basis
 
@@ -124,11 +136,15 @@ class ComplexSpherical(BaseComplexSpherical):
         Probably not super efficient, but it is fully vectorized, and fully n-dim
 
         """
-        tree, basis = self.primal_lookup
+        tree, basis = self.pick_precompute
         n_points, n_dim = points.shape
 
         def query(points):
-            _, vertex_index = tree.query(points)
+            # query_points = points
+            # if self.weights is not None:
+            #     query_points = np.concatenate([query_points, np.zeros_like(points[:, :1])], axis=1)
+            # _, vertex_index = tree.query(query_points)
+            vertex_index = self.pick_dual(points)
             # construct all point-simplex combinations we need to test for;
             # matrix is compressed-row so row indexing should be efficient
             T = self.topology.matrix(self.topology.n_dim, 0)[vertex_index].tocoo()
@@ -193,44 +209,29 @@ class ComplexSpherical(BaseComplexSpherical):
         that should give a new mesh that we can apply the same primal-picking logic to
         that then gives face and edge in one swoop. tri would have angle >> 90 degree typically though,
         so does not work great with this picking strategy
-        what about constructing the actual fundamental domain? has a 90 deg angle, resulting in two
-        points located at the midpoint of edge joining primal and dual.
-
-        could consider those as a single point, and pick doubled fundamental domain instead.
-        by equilaterality, all such weights should be constant over the simplex
-        this might work as a method of picking primal and dual at the same time, but still no edge sidedness
-
-
-        tiling edge domain with two tris does result in well conditioned tris; and an interesting split generally
-        not entirely sure what to do at boundary, but seems like we should have the dofs there to make it work
-        split does not map tet meshes to tet meshes though..
-
-
-        aside from that, is there a simple rule for getting the nearest edge point in 2d case?
-        yes; we have simplex baries. it is not the edge opposite dual index.
-        wait; easier to just brute-force all candidate-fundamental domains at this point
-        how to generate fundamental domains? list of n-element indices?
-        having those would make n-dim metric a lot easier too
 
         """
-        assert self.topology.is_closed      # FIXME: is this restriction really required?
-        assert self.positive_dual_metric    # if we have net negative dual metrics, this logic fails
+        assert self.topology.is_closed
+        assert self.positive_dual_metric
 
-        # formulate laplacian over primal N-simplices to solve for weight at each dual vertex
+        PP = self.primal_position
+
+        tri_edge = PP[-2][self.topology._boundary[-1]]
+        delta = PP[-1][:, None, :] - tri_edge
+        sign = np.sign(self.primal_barycentric[-1])
+        d = np.linalg.norm(delta, axis=2) ** 2
+        q = self.remap_boundary(d * sign)
+
         T = self.topology.matrices[-1]
-        laplacian = T.T * T
-        rhs = T.T * self.dual_metric[1]
-        power = scipy.sparse.linalg.minres(laplacian, rhs, tol=1e-16)[0]
-        # print(np.abs(T * power - q).max())
-        # power += power.min()
+        L = T.T * T
+        rhs = T.T * q
+        power = scipy.sparse.linalg.minres(L, rhs, tol=1e-16)[0]
         power -= power.max()
         offset = (-power) ** 0.5
 
-        PP = self.primal_position
         augmented = np.concatenate([PP[-1], offset[:, None]], axis=1)
         tree = scipy.spatial.cKDTree(augmented)
 
-        # for rapid computation of barys of a point relative to a simplex
         basis = np.linalg.inv(self.vertices[self.topology.elements[-1]])
 
         return tree, basis
@@ -265,7 +266,11 @@ class ComplexSpherical(BaseComplexSpherical):
         def query(points):
             n_points, n_dim = points.shape
             # FiXME: can be unified with its own tree; midpoint between primals and duals
-            primal, bary = self.pick_primal_alt(points)     # FIXME: use alt here? add kwarg for fast or stable
+            if self.positive_dual_metric:
+                primal, bary = self.pick_primal_alt(points)
+            else:
+                # revert to slower method for badly inverted geometry
+                primal, bary = self.pick_primal(points)
             dual = self.pick_dual(points)
 
             # get all fundamental domains that match both primal and dual, and brute-force versus their precomputed inverses
@@ -314,7 +319,7 @@ class ComplexSpherical(BaseComplexSpherical):
         tree, basis = self.pick_primal_alt_precomp
 
         def query(points):
-            augmented = np.concatenate([points, np.zeros((len(points), 1))], axis=1)
+            augmented = np.concatenate([points, np.zeros_like(points[:, :1])], axis=1)
             dist, idx = tree.query(augmented)
             baries = np.einsum('tcv,tc->tv', basis[idx], points)
             return idx, baries
@@ -336,7 +341,9 @@ class ComplexSpherical(BaseComplexSpherical):
         return simplex, baries
 
     def pick_dual(self, points):
-        tree, _ = self.primal_lookup
+        if self.weights is not None:
+            points = np.concatenate([points, np.zeros_like(points[:, :1])], axis=1)
+        tree, _ = self.pick_precompute
         # finding the dual face we are in is as simple as finding the closest primal vertex,
         # by virtue of the definition of duality
         _, dual_face_index = tree.query(points)
@@ -514,8 +521,9 @@ class ComplexCircular(ComplexSpherical):
 class ComplexSpherical2(ComplexSpherical):
     """Simplicial complex on the surface of a 2-sphere"""
 
-    def __init__(self, vertices, simplices=None, topology=None, radius=1):
+    def __init__(self, vertices, simplices=None, topology=None, radius=1, weights=None):
         self.vertices = np.asarray(vertices)
+        self.weights = weights
 
         if topology is None:
             topology = TopologyTriangular.from_simplices(simplices)

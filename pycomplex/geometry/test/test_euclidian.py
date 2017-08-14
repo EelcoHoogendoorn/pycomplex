@@ -1,16 +1,69 @@
 
 import numpy as np
 
+from pycomplex import synthetic
 from pycomplex.geometry import euclidian
 
 
-def test_circumcenter_barycentric_weighted():
-    c = euclidian.circumcenter_barycentric_weighted([[0], [4]], weights=[2, 0])
+def test_circumcenter_construction():
+
+    for n in [2, 3, 4]:
+        simplex = synthetic.n_simplex(n)
+        print(euclidian.circumcenter_construction(simplex.vertices))
+
+    p = [[0, 0], [3, 0], [0, 4]]
+    c = euclidian.circumcenter_construction(p, weights=[0**2, 3**2, 4**2])  # triangle in 2D
     print(c)
 
-    c = euclidian.circumcenter_barycentric_weighted([[0, 0], [3, 0], [0, 4]], weights=[0, 2, 2])  # triangle in 2D
+    p = [[0, 0], [3, 0], [0, 4]]
+    c = euclidian.circumcenter_construction(p)  # triangle in 2D
     print(c)
-test_circumcenter_barycentric_weighted()
+
+    p = [[0], [4]]
+    c = euclidian.circumcenter_construction(p, [16, 16])  # triangle in 2D
+    print(c)
+
+    p = [[0, 0], [0, 4]]
+    c = euclidian.circumcenter_construction(p, [4, 0])  # triangle in 2D
+    print(c)
+
+
+def test_circumcenter_barycentric_weighted():
+    # for d in np.linspace(0, 16, num=11, endpoint=True):
+    #     p = [[0], [4]]
+    #     # euclidian.circumcenter_construction(p, [d, 0])
+    #     c = euclidian.circumcenter_barycentric_weighted(p, weights=[d, 0])
+    #     print(c)
+    #     print(np.einsum('ji,j->i', p, c))
+
+    # line in 2d; exact same situation
+    print()
+    # diag = np.sqrt(2*4**2)
+    p = [[0, 0], [0, 4]]
+    c = euclidian.circumcenter_barycentric_weighted(p, weights=[0, 16])
+    print(c)
+    print(np.einsum('ji,j->i', p, c))
+
+    print()
+    p = [[0, 0], [3, 0], [0, 4]]
+    # euclidian.circumcenter_construction(p, [0, 3, 4])
+    c = euclidian.circumcenter_barycentric_weighted(p, weights=None)  # triangle in 2D
+
+    print(c)
+    print(np.einsum('ji,j->i', p, c))
+    c = euclidian.circumcenter_barycentric_weighted(p, weights=[0, 3**2, 4**2])  # triangle in 2D
+    print(c)
+    print(np.einsum('ji,j->i', p, c))
+    c = euclidian.circumcenter_barycentric(p, weights=[0, 3**2, 4**2])  # triangle in 2D
+    print(c)
+    print(np.einsum('ji,j->i', p, c))
+
+    c = euclidian.circumcenter_barycentric_weighted(p, weights=[-(1**2), 2**2, 3**2])  # triangle in 2D
+    print(c)
+    print(np.einsum('ji,j->i', p, c))
+    c = euclidian.circumcenter_barycentric_weighted(p, weights=[0**2+1, 3**2+1, 4**2+1])  # triangle in 2D
+    print(c)
+    print(np.einsum('ji,j->i', p, c))
 
 
 def test_circumcenter_barycentric():

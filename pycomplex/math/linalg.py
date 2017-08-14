@@ -196,6 +196,6 @@ def inverse(A):
 
 def pinv(A):
     u, s, v = np.linalg.svd(A)
-    s = 1 / s
+    inv = 1 / s
     # s[:, self.complex.topology.n_dim:] = 0
-    return np.einsum('...ij,...j,...jk->...ki', u[..., :s.shape[-1]], s, v)
+    return np.einsum('...ij,...j,...jk->...ki', u[..., :s.shape[-1]], inv, v)# * np.prod(s,axis=-1)[..., None, None]

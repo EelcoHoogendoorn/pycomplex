@@ -142,6 +142,7 @@ def test_picking_alt():
 def test_picking_alt_visual():
     for n_dim in [3]:
         sphere = synthetic.optimal_delaunay_sphere(400, n_dim, iterations=50)
+        sphere.weights = np.random.uniform(0, 0.05, 400)
 
         p = np.linspace(-1, +1, 1024, endpoint=True)
         x, y = np.meshgrid(p, p)
@@ -155,23 +156,24 @@ def test_picking_alt_visual():
 
         color = bary.reshape(len(p), len(p), 3)
 
-
         import matplotlib.pyplot as plt
         plt.imshow(color)
         plt.show()
 
 
-test_picking_alt_visual()
-
-
+# test_picking_alt_visual()
 
 def test_picking_fundamental_visual():
-    sphere = synthetic.icosphere(1)
+    subs=1
+    sphere = synthetic.icosphere(subs)
+    sphere = sphere.copy(
+        weights=np.random.uniform(0, 0.2 / (2**subs), sphere.topology.n_elements[0]),
+        vertices=np.dot(sphere.vertices, linalg.orthonormalize(np.random.randn(3, 3))),
+    )
 
     # sphere = synthetic.n_cube_dual(3).as_2().subdivide()
-    sphere.vertices = np.dot(sphere.vertices, linalg.orthonormalize(np.random.randn(3, 3)))
 
-    p = np.linspace(-1, +1, 1024, endpoint=True)
+    p = np.linspace(-1, +1, 512, endpoint=True)
     x, y = np.meshgrid(p, p)
     r2 = x**2 + y**2
     mask = r2 < 1
@@ -189,8 +191,12 @@ def test_picking_fundamental_visual():
     color[np.logical_not(mask)] = 0
 
     import matplotlib.pyplot as plt
-    plt.imshow(color, cmap='bwr')
+    plt.imshow(color.T[::-1, ::+1], cmap='bwr')
+    sphere.plot(backface_culling=True)
+    plt.autoscale(tight=True)
     plt.show()
+
+test_picking_fundamental_visual()
 
 
 def test_fundamental_subdivide():
