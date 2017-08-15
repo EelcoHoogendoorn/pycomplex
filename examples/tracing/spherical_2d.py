@@ -13,12 +13,14 @@ coordinate = linalg.orthonormalize(np.random.randn(3, 3))
 p, x, y = coordinate
 dx, dy = [linalg.power(linalg.rotation_from_plane(p, d), 1. / 90) for d in [x, y]]
 
-stepsize = 2  # ray step size in degrees
+stepsize = 10  # ray step size in degrees
 
 fov = 1  # higher values give a wider field of view
 resolution = 30,
 gx = np.linspace(-stepsize, +stepsize, num=resolution[0], endpoint=True)
 ray_step = np.einsum('xij,jk->xik', linalg.power(dx, gx * fov), linalg.power(dy, +stepsize))
+s = np.rad2deg(linalg.angle_from_rotation(ray_step))
+ray_step = linalg.power(ray_step, stepsize / s)
 max_distance = 180  # trace rays half around the universe
 
 space.plot()

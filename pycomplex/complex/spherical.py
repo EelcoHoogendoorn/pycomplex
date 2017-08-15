@@ -246,7 +246,7 @@ class ComplexSpherical(BaseComplexSpherical):
             n_points, n_dim = points.shape
             # FiXME: can be unified with its own tree; midpoint between primals and duals
             if False and self.positive_dual_metric:
-                primal, bary = self.pick_primal_alt(points)
+                primal, bary = self.pick_primal_alt(points) # FIXME: still have failures for 4-spheres sometimes. would picking primal/dual together fix this?
             else:
                 # revert to slower method for badly inverted geometry
                 primal, bary = self.pick_primal(points)
@@ -291,9 +291,8 @@ class ComplexSpherical(BaseComplexSpherical):
                 baries /= baries.sum(axis=1, keepdims=True)
             return domain, baries, domain_idx
 
-
     def pick_primal_alt(self, points, simplex=None):
-        """
+        """Picking of primal domain by means of
 
         Parameters
         ----------
@@ -329,6 +328,13 @@ class ComplexSpherical(BaseComplexSpherical):
         return simplex, baries
 
     def pick_dual(self, points):
+        """Pick the dual elements
+
+        Returns
+        -------
+        ndarray, [self.topology.n_elements[0]], index_dtype
+            primal vertex / dual element index
+        """
         if self.weights is not None:
             points = np.concatenate([points, np.zeros_like(points[:, :1])], axis=1)
         tree, _ = self.pick_precompute
@@ -337,13 +343,51 @@ class ComplexSpherical(BaseComplexSpherical):
         _, dual_face_index = tree.query(points)
 
         return dual_face_index
-        # to get the dual baries, would ideally do something like this:
-        # https://pdfs.semanticscholar.org/6150/43145ebd38e2ae1fcf714f1d445c2d3a4308.pdf
-        # but something simpler might suffice for now
-        # http://www.geometry.caltech.edu/pubs/BLTD16.pdf
-        # this is also looking good
-        # http://www.geometry.caltech.edu/pubs/MMdGD11.pdf
-        # as is this...
+
+    @cached_property
+    def pick_cube_precompute(self):
+        """Pick the `cube` of a set of points
+
+        A cube here is defined as the intersection between a primal and dual element.
+        For a simplex, this always forms a cubical region
+
+        A cube is indicated
+        """
+        assert self.topology.is_closed
+        # assert self.positive_dual_metric  # implement spherical metric in higher dimensions so we can enable this
+
+        q = self.remap_boundary_N(self.dual_edge_excess())
+
+        T = self.topology.matrices[-1]
+        L = T.T * T
+        rhs = T.T * q
+
+        weight = scipy.sparse.linalg.minres(L, rhs, tol=1e-16)[0]
+
+        offset = self.weights_to_offsets(weight / np.sqrt(2))
+
+        PP = self.primal_position
+        IN0 = self.topology.elements[-1]
+        n_corners = IN0.shape[-1]
+        P_idx = np.arange(IN0.size) // n_corners
+        D_idx = IN0.flatten()
+        # FIXME: how to locate the sampling points? midpoints of unweighted centroids?
+        mid = linalg.normalized(PP[0][D_idx] + PP[-1][P_idx] * 10)
+
+        # FIXME: can we construct some type of basis that will inform us of fundamental domain we are in, in a single call?
+        # all fundamental domains meet at both primal and dual vertex. lines seperating them must be linear equations
+        augmented = np.concatenate([mid, np.repeat(offset[:, None], n_corners, axis=1).reshape(-1, 1)], axis=1)
+        tree = scipy.spatial.cKDTree(augmented)
+        return tree
+
+
+    def pick_cube(self, points):
+        points = np.concatenate([points, np.zeros_like(points[:, :1])], axis=1)
+
+        tree = self.pick_cube_precompute
+        _, idx = tree.query(points)
+        return idx
+
 
     @cached_property
     def metric(self):
@@ -476,8 +520,8 @@ class ComplexSpherical(BaseComplexSpherical):
     @cached_property
     def cached_averages(self):
         # note: weighted average is more correct, but the difference appears very minimal in practice
-        return self.weighted_average_operators()
-        # return self.topology.dual.averaging_operators_0
+        # return self.weighted_average_operators()
+        return self.topology.dual.averaging_operators_0
 
     def average_dual(self, d0):
         return [a * d0 for a in self.cached_averages]

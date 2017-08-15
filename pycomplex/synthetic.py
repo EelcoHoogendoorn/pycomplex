@@ -222,7 +222,7 @@ def optimal_delaunay_sphere(n_points, n_dim, iterations=50):
 
     for i in range(iterations):
         print(i)
-        for i in range(20):
+        for i in range(0):
             points = push_points(points)
         complex = complex_from_points(points)
         cc = complex.dual_position[0]

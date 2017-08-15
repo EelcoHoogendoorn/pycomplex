@@ -40,9 +40,11 @@ def test_overlap():
         sphere = sphere.subdivide()
 
     fig, ax = plt.subplots(1, 1)
+    sphere = sphere.optimize_weights()
+    subsphere = sphere.subdivide()
     sphere.plot(ax=ax)
-    sphere = sphere.subdivide()
-    sphere.plot(ax=ax, primal_color='c', dual_color='m')
+    subsphere = subsphere.optimize_weights()
+    subsphere.plot(ax=ax, primal_color='c', dual_color='m')
     plt.show()
 
 
@@ -152,16 +154,24 @@ def test_picking_alt_visual():
         z = np.sqrt(1 - np.clip(r2, 0, 1))
 
         points = np.array([x, y, z]).T
-        domain, bary = sphere.pick_primal_alt(points.reshape(-1, 3))
+        # domain, bary = sphere.pick_primal_alt(points.reshape(-1, 3))
+        # assert np.all(domain == cube_idx)
         # domain, bary = sphere.pick_primal(points.reshape(-1, 3))
 
-        color = bary.reshape(len(p), len(p), 3)
+        # color = bary.reshape(len(p), len(p), 3)
+
+        cube_idx = sphere.pick_cube(points.reshape(-1, 3))
+        cube_idx = cube_idx.reshape(len(p), len(p))
+        p = np.random.permutation(sphere.topology.n_elements[-1] * 6)
+        cube_idx = p[cube_idx]
 
         import matplotlib.pyplot as plt
-        plt.imshow(color)
+        # plt.imshow(color)
+        plt.imshow(cube_idx, cmap='jet')
         plt.show()
 
-# test_picking_alt_visual()
+
+test_picking_alt_visual()
 
 def test_picking_fundamental_visual():
     # subs=3
@@ -170,7 +180,7 @@ def test_picking_fundamental_visual():
     #     # weights=np.random.uniform(0, 0.2 / (2**subs), sphere.topology.n_elements[0]),
     #     vertices=np.dot(sphere.vertices, linalg.orthonormalize(np.random.randn(3, 3))),
     # )
-    sphere = synthetic.optimal_delaunay_sphere(800, 3, iterations=20)
+    sphere = synthetic.optimal_delaunay_sphere(80, 3, iterations=20)
 
     # sphere = synthetic.n_cube_dual(3).as_2().subdivide().subdivide().subdivide()
 
@@ -179,6 +189,8 @@ def test_picking_fundamental_visual():
 
     sphere = sphere.optimize_weights()
 
+
+
     sphere.plot(backface_culling=True)
     plt.autoscale(tight=True)
 
@@ -186,6 +198,8 @@ def test_picking_fundamental_visual():
     x, y = np.meshgrid(p, p)
     r2 = x**2 + y**2
     mask = r2 < 1
+
+
     z = np.sqrt(1 - np.clip(r2, 0, 1))
 
     points = np.array([x, y, z]).T

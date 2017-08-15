@@ -54,6 +54,8 @@ class BaseComplex(object):
         if not len(n_chain) == self.topology.n_elements[-1]:
             raise ValueError
         subset_topology = self.topology.select_subset(n_chain)
+        # FIXME: this also copies the weights; also need their subset taken
+        # not hard to fix, but radius in spherical case should be copied though
         return self.copy(topology=subset_topology, vertices=self.vertices[subset_topology.parent_idx[0]])
 
     @cached_property
@@ -271,11 +273,12 @@ class BaseComplex(object):
         # We do only a few iterations of jacobi iterations to solve our equations,
         # since in practice local redistributions of dual edge length are the only ones of interest
         diag = self.topology.degree[0]
+        field = field / diag
         rhs = field - field.mean()
         weights = np.zeros_like(field)
         for i in range(3):
             weights = (rhs - laplacian * weights + diag * weights) / diag
-
+        weights = weights * diag
         return self.copy(weights=weights)
 
     def remap_boundary_N(self, field):

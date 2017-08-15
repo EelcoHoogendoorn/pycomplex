@@ -109,7 +109,7 @@ def power(m, p):
     """
     p = np.expand_dims(np.asarray(p), -1)
     w, v = np.linalg.eig(m)
-    return np.einsum('ij,...j,jk->...ik', v, w ** p, np.linalg.inv(v)).real
+    return np.einsum('...ij,...j,...jk->...ik', v, w ** p, np.linalg.inv(v)).real
 
 
 def rotation_from_plane(u, v):
@@ -118,6 +118,13 @@ def rotation_from_plane(u, v):
     R = [[0, 1], [-1, 0]]
     p = np.asarray([u, v])
     return np.eye(n) - np.outer(u, u) - np.outer(v, v) + np.dot(p.T, np.dot(R, p))
+
+
+def angle_from_rotation(R):
+    """Extract rotation angle in radians from n-dimensional rotation matrix"""
+    n, m = R.shape[-2:]
+    assert n == m
+    return np.arccos(1 - (n - np.einsum('...ii->...', R)) / 2)
 
 
 def adjoint(A):

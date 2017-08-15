@@ -189,9 +189,15 @@ if __name__ == "__main__":
 
     if complex_type == 'sphere':
         complex = synthetic.icosphere(refinement=5)
+
+        # FIXME: for reasons not quite clear to me irregular mesh with same vert-count is a fair bit slower. probably the condition number?
+        # complex = synthetic.optimal_delaunay_sphere(complex.topology.n_elements[0], 3, iterations=10)
         complex = complex.optimize_weights()
+
+
         if False:
-            complex.plot()
+            complex.plot(backface_culling=True)
+            plt.show()
 
     if complex_type == 'grid':
         complex = synthetic.n_cube_grid((2, 1), False)
@@ -262,7 +268,7 @@ if __name__ == "__main__":
     print(np.abs(flux_d1).max())
     # assert np.allclose(advected_0, flux_d1, atol=1e-6)
 
-    path = r'c:\development\examples\euler_42'
+    path = r'c:\development\examples\euler_44'
     # path = None
     def advect(flux_d1, dt):
         return advector.advect_vorticity(flux_d1, dt)

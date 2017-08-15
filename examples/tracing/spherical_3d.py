@@ -28,7 +28,7 @@ from pycomplex.math import linalg
 from examples.util import save_animation
 
 
-def render_frame(p, x, y, z):
+def render_frame(p, x, y, z, plot_primal=False):
     # stepping of each ray is a rotation matrix
     dx, dy, dz = [linalg.power(linalg.rotation_from_plane(p, d), 1./90) for d in [x, y, z]]
 
@@ -37,6 +37,9 @@ def render_frame(p, x, y, z):
     gy = np.linspace(-stepsize, +stepsize, num=resolution[1], endpoint=True)
     # normalize step magnitude, so distance coloring is more correct?
     ray_step = np.einsum('xij,yjk,kl->xyil', linalg.power(dx, gx * fov), linalg.power(dy, gy * fov), linalg.power(dz, +stepsize))
+    # normalize stepsizes
+    s = np.rad2deg(linalg.angle_from_rotation(ray_step))
+    ray_step = linalg.power(ray_step, stepsize / s)
 
     # all rays start from p
     ray = p
@@ -53,7 +56,7 @@ def render_frame(p, x, y, z):
         # print(distance)
         # this is simply the stepping operation
         ray = np.einsum('...ij,...j->...i', ray_step, ray)
-        if False:
+        if plot_primal:
             # visualize primal edges
             simplex, bary = space.pick_primal_alt(ray.reshape(-1, 4), simplex=simplex)  # caching simplex makes a huge speed difference!
             bary = bary.reshape(resolution + (4,))
@@ -61,7 +64,6 @@ def render_frame(p, x, y, z):
             edge_hit = (bary < 0.01).sum(axis=-1) >= 2
         else:
             # visualize dual edges instead
-            # FIXME: add caching
             domains, bary, domain_idx = space.pick_fundamental(ray.reshape(-1, 4), domain_idx=domain_idx)
             simplex = domains[:, -1]
             bary = bary.reshape(resolution + (4,))
@@ -90,10 +92,11 @@ def render_frame(p, x, y, z):
 
 if __name__ == '__main__':
 
-    if True:
+    if False:
         # visualize a randomly tesselated space
         space = synthetic.optimal_delaunay_sphere(n_dim=4, n_points=200, iterations=20)
-        space.optimize_weights()
+        space = space.optimize_weights()
+
         stepsize = .2  # ray step size in degrees
         max_distance = 180  # trace rays all around the universe
         fov = 1  # higher values give a wider field of view
@@ -109,22 +112,43 @@ if __name__ == '__main__':
         plt.show()
         quit()
 
+    elif True:
+        path = r'c:\development\examples\random_sphere_5'
+        space = synthetic.optimal_delaunay_sphere(n_dim=4, n_points=300, iterations=50)
+        space = space.optimize_weights()
 
-    space = synthetic.hexacosichoron()
+        stepsize = .2  # ray step size in degrees
+        max_distance = 360  # trace rays half around the universe
+        fov = 1  # higher values give a wider field of view
+        resolution = (512, 512)  # in pixels
 
-    stepsize = .2  # ray step size in degrees
-    max_distance = 180  # trace rays half around the universe
-    fov = 1  # higher values give a wider field of view
-    resolution = (512, 512)  # in pixels
+        # generate a random starting position and orientation
+        coordinate = linalg.orthonormalize(np.random.randn(4, 4))
+        p, x, y, z = coordinate
+        dx, dy, dz = [linalg.power(linalg.rotation_from_plane(p, d), 1. / 90) for d in [x, y, z]]
 
-    path = r'c:\development\examples\hexacosichoron_13'
+        for i in save_animation(path, frames=360):
+            # make a step forward along the z axis
+            coordinate = np.einsum('...ij,...j->...i', dz, coordinate)
+            render_frame(*coordinate)
 
-    # generate a random starting position and orientation
-    coordinate = linalg.orthonormalize(np.random.randn(4, 4))
-    p, x, y, z = coordinate
-    dx, dy, dz = [linalg.power(linalg.rotation_from_plane(p, d), 1. / 90) for d in [x, y, z]]
+    else:
+        space = synthetic.hexacosichoron()
 
-    for i in save_animation(path, frames=360):
-        # make a step forward along the z axis
-        coordinate = np.einsum('...ij,...j->...i', dz, coordinate)
-        render_frame(*coordinate)
+        stepsize = .2  # ray step size in degrees
+        max_distance = 180  # trace rays half around the universe
+        fov = 1  # higher values give a wider field of view
+        resolution = (512, 512)  # in pixels
+
+        path = r'c:\development\examples\hexacosichoron_13'
+        path = r'c:\development\examples\random_sphere_0'
+
+        # generate a random starting position and orientation
+        coordinate = linalg.orthonormalize(np.random.randn(4, 4))
+        p, x, y, z = coordinate
+        dx, dy, dz = [linalg.power(linalg.rotation_from_plane(p, d), 1. / 90) for d in [x, y, z]]
+
+        for i in save_animation(path, frames=360):
+            # make a step forward along the z axis
+            coordinate = np.einsum('...ij,...j->...i', dz, coordinate)
+            render_frame(*coordinate)
