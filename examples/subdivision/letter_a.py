@@ -115,7 +115,7 @@ if __name__ == '__main__':
     if False:
         letter.plot(plot_dual=True)
 
-    letter = create_letter(subdivisions=3)
+    letter = create_letter(subdivisions=2)
 
     # add random rotation
     np.random.seed(6)
@@ -125,10 +125,11 @@ if __name__ == '__main__':
 
     letter = letter.to_simplicial()#.smooth().smooth()
 
+    letter = letter.as_3().optimize_weights()
 
-    letter.as_3().plot_3d(plot_dual=True, plot_vertices=False)
+    letter.plot_3d(plot_dual=True, plot_vertices=False)
 
-    PM, DM = letter.as_3().metric_experimental
+    PM, DM = letter.metric_experimental
     plt.scatter(*letter.vertices[DM[2]<0][:, :2].T, c='k')
     for i, m in enumerate(PM):
         print(i)

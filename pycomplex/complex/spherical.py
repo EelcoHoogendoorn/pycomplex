@@ -177,23 +177,6 @@ class ComplexSpherical(BaseComplexSpherical):
             topology=self.topology.subdivide_fundamental()
         )
 
-    def remap_boundary(self, field):
-        """Given a quantity computed on each n-simplex-boundary, combine the contributions of each incident n-simplex
-
-        Parameters
-        ----------
-        field : ndarray, [n_simplices, n_corners], float
-            a quantity defined on each boundary of all simplices
-
-        Returns
-        -------
-        field : ndarray, [n_boundary_simplices], float
-        """
-        INn = self.topology._boundary[-1]
-        ONn = self.topology._orientation[-1]
-        _, field = npi.group_by(INn.flatten()).sum((field * ONn).flatten())
-        return field
-
     @cached_property
     def pick_primal_alt_precomp(self):
         """Can we find a power/weight for each dual such that nearest weighted dual vertex gives us the primal element?
@@ -220,7 +203,7 @@ class ComplexSpherical(BaseComplexSpherical):
         delta = PP[-1][:, None, :] - tri_edge
         sign = np.sign(self.primal_barycentric[-1])
         d = np.linalg.norm(delta, axis=2) ** 2
-        q = self.remap_boundary(d * sign)
+        q = self.remap_boundary_N(d * sign)
 
         T = self.topology.matrices[-1]
         L = T.T * T
@@ -506,41 +489,6 @@ class ComplexSpherical(BaseComplexSpherical):
         IN0 = self.topology.incidence[-1, 0]
         verts = IN0[element]
         return (p0[verts] * bary).sum(axis=1)
-
-    def optimize_hodge(self):
-        """
-
-        Returns
-        -------
-        type(self)
-
-        References
-        ----------
-        http://www.geometry.caltech.edu/pubs/MMdGD11.pdf
-        http://www.geometry.caltech.edu/pubs/dGMMD14.pdf
-        """
-        T = self.topology.matrices[0]
-        P1P0 = T.T
-        DNDn = T
-        DnP1 = self.hodge_DP[1]
-        DNP0 = self.hodge_DP[0]
-        laplacian = DNDn * scipy.sparse.diags(DnP1) * P1P0
-
-        PP = self.primal_position
-        tri_edge = PP[-2][self.topology._boundary[-1]]
-        delta = PP[-1][:, None, :] - tri_edge
-        sign = np.sign(self.primal_barycentric[-1])
-        d = np.linalg.norm(delta, axis=2) #** 2
-        # q = self.remap_boundary(d * sign)
-
-        INn = self.topology.elements[-1]
-        _, field = npi.group_by(INn.flatten()).sum((d * sign).flatten())
-
-        field -= field.mean()
-        rhs = field
-        weights = scipy.sparse.linalg.minres(laplacian, rhs, tol=1e-16)[0]
-        weights = DNP0 * weights
-        return self.copy(weights=weights)
 
 
 class ComplexCircular(ComplexSpherical):

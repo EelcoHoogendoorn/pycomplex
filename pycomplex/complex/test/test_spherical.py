@@ -142,7 +142,8 @@ def test_picking_alt():
 def test_picking_alt_visual():
     for n_dim in [3]:
         sphere = synthetic.optimal_delaunay_sphere(400, n_dim, iterations=50)
-        sphere.weights = np.random.uniform(0, 0.05, 400)
+        # sphere.weights = np.random.uniform(0, 0.05, 400)
+        sphere = sphere.optimize_weights()
 
         p = np.linspace(-1, +1, 1024, endpoint=True)
         x, y = np.meshgrid(p, p)
@@ -164,17 +165,23 @@ def test_picking_alt_visual():
 # test_picking_alt_visual()
 
 def test_picking_fundamental_visual():
-    # subs=1
+    # subs=3
     # sphere = synthetic.icosphere(subs)
     # sphere = sphere.copy(
     #     # weights=np.random.uniform(0, 0.2 / (2**subs), sphere.topology.n_elements[0]),
     #     vertices=np.dot(sphere.vertices, linalg.orthonormalize(np.random.randn(3, 3))),
     # )
-    sphere = synthetic.optimal_delaunay_sphere(800, 3, iterations=50)
+    # sphere = synthetic.optimal_delaunay_sphere(800, 3, iterations=50)
 
-    sphere = sphere.optimize_hodge()
+    sphere = synthetic.n_cube_dual(3).as_2().subdivide().subdivide().subdivide()
 
-    # sphere = synthetic.n_cube_dual(3).as_2().subdivide()
+    sphere.plot(backface_culling=True)
+    plt.autoscale(tight=True)
+
+    sphere = sphere.optimize_weights()
+
+    sphere.plot(backface_culling=True)
+    plt.autoscale(tight=True)
 
     p = np.linspace(-1, +1, 512, endpoint=True)
     x, y = np.meshgrid(p, p)
@@ -193,13 +200,11 @@ def test_picking_fundamental_visual():
     color = color.reshape(len(p), len(p))
     color[np.logical_not(mask)] = 0
 
-    import matplotlib.pyplot as plt
+    plt.figure()
     plt.imshow(color.T[::-1, ::+1], cmap='bwr')
-    sphere.plot(backface_culling=True)
-    plt.autoscale(tight=True)
     plt.show()
 
-test_picking_fundamental_visual()
+# test_picking_fundamental_visual()
 
 
 def test_fundamental_subdivide():
@@ -211,5 +216,9 @@ def test_fundamental_subdivide():
     n = 3
     sphere = synthetic.n_cube_dual(n)
     sphere.vertices = np.dot(sphere.vertices, linalg.orthonormalize(np.random.randn(n, n)))
-    sphere = sphere.subdivide_fundamental()
+    sphere = sphere.subdivide_fundamental().optimize_weights()
     sphere.plot(backface_culling=True, plot_vertices=False)
+    plt.show()
+
+
+test_fundamental_subdivide()

@@ -217,6 +217,91 @@ class BaseComplex(object):
         """Returns true if all dual metrics are positive"""
         return all([np.all(m > 0) for m in self.dual_metric])
 
+    def optimize_weights(self):
+        """Optimize the weights of a simplicial complex, to improve positivity of the dual metric,
+        and the condition number of equations based on their hodges.
+
+        This is the simplest form of weight optimization that I am aware of.
+
+
+        Returns
+        -------
+        type(self)
+            copy of self with optimized weights
+
+        Notes
+        -----
+        This is a simplification of the method in the references below.
+        Note that the current version is only dimensionally correct for topology.n_dim = 2;
+        need to work on that.
+
+        There is a strong link between this and the dual optimization done to derive weights for primal simplex picking
+
+        References
+        ----------
+        http://www.geometry.caltech.edu/pubs/MMdGD11.pdf
+        http://www.geometry.caltech.edu/pubs/dGMMD14.pdf
+        """
+        assert self.weights is None # not sure this is required
+
+        T = self.topology.matrices[0]
+        P1P0 = T.T
+        DNDn = T
+        laplacian = DNDn * P1P0
+
+        PP = self.primal_position
+        B = self.topology._boundary[-1]
+        tri_edge = PP[-2][B]
+        delta = PP[-1][:, None, :] - tri_edge
+        sign = np.sign(self.primal_barycentric[-1])
+        d = np.linalg.norm(delta, axis=2) ** 2
+
+        field = self.remap_boundary_0(d * sign)
+
+        # We do only a few iterations of jacobi iterations to solve our equations,
+        # since in practice local redistributions of dual edge length are the only ones of interest
+        diag = self.topology.degree[0]
+        rhs = field - field.mean()
+        weights = np.zeros_like(field)
+        for i in range(3):
+            weights = (rhs - laplacian * weights + diag * weights) / diag
+
+        return self.copy(weights=weights)
+
+    def remap_boundary_N(self, field):
+        """Given a quantity computed on each n-simplex-boundary, combine the contributions of each incident n-simplex
+
+        Parameters
+        ----------
+        field : ndarray, [n_simplices, n_corners], float
+            a quantity defined on each boundary of all simplices
+
+        Returns
+        -------
+        field : ndarray, [n_boundary_simplices], float
+        """
+        INn = self.topology._boundary[-1]
+        ONn = self.topology._orientation[-1]
+        _, field = npi.group_by(INn.flatten()).sum((field * ONn).flatten())
+        return field
+
+    def remap_boundary_0(self, field):
+        """Given a quantity computed on each n-simplex-boundary,
+        Sum around the vertices surrounded by this boundary
+
+        Parameters
+        ----------
+        field : ndarray, [n_simplices, n_corners], float
+            a quantity defined on each boundary of all simplices
+
+        Returns
+        -------
+        field : ndarray, [n_0_simplices], float
+        """
+        IN0 = self.topology.elements[-1]
+        _, field = npi.group_by(IN0.flatten()).sum((field).flatten())
+        return field
+
 
 class BaseComplexEuclidian(BaseComplex):
 
