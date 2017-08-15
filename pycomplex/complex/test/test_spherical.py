@@ -23,7 +23,7 @@ def test_single():
 def test_icosahedron():
     """Test a full icosahedron"""
     sphere = synthetic.icosahedron()
-    sphere.vertices = np.dot(sphere.vertices, linalg.orthonormalize(np.random.randn(3, 3)))
+    sphere = sphere.copy(vertices = np.dot(sphere.vertices, linalg.orthonormalize(np.random.randn(3, 3))))
     fig, ax = plt.subplots(1, 1)
     sphere.plot(ax=ax, backface_culling=True)
     for i in range(1):
@@ -49,7 +49,7 @@ def test_overlap():
 def test_icosahedron_subset():
     """Test that a concave boundary works just the same on a sphere"""
     sphere = synthetic.icosahedron()
-    sphere.vertices = np.dot(sphere.vertices, linalg.orthonormalize(np.random.randn(3, 3)))
+    sphere = sphere.copy(vertices = np.dot(sphere.vertices, linalg.orthonormalize(np.random.randn(3, 3))))
     triangle_position = sphere.primal_position[2]
     selection = triangle_position[:, 2] != triangle_position[:,2].max()
     sphere = sphere.select_subset(selection)
@@ -72,7 +72,7 @@ def test_tetrahedron():
     n_dim = 3
     tet = synthetic.n_simplex(n_dim).boundary.as_spherical().as_2()
     tet = tet.fix_orientation()
-    tet.vertices = np.dot(tet.vertices, linalg.orthonormalize(np.random.randn(n_dim, n_dim)))
+    tet = tet.copy(vertices = np.dot(tet.vertices, linalg.orthonormalize(np.random.randn(n_dim, n_dim))))
     for i in range(0):      # subdivision on a tet gives rather ugly tris
         tet = tet.subdivide()
     tet.plot(backface_culling=True, plot_dual=True)
@@ -100,7 +100,7 @@ def test_hexacosichoron():
     npt.assert_allclose(length, length[0])
 
     n_dim = complex.n_dim
-    complex.vertices = np.dot(complex.vertices, linalg.orthonormalize(np.random.randn(n_dim, n_dim)))
+    complex = complex.copy(vertices = np.dot(complex.vertices, linalg.orthonormalize(np.random.randn(n_dim, n_dim))))
     complex.plot(plot_dual=True, backface_culling=False)
 
 
@@ -108,7 +108,7 @@ def test_n_cube_dual():
     for n_dim in [2, 3, 4, 5]:
         complex = synthetic.n_cube_dual(n_dim)
 
-        complex.vertices = np.dot(complex.vertices, linalg.orthonormalize(np.random.randn(n_dim, n_dim)))
+        complex = complex.copy(vertices = np.dot(complex.vertices, linalg.orthonormalize(np.random.randn(n_dim, n_dim))))
         complex.plot(plot_dual=True, backface_culling=n_dim==3)
 
 
@@ -142,7 +142,7 @@ def test_picking_alt():
 def test_picking_alt_visual():
     for n_dim in [3]:
         sphere = synthetic.optimal_delaunay_sphere(100, n_dim, iterations=20)
-        # sphere.weights = np.random.uniform(0, 0.05, 400)
+        # sphere = sphere.copy(weights = np.random.uniform(0, 0.05, 400))
         sphere = sphere.optimize_weights()
 
         p = np.linspace(-1, +1, 1024, endpoint=True)
@@ -161,7 +161,7 @@ def test_picking_alt_visual():
         plt.imshow(color)
         plt.show()
 
-test_picking_alt_visual()
+# test_picking_alt_visual()
 
 def test_picking_fundamental_visual():
     # subs=3
@@ -170,7 +170,7 @@ def test_picking_fundamental_visual():
     #     # weights=np.random.uniform(0, 0.2 / (2**subs), sphere.topology.n_elements[0]),
     #     vertices=np.dot(sphere.vertices, linalg.orthonormalize(np.random.randn(3, 3))),
     # )
-    sphere = synthetic.optimal_delaunay_sphere(80, 3, iterations=20)
+    sphere = synthetic.optimal_delaunay_sphere(800, 3, iterations=20)
 
     # sphere = synthetic.n_cube_dual(3).as_2().subdivide().subdivide().subdivide()
 
@@ -189,10 +189,10 @@ def test_picking_fundamental_visual():
     z = np.sqrt(1 - np.clip(r2, 0, 1))
 
     points = np.array([x, y, z]).T
-    domain, bary = sphere.pick_fundamental(points.reshape(-1, 3))
-    D, B = sphere.pick_fundamental_precomp
-    import numpy_indexed as npi
-    idx = npi.indices(D.reshape(-1, 3), domain)
+    domain, bary, idx = sphere.pick_fundamental(points.reshape(-1, 3), domain_idx=True)
+    D, B, index = sphere.pick_fundamental_precomp
+    # import numpy_indexed as npi
+    # idx = npi.indices(D.reshape(-1, 3), domain)
     B = B.reshape(-1, 3, 3)[idx]
     color = np.linalg.det(B.astype(np.float32))
     color = np.sign(color)
@@ -208,13 +208,13 @@ test_picking_fundamental_visual()
 
 def test_fundamental_subdivide():
     sphere = synthetic.icosphere(1)
-    sphere.vertices = np.dot(sphere.vertices, linalg.orthonormalize(np.random.randn(3, 3)))
+    sphere = sphere.copy(vertices = np.dot(sphere.vertices, linalg.orthonormalize(np.random.randn(3, 3))))
     sphere = sphere.subdivide_fundamental()
     sphere.plot(backface_culling=True, plot_vertices=False)
     # FIXME: does not yet work for n > 3
     n = 3
     sphere = synthetic.n_cube_dual(n)
-    sphere.vertices = np.dot(sphere.vertices, linalg.orthonormalize(np.random.randn(n, n)))
+    sphere = sphere.copy(vertices = np.dot(sphere.vertices, linalg.orthonormalize(np.random.randn(n, n))))
     sphere = sphere.subdivide_fundamental().optimize_weights()
     sphere.plot(backface_culling=True, plot_vertices=False)
     plt.show()

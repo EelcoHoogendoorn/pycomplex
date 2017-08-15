@@ -185,10 +185,11 @@ class VorticityAdvector(Advector):
 if __name__ == "__main__":
     dt = .1
 
-    complex_type = 'grid'
+    complex_type = 'sphere'
 
     if complex_type == 'sphere':
         complex = synthetic.icosphere(refinement=5)
+        complex = complex.optimize_weights()
         if False:
             complex.plot()
 
@@ -261,7 +262,7 @@ if __name__ == "__main__":
     print(np.abs(flux_d1).max())
     # assert np.allclose(advected_0, flux_d1, atol=1e-6)
 
-    path = r'c:\development\examples\euler_39'
+    path = r'c:\development\examples\euler_42'
     # path = None
     def advect(flux_d1, dt):
         return advector.advect_vorticity(flux_d1, dt)
@@ -274,7 +275,8 @@ if __name__ == "__main__":
             # flux_d1 = advect(flux_d1, dt=2)
 
         vorticity_p0 = complex.hodge_PD[0] * (D2D1 * flux_d1)
-        vorticity_p0[complex.boundary.topology.parent_idx[0]] = 0   # dont care about shear in boundary layer
+        if complex.boundary is not None:
+            vorticity_p0[complex.boundary.topology.parent_idx[0]] = 0   # dont care about shear in boundary layer
 
         if complex_type == 'sphere':
             complex.as_euclidian().as_3().plot_primal_0_form(

@@ -26,7 +26,7 @@ def test_triangular():
 
 def test_sphere():
     sphere = synthetic.icosahedron().as_euclidian()
-    sphere.vertices = np.dot(sphere.vertices, linalg.orthonormalize(np.random.randn(3, 3)))
+    sphere = sphere.copy(vertices = np.dot(sphere.vertices, linalg.orthonormalize(np.random.randn(3, 3))))
 
     for i in range(3):
         sphere = sphere.subdivide(smooth=True)
@@ -37,7 +37,7 @@ def test_sphere():
 def test_n_simplex():
     for n_dim in [2, 3, 4, 5, 6, 7]:
         simplex = synthetic.n_simplex(n_dim)
-        simplex.vertices = np.dot(simplex.vertices, linalg.orthonormalize(np.random.randn(n_dim, n_dim)))
+        simplex = simplex.copy(vertices = np.dot(simplex.vertices, linalg.orthonormalize(np.random.randn(n_dim, n_dim))))
 
         assert simplex.topology.is_oriented
         assert simplex.topology.is_connected
@@ -59,7 +59,8 @@ def test_power_dual():
     tri = synthetic.n_simplex(2).as_2().as_2()
     for i in range(3):
         tri = tri.subdivide()
-    tri.weights = np.random.uniform(0, 0.1, tri.topology.n_elements[0])
+    tri = tri.optimize_weights()
+    # tri = tri.copy(weights = np.random.uniform(0, 0.02, tri.topology.n_elements[0]))
     tri.plot()
     import matplotlib.pyplot as plt
     plt.show()
@@ -134,5 +135,3 @@ def test_metric_2():
     import matplotlib.pyplot as plt
     plt.show()
 
-
-test_metric_2()

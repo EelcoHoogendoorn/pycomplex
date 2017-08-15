@@ -68,12 +68,16 @@ class BaseComplex(object):
     def fix_orientation(self):
         return self.copy(topology=self.topology.fix_orientation())
 
-    def copy(self, vertices=None, topology=None, **kwargs):
-        c = type(self)(
-            vertices=self.vertices if vertices is None else vertices,
-            topology=self.topology if topology is None else topology,
-            **kwargs
-        )
+    def copy(self, **kwargs):
+        import inspect
+        args = inspect.signature(type(self)).parameters.keys()
+        nkwargs = {}
+        for a in args:
+            if hasattr(self, a):
+                nkwargs[a] = getattr(self, a)
+
+        nkwargs.update(kwargs)
+        c = type(self)(**nkwargs)
         c.parent = self
         return c
 
@@ -96,16 +100,8 @@ class BaseComplex(object):
         if boundary is None:
             return pp[::-1]
 
-        dp = []
-        for i, (e) in enumerate(self.topology.elements):
-            if i == 0:
-                c = [pp[i]]
-            else:
-                idx = boundary.parent_idx[i-1]
-                b = pp[i-1][idx]
-                c = [pp[i], b]
-            dp.append(np.concatenate(c, axis=0))
-
+        bp = [None] + [p[idx] for idx, p in zip(boundary.parent_idx, pp)]
+        dp = [np.concatenate([p] + ([] if b is None else [b]), axis=0) for p, b in zip(pp, bp)]
         return dp[::-1]
 
     def smooth(self, creases=None):
@@ -164,7 +160,6 @@ class BaseComplex(object):
         perhaps better off in topology class
 
         """
-
         # creasing default behavior; all n-elements are 'creases', and none of the other topological elements are
         C = [np.zeros(n, dtype=sign_dtype) for n in self.topology.n_elements]
         C[-1][:] = 1
@@ -183,8 +178,8 @@ class BaseComplex(object):
             for b in S[i + 1:]:
                 b[a != 0] = 0
 
-        averaging = self.topology.averaging_operators_0
-        smoothers = [scipy.sparse.diags(s) * a.T * scipy.sparse.diags(c) * a for a, s, c in zip(averaging, S, C)]
+        A = self.topology.averaging_operators_0
+        smoothers = [scipy.sparse.diags(s) * a.T * scipy.sparse.diags(c) * a for a, s, c in zip(A, S, C)]
         return normalize_l1(sum(smoothers), axis=1)
 
     @cached_property
@@ -218,6 +213,15 @@ class BaseComplex(object):
         return all([np.all(m > 0) for m in self.dual_metric])
 
     def dual_edge_excess(self):
+        """Compute the 'dual edge excess'
+
+        Used in both weight optimization as well as primal simplex picking
+
+        Returns
+        -------
+        ndarray, [n_N-elements, n_corners], float
+            in units of distance-squared
+        """
         PP = self.primal_position
         B = self.topology._boundary[-1]
         delta = PP[-1][:, None, :] - PP[-2][B]
@@ -229,7 +233,6 @@ class BaseComplex(object):
         and the condition number of equations based on their hodges.
 
         This is the simplest form of weight optimization that I am aware of.
-
 
         Returns
         -------
@@ -256,6 +259,7 @@ class BaseComplex(object):
         http://www.geometry.caltech.edu/pubs/dGMMD14.pdf
         """
         assert self.weights is None # not sure this is required
+        # FIXME: behavior at the boundary is not ideal yet
 
         T = self.topology.matrices[0]
         P1P0 = T.T
@@ -279,12 +283,12 @@ class BaseComplex(object):
 
         Parameters
         ----------
-        field : ndarray, [n_simplices, n_corners], float
+        field : ndarray, [n_N-simplices, n_corners], float
             a quantity defined on each boundary of all simplices
 
         Returns
         -------
-        field : ndarray, [n_boundary_simplices], float
+        field : ndarray, [n_n-simplices], float
         """
         INn = self.topology._boundary[-1]
         ONn = self.topology._orientation[-1]
@@ -297,19 +301,33 @@ class BaseComplex(object):
 
         Parameters
         ----------
-        field : ndarray, [n_simplices, n_corners], float
-            a quantity defined on each boundary of all simplices
+        field : ndarray, [n_N-simplices, n_corners], float
+            a quantity defined on each boundary of all N-simplices
 
         Returns
         -------
-        field : ndarray, [n_0_simplices], float
+        field : ndarray, [n_0-simplices], float
+
         """
         IN0 = self.topology.elements[-1]
         _, field = npi.group_by(IN0.flatten()).sum((field).flatten())
         return field
 
     def weights_to_offsets(self, weights):
-        """Convert power dual weights to offsets in an orthogonal coordinate"""
+        """Convert power dual weights to offsets in an orthogonal coordinate
+
+        Parameters
+        ----------
+        weights : ndarray, [n_vertices], float
+            power dual weight in units of distance squared
+
+        Returns
+        -------
+        offset : ndarray, [n_vertices], float
+            distance away from the space of self.vertices in an orthogonal coordinate,
+            required to realize the implied shift of dual edges in the offset=0 plane
+            of the voronoi diagram
+        """
         return np.sqrt(-weights + weights.max())
 
 

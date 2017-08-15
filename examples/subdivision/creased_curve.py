@@ -18,5 +18,5 @@ for i in range(5):
 
 curve.as_12().plot(plot_vertices=False)
 # overwrite vertices with operator based ones to demonstrate equivalence
-curve.vertices = total_operator * root.vertices
+curve = curve.copy(vertices = total_operator * root.vertices)
 curve.as_12().plot(plot_vertices=False)

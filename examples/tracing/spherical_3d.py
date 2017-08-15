@@ -41,6 +41,7 @@ def render_frame(p, x, y, z):
     # all rays start from p
     ray = p
     simplex = None
+    domain_idx = True
 
     # accumulate what simplex we hit, and how far away
     pick = -np.ones(resolution, np.int16)
@@ -48,6 +49,7 @@ def render_frame(p, x, y, z):
 
     t = time.clock()
     for distance in np.arange(0, max_distance, stepsize):
+        print(distance)
         # print(distance)
         # this is simply the stepping operation
         ray = np.einsum('...ij,...j->...i', ray_step, ray)
@@ -60,10 +62,10 @@ def render_frame(p, x, y, z):
         else:
             # visualize dual edges instead
             # FIXME: add caching
-            domains, bary = space.pick_fundamental(ray.reshape(-1, 4))
+            domains, bary, domain_idx = space.pick_fundamental(ray.reshape(-1, 4), domain_idx=domain_idx)
             simplex = domains[:, -1]
             bary = bary.reshape(resolution + (4,))
-            edge_hit = bary[..., :-2].sum(axis=-1) <= 0.02 # last two baries are dual cell center and its boundary
+            edge_hit = bary[..., :-2].sum(axis=-1) <= 0.03 # last two baries are dual cell center and its boundary
 
         draw = np.logical_and(edge_hit, pick==-1)
         pick[draw] = simplex.reshape(resolution)[draw]
@@ -93,7 +95,7 @@ if __name__ == '__main__':
         space = synthetic.optimal_delaunay_sphere(n_dim=4, n_points=200, iterations=20)
         space.optimize_weights()
         stepsize = .2  # ray step size in degrees
-        max_distance = 90  # trace rays all around the universe
+        max_distance = 180  # trace rays all around the universe
         fov = 1  # higher values give a wider field of view
         resolution = (512, 512)  # in pixels
 

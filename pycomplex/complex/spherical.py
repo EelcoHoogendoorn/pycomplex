@@ -108,20 +108,20 @@ class ComplexSpherical(BaseComplexSpherical):
         basis = np.linalg.inv(self.vertices[self.topology.elements[-1]])
         return tree, basis
 
-    def pick_primal(self, points, simplex=None):
+    def pick_primal(self, points, simplex_idx=None):
         """Pick triangles and their barycentric coordinates on the sphere
 
         Parameters
         ----------
         points : ndarray, [n_points, n_dim], float
             points on the sphere to pick
-        simplex : ndarray, [n_points], index_dtype, optional
+        simplex_idx : ndarray, [n_points], index_dtype, optional
             guesses as to the simplex that contains the point;
             can be used to exploit temporal coherence
 
         Returns
         -------
-        simplex : ndarray, [n_points], index_dtype
+        simplex_idx : ndarray, [n_points], index_dtype
         bary : ndarray, [n_points, n_dim], float
 
         Notes
@@ -130,13 +130,8 @@ class ComplexSpherical(BaseComplexSpherical):
 
         """
         tree, basis = self.pick_precompute
-        n_points, n_dim = points.shape
 
         def query(points):
-            # query_points = points
-            # if self.weights is not None:
-            #     query_points = np.concatenate([query_points, np.zeros_like(points[:, :1])], axis=1)
-            # _, vertex_index = tree.query(query_points)
             vertex_index = self.pick_dual(points)
             # construct all point-simplex combinations we need to test for;
             # matrix is compressed-row so row indexing should be efficient
@@ -150,21 +145,22 @@ class ComplexSpherical(BaseComplexSpherical):
             # normalize
             return simplex_index, baries
 
-        if simplex is None:
-            simplex, baries = query(points)
+        if simplex_idx is None:
+            simplex_idx, baries = query(points)
         else:
-            baries = np.einsum('tcv,tc->tv', basis[simplex], points)
+            baries = np.einsum('tcv,tc->tv', basis[simplex_idx], points)
             update = np.any(baries < 0, axis=1)
             if np.any(update):
-                simplex = simplex.copy()
+                simplex_idx = simplex_idx.copy()
                 s, b = query(points[update])
-                simplex[update] = s
+                simplex_idx[update] = s
                 baries[update] = b
 
         baries /= baries.sum(axis=1, keepdims=True)
-        return simplex, baries
+        return simplex_idx, baries
 
     def subdivide_fundamental(self):
+        """Perform fundamental-domain subdivision"""
         return type(self)(
             vertices=np.concatenate(self.primal_position, axis=0),
             topology=self.topology.subdivide_fundamental()
@@ -192,7 +188,7 @@ class ComplexSpherical(BaseComplexSpherical):
         not sure I fully grasp all the implications thereof.
         """
         assert self.topology.is_closed
-        # assert self.positive_dual_metric
+        # assert self.positive_dual_metric  # implement spherical metric in higher dimensions so we can enable this
 
         q = self.remap_boundary_N(self.dual_edge_excess())
 
@@ -219,15 +215,21 @@ class ComplexSpherical(BaseComplexSpherical):
         p = np.empty(domains.shape + (self.n_dim,))
         for i in range(self.topology.n_dim + 1):
             p[..., i, :] = PP[i][domains[..., i]]
-        return domains, np.linalg.inv(p).astype(np.float32)
 
-    def pick_fundamental(self, points, domain=None):
+        domains_index = npi.as_index(domains.reshape(-1, domains.shape[-1]))
+
+        return domains, np.linalg.inv(p).astype(np.float32), domains_index
+
+    def pick_fundamental(self, points, domain_idx=None):
         """Pick the fundamental domain
 
         Parameters
         ----------
         points : ndarray, [n_points, n_dim], float
             points to pick
+        domain_idx : ndarray, [n_points], index_dtype, optional
+            feed previous returned idx in to exploit temporal coherence in queries
+            if True, idx are returned despite not being given
 
         Returns
         -------
@@ -235,9 +237,10 @@ class ComplexSpherical(BaseComplexSpherical):
             n-th column corresponds to indices of n-element
         baries: ndarray, [n_points, n_dim] float
             barycentric weights corresponding to the domain indices
-
+        domain_idx : ndarray, [n_points], index_dtype, optional
+            returned if domain_idx input is not None
         """
-        domains, basis = self.pick_fundamental_precomp
+        domains, basis, domains_index = self.pick_fundamental_precomp
 
         def query(points):
             n_points, n_dim = points.shape
@@ -266,20 +269,28 @@ class ComplexSpherical(BaseComplexSpherical):
             baries = baries[r, best]
             return d, baries
 
-        if domain is None:
+        if domain_idx is None:
             domain, baries = query(points)
+            baries /= baries.sum(axis=1, keepdims=True)
+            return domain, baries
+        elif domain_idx is True:
+            domain, baries = query(points)
+            baries /= baries.sum(axis=1, keepdims=True)
+            domain_idx = npi.indices(domains_index, domain)
+            return domain, baries, domain_idx
         else:
-            raise NotImplementedError('Need to think about how to cache fundamental domain hits. cache the primal/dual query?')
-            baries = np.einsum('tcv,tc->tv', basis[domain], points)
+            baries = np.einsum('tcv,tc->tv', basis.reshape((-1, ) + basis.shape[-2:])[domain_idx], points)
+            domain = domains.reshape(-1, domains.shape[-1])[domain_idx]
             update = np.any(baries < 0, axis=1)
             if np.any(update):
-                domain = domain.copy()
+                domain_idx = domain_idx.copy()
                 d, b = query(points[update])
-                domain[update] = d
+                domain_idx[update] = npi.indices(domains_index, d)
                 baries[update] = b
+                domain[update] = d
+                baries /= baries.sum(axis=1, keepdims=True)
+            return domain, baries, domain_idx
 
-        baries /= baries.sum(axis=1, keepdims=True)
-        return domain, baries
 
     def pick_primal_alt(self, points, simplex=None):
         """
@@ -465,8 +476,8 @@ class ComplexSpherical(BaseComplexSpherical):
     @cached_property
     def cached_averages(self):
         # note: weighted average is more correct, but the difference appears very minimal in practice
-        # return self.weighted_average_operators()
-        return self.topology.dual.averaging_operators_0()
+        return self.weighted_average_operators()
+        # return self.topology.dual.averaging_operators_0
 
     def average_dual(self, d0):
         return [a * d0 for a in self.cached_averages]

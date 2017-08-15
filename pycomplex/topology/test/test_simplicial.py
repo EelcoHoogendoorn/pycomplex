@@ -90,7 +90,7 @@ def test_fundamental_domains():
         print(n)
         print()
         simplex = synthetic.n_simplex(n)
-        simplex.vertices = np.dot(simplex.vertices, linalg.orthonormalize(np.random.randn(n, n)))
+        simplex = simplex.copy(vertices = np.dot(simplex.vertices, linalg.orthonormalize(np.random.randn(n, n))))
 
         domains = simplex.topology.fundamental_domains()
         # import matplotlib.pyplot as plt

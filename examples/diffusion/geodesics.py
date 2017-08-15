@@ -16,23 +16,7 @@ from pycomplex.complex.simplicial import ComplexTriangularEuclidian3
 class MyComplex(ComplexTriangularEuclidian3):
     """Subclass that implements the divergence and gradient operators specific to the paper 'Geodesics In Heat'"""
 
-    def remap_edges(self, field):
-        """Given a quantity computed on each triangle-edge, sum the contributions from each incident triangle
-
-        Parameters
-        ----------
-        field : ndarray, [n_triangles, 3], float
-            a quantity defined on each edge of all
-
-        Returns
-        -------
-        field : ndarray, [n_edges], float
-        """
-        I21 = self.topology.incidence[2, 1]   # [n_triangles, 3], edge indices
-        _, field = npi.group_by(I21.flatten()).sum(field.flatten())
-        return field
-
-    def triangle_edge_vectors(self, oriented):
+    def triangle_edge_vectors(self, oriented=True):
         """Compute geometrical edge vectors of each edge of all triangles
 
         Parameters
@@ -69,7 +53,7 @@ class MyComplex(ComplexTriangularEuclidian3):
         """
         E20 = self.topology.incidence[2, 0]
 
-        vecs = self.triangle_edge_vectors(oriented=True)
+        vecs = self.triangle_edge_vectors()
         normals, triangle_area = linalg.normalized(self.triangle_normals(), return_norm=True)
         gradient = (field[E20][:, :, None] * np.cross(normals[:, None, :], vecs)).sum(axis=1)
         return gradient / (2 * triangle_area[:, None])
@@ -90,11 +74,11 @@ class MyComplex(ComplexTriangularEuclidian3):
         T01, T12 = self.topology.matrices
         div = T01
 
-        vecs = self.triangle_edge_vectors(oriented=False)
+        vecs = self.triangle_edge_vectors()
         primal_tangent_flux = linalg.dot(vecs, field[:, None, :])   # [n_triangles, 3]
 
         cotan = 1 / np.tan(self.compute_triangle_angles)
-        dual_normal_flux = self.remap_edges(primal_tangent_flux * cotan) / 2
+        dual_normal_flux = self.remap_boundary_N(primal_tangent_flux * cotan) / 2
         return div * dual_normal_flux
 
     def geodesic(self, seed, scale=None):
@@ -115,7 +99,7 @@ class MyComplex(ComplexTriangularEuclidian3):
         http://www.multires.caltech.edu/pubs/GeodesicsInHeat.pdf
 
         """
-        # diffuse seed to get gradient map of. paper uses implicit method, but this is fine here
+        # diffuse seed to get gradient map of. paper uses implicit method, but explicit is fine here for demonstration
         from examples.diffusion.explicit import Diffusor
         D = Diffusor(self)
         if scale is None:
@@ -135,7 +119,7 @@ if __name__ == '__main__':
 
     # create an interesting shape to compute geodesics over
     letter = create_letter(3).as_23().to_simplicial().as_3()
-    letter = MyComplex(vertices=letter.vertices, topology=letter.topology)
+    letter = MyComplex(vertices=letter.vertices, topology=letter.topology)#.optimize_weights()
 
     seed = letter.topology.chain(0, dtype=np.float)
     # pick a point on the surface and give it a seed
@@ -143,7 +127,7 @@ if __name__ == '__main__':
     seed[idx] = 1
     geo = letter.geodesic(seed)
 
-    letter.vertices = np.dot(letter.vertices, linalg.power(linalg.orthonormalize(np.random.randn(3, 3)), 0.2))
+    letter = letter.copy(vertices = np.dot(letter.vertices, linalg.power(linalg.orthonormalize(np.random.randn(3, 3)), 0.2)))
     letter.plot_3d(plot_dual=False, backface_culling=True, plot_vertices=False)
     letter.plot_primal_0_form(geo)
     plt.show()

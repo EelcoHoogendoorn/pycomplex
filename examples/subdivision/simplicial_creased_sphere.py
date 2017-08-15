@@ -9,7 +9,7 @@ from pycomplex.math import linalg
 
 sphere = synthetic.icosahedron().as_euclidian()
 # map sphere complex to triangle complex
-sphere.vertices = np.dot(sphere.vertices, linalg.orthonormalize(np.random.randn(3, 3)))
+sphere = sphere.copy(vertices=np.dot(sphere.vertices, linalg.orthonormalize(np.random.randn(3, 3))))
 
 # set every third edge to be crease
 crease1 = sphere.topology.range(1) % 3 == 0

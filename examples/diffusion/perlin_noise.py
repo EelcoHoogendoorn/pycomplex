@@ -40,7 +40,7 @@ def perlin_noise(complex, octaves):
 
 
 if __name__ == '__main__':
-    sphere = synthetic.icosphere(refinement=6).copy(radius=30)
+    sphere = synthetic.icosphere(refinement=5).copy(radius=30).optimize_weights()
 
     field = perlin_noise(
         sphere,
@@ -65,7 +65,7 @@ if __name__ == '__main__':
     ]
     R = linalg.power(R, 1./30)
 
-    path = r'c:\development\examples\planet_perlin_1'
+    path = r'c:\development\examples\planet_perlin_2'
 
     for i in save_animation(path, frames=30*4, overwrite=True):
         sphere = sphere.copy(vertices=np.dot(sphere.vertices, R))

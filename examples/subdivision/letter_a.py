@@ -100,7 +100,7 @@ def create_letter_3d(quads, subdivisions=2):
         # plt.axis('equal')
         plt.show()
     # test if operator approach gives identical results
-    grid.vertices = total_operator * original.vertices
+    grid = grid.copy(vertices=total_operator * original.vertices)
 
     return grid.as_23()
 
@@ -119,7 +119,7 @@ if __name__ == '__main__':
 
     # add random rotation
     np.random.seed(6)
-    letter.vertices = np.dot(letter.vertices, linalg.orthonormalize(np.random.randn(3, 3)))
+    letter = letter.copy(vertices=np.dot(letter.vertices, linalg.orthonormalize(np.random.randn(3, 3))))
 
     letter.plot(plot_dual=False, plot_vertices=False)
 
