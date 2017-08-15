@@ -217,6 +217,13 @@ class BaseComplex(object):
         """Returns true if all dual metrics are positive"""
         return all([np.all(m > 0) for m in self.dual_metric])
 
+    def dual_edge_excess(self):
+        PP = self.primal_position
+        B = self.topology._boundary[-1]
+        delta = PP[-1][:, None, :] - PP[-2][B]
+        sign = np.sign(self.primal_barycentric[-1])
+        return linalg.dot(delta, delta) * sign
+
     def optimize_weights(self):
         """Optimize the weights of a simplicial complex, to improve positivity of the dual metric,
         and the condition number of equations based on their hodges.
@@ -232,10 +239,16 @@ class BaseComplex(object):
         Notes
         -----
         This is a simplification of the method in the references below.
-        Note that the current version is only dimensionally correct for topology.n_dim = 2;
-        need to work on that.
 
         There is a strong link between this and the dual optimization done to derive weights for primal simplex picking
+
+        The logic here emphasises the balancing of dual edge excess at each edge.
+        Each dual edge length is directly related to the primal vertex weights;
+        and we obtain a set of equations in terms of primal vertex weights,
+        by forming the normal equations.
+
+        We solve these over-determined equations for the vertex weights using a few jacobi iterations,
+        since global redistribution of weights is not desirable.
 
         References
         ----------
@@ -249,14 +262,7 @@ class BaseComplex(object):
         DNDn = T
         laplacian = DNDn * P1P0
 
-        PP = self.primal_position
-        B = self.topology._boundary[-1]
-        tri_edge = PP[-2][B]
-        delta = PP[-1][:, None, :] - tri_edge
-        sign = np.sign(self.primal_barycentric[-1])
-        d = np.linalg.norm(delta, axis=2) ** 2
-
-        field = self.remap_boundary_0(d * sign)
+        field = self.remap_boundary_0(self.dual_edge_excess())
 
         # We do only a few iterations of jacobi iterations to solve our equations,
         # since in practice local redistributions of dual edge length are the only ones of interest
@@ -301,6 +307,10 @@ class BaseComplex(object):
         IN0 = self.topology.elements[-1]
         _, field = npi.group_by(IN0.flatten()).sum((field).flatten())
         return field
+
+    def weights_to_offsets(self, weights):
+        """Convert power dual weights to offsets in an orthogonal coordinate"""
+        return np.sqrt(-weights + weights.max())
 
 
 class BaseComplexEuclidian(BaseComplex):

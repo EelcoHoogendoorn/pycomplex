@@ -102,14 +102,7 @@ class ComplexSpherical(BaseComplexSpherical):
         """Cached precomputations for spherical picking operations"""
         c = self.primal_position[0]
         if self.weights is not None:
-            # weights are the r2 to be added to the distance in the plane
-            # high weight should lead to low-sitting point
-            w = self.weights
-            # w = np.sqrt(self.weights)
-            # r = np.sqrt(self.weights)
-            w = w - w.max()
-            offsets = np.power(-w, 0.5)
-            # offsets = -w
+            offsets = self.weights_to_offsets(self.weights)
             c = np.concatenate([c, offsets[:, None]], axis=1)
         tree = scipy.spatial.cKDTree(c)
         basis = np.linalg.inv(self.vertices[self.topology.elements[-1]])
@@ -193,25 +186,25 @@ class ComplexSpherical(BaseComplexSpherical):
         that then gives face and edge in one swoop. tri would have angle >> 90 degree typically though,
         so does not work great with this picking strategy
 
+        Notes
+        -----
+        As it turned out, the logic for optimizing the primal vertex weights is eerily similar;
+        not sure I fully grasp all the implications thereof.
         """
         assert self.topology.is_closed
-        assert self.positive_dual_metric
+        # assert self.positive_dual_metric
 
-        PP = self.primal_position
-
-        tri_edge = PP[-2][self.topology._boundary[-1]]
-        delta = PP[-1][:, None, :] - tri_edge
-        sign = np.sign(self.primal_barycentric[-1])
-        d = np.linalg.norm(delta, axis=2) ** 2
-        q = self.remap_boundary_N(d * sign)
+        q = self.remap_boundary_N(self.dual_edge_excess())
 
         T = self.topology.matrices[-1]
         L = T.T * T
         rhs = T.T * q
-        weight = scipy.sparse.linalg.minres(L, rhs, tol=1e-16)[0]
-        weight -= weight.max()
-        offset = (-weight) ** 0.5
 
+        weight = scipy.sparse.linalg.minres(L, rhs, tol=1e-16)[0]
+
+        offset = self.weights_to_offsets(weight)
+
+        PP = self.primal_position
         augmented = np.concatenate([PP[-1], offset[:, None]], axis=1)
         tree = scipy.spatial.cKDTree(augmented)
 
@@ -249,7 +242,7 @@ class ComplexSpherical(BaseComplexSpherical):
         def query(points):
             n_points, n_dim = points.shape
             # FiXME: can be unified with its own tree; midpoint between primals and duals
-            if self.positive_dual_metric:
+            if False and self.positive_dual_metric:
                 primal, bary = self.pick_primal_alt(points)
             else:
                 # revert to slower method for badly inverted geometry
@@ -264,6 +257,7 @@ class ComplexSpherical(BaseComplexSpherical):
             b = b[s].reshape(n_points, -1, n_dim, n_dim)
 
             # now get the best fitting domain from the selected set
+            # FIXME: how to handle inverted domains?
             baries = np.einsum('tpcv,tc->tpv', b, points)
             quality = (baries * (baries < 0)).sum(axis=2)
             best = np.argmax(quality, axis=1)

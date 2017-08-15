@@ -51,7 +51,6 @@ Todo
     - Black box multigrid (at least for 0-forms)
     - Multigrid eigen solver
 - Implement picking on euclidian simplicial complexes (requires dealing with non-acute simplices)
-- Implement hodge-optimized meshes (http://www.geometry.caltech.edu/pubs/MMdGD11.pdf)
 - Implement geometric elasticity (http://imechanica.org/files/Geometry_Elasticity.pdf)
 - Clean up boundary condition handling in examples
 - Replace ugly casting system with some more automagic dynamic dispatch

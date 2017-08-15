@@ -210,7 +210,6 @@ def optimal_delaunay_sphere(n_points, n_dim, iterations=50):
 
     def push_points(points, r=5, magnitude=.1):
         r = r / np.power(n_points, 1 / (n_dim - 1))
-        print(r)
         tree = scipy.spatial.cKDTree(points)
         s, e = tree.query_pairs(r=r, output_type='ndarray').T
         n, d = linalg.normalized(points[s] - points[e], return_norm=True)

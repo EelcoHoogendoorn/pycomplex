@@ -51,10 +51,20 @@ def render_frame(p, x, y, z):
         # print(distance)
         # this is simply the stepping operation
         ray = np.einsum('...ij,...j->...i', ray_step, ray)
-        simplex, bary = space.pick_primal_alt(ray.reshape(-1, 4), simplex=simplex)  # caching simplex makes a huge speed difference!
-        bary = bary.reshape(resolution + (4,))
-        # try and see if we hit an edge
-        edge_hit = (bary < 0.01).sum(axis=2) >= 2
+        if False:
+            # visualize primal edges
+            simplex, bary = space.pick_primal_alt(ray.reshape(-1, 4), simplex=simplex)  # caching simplex makes a huge speed difference!
+            bary = bary.reshape(resolution + (4,))
+            # try and see if we hit an edge
+            edge_hit = (bary < 0.01).sum(axis=-1) >= 2
+        else:
+            # visualize dual edges instead
+            # FIXME: add caching
+            domains, bary = space.pick_fundamental(ray.reshape(-1, 4))
+            simplex = domains[:, -1]
+            bary = bary.reshape(resolution + (4,))
+            edge_hit = bary[..., :-2].sum(axis=-1) <= 0.02 # last two baries are dual cell center and its boundary
+
         draw = np.logical_and(edge_hit, pick==-1)
         pick[draw] = simplex.reshape(resolution)[draw]
         depth[draw] = distance
@@ -80,9 +90,10 @@ if __name__ == '__main__':
 
     if True:
         # visualize a randomly tesselated space
-        space = synthetic.optimal_delaunay_sphere(n_dim=4, n_points=200)
+        space = synthetic.optimal_delaunay_sphere(n_dim=4, n_points=200, iterations=20)
+        space.optimize_weights()
         stepsize = .2  # ray step size in degrees
-        max_distance = 360  # trace rays all around the universe
+        max_distance = 90  # trace rays all around the universe
         fov = 1  # higher values give a wider field of view
         resolution = (512, 512)  # in pixels
 

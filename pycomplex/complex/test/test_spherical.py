@@ -141,7 +141,7 @@ def test_picking_alt():
 
 def test_picking_alt_visual():
     for n_dim in [3]:
-        sphere = synthetic.optimal_delaunay_sphere(400, n_dim, iterations=50)
+        sphere = synthetic.optimal_delaunay_sphere(100, n_dim, iterations=20)
         # sphere.weights = np.random.uniform(0, 0.05, 400)
         sphere = sphere.optimize_weights()
 
@@ -161,8 +161,7 @@ def test_picking_alt_visual():
         plt.imshow(color)
         plt.show()
 
-
-# test_picking_alt_visual()
+test_picking_alt_visual()
 
 def test_picking_fundamental_visual():
     # subs=3
@@ -171,9 +170,9 @@ def test_picking_fundamental_visual():
     #     # weights=np.random.uniform(0, 0.2 / (2**subs), sphere.topology.n_elements[0]),
     #     vertices=np.dot(sphere.vertices, linalg.orthonormalize(np.random.randn(3, 3))),
     # )
-    # sphere = synthetic.optimal_delaunay_sphere(800, 3, iterations=50)
+    sphere = synthetic.optimal_delaunay_sphere(80, 3, iterations=20)
 
-    sphere = synthetic.n_cube_dual(3).as_2().subdivide().subdivide().subdivide()
+    # sphere = synthetic.n_cube_dual(3).as_2().subdivide().subdivide().subdivide()
 
     sphere.plot(backface_culling=True)
     plt.autoscale(tight=True)
@@ -204,7 +203,7 @@ def test_picking_fundamental_visual():
     plt.imshow(color.T[::-1, ::+1], cmap='bwr')
     plt.show()
 
-# test_picking_fundamental_visual()
+test_picking_fundamental_visual()
 
 
 def test_fundamental_subdivide():
@@ -221,4 +220,4 @@ def test_fundamental_subdivide():
     plt.show()
 
 
-test_fundamental_subdivide()
+# test_fundamental_subdivide()
