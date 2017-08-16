@@ -102,11 +102,20 @@ class ComplexSpherical(BaseComplexSpherical):
         """Cached precomputations for spherical picking operations"""
         c = self.primal_position[0]
         if self.weights is not None:
+            # NOTE: if using this for primal simplex picking, we could omit the weights
             offsets = self.weights_to_offsets(self.weights)
             c = np.concatenate([c, offsets[:, None]], axis=1)
         tree = scipy.spatial.cKDTree(c)
         basis = np.linalg.inv(self.vertices[self.topology.elements[-1]])
         return tree, basis
+
+    def pick_primal_brute(self, points):
+        """Added for debugging purposes"""
+        _, basis = self.pick_precompute
+        baries = np.einsum('bcv,pc->bpv', basis, points)
+        quality = (baries * (baries < 0)).sum(axis=-1)
+        simplex_index = np.argmax(quality, axis=0)
+        return simplex_index
 
     def pick_primal(self, points, simplex_idx=None):
         """Pick triangles and their barycentric coordinates on the sphere
@@ -129,6 +138,7 @@ class ComplexSpherical(BaseComplexSpherical):
         Probably not super efficient, but it is fully vectorized, and fully n-dim
 
         """
+        assert self.is_well_centered    # this is needed such that the ring of triangles logic works
         tree, basis = self.pick_precompute
 
         def query(points):
@@ -142,7 +152,6 @@ class ComplexSpherical(BaseComplexSpherical):
             quality = (baries * (baries < 0)).sum(axis=1)
             _, best = npi.group_by(point_idx).argmax(quality)   # point_idx already sorted; can we make an optimized index for that?
             simplex_index, baries = simplex_index[best], baries[best]
-            # normalize
             return simplex_index, baries
 
         if simplex_idx is None:
@@ -165,48 +174,6 @@ class ComplexSpherical(BaseComplexSpherical):
             vertices=np.concatenate(self.primal_position, axis=0),
             topology=self.topology.subdivide_fundamental()
         )
-
-    @cached_property
-    def pick_primal_alt_precomp(self):
-        """Can we find a power/weight for each dual such that nearest weighted dual vertex gives us the primal element?
-        think so! for each element, compute the distance to all its bounding elements.
-        the diff of that distance is the required diff in weight over a dual edge.
-        to find weights satisfying that diff, is essentially the dual of streamfunction;
-        we have a dual 1-form that is closed wrt dual 2-form by construction
-
-        how to handle boundary? just discard negative baries?
-
-        can we generalize this to any element? query nearest edges, f.i?
-        edge query seems hard. we can split our simplex however, by inserting a vert in the middle only
-        that should give a new mesh that we can apply the same primal-picking logic to
-        that then gives face and edge in one swoop. tri would have angle >> 90 degree typically though,
-        so does not work great with this picking strategy
-
-        Notes
-        -----
-        As it turned out, the logic for optimizing the primal vertex weights is eerily similar;
-        not sure I fully grasp all the implications thereof.
-        """
-        assert self.topology.is_closed
-        # assert self.positive_dual_metric  # implement spherical metric in higher dimensions so we can enable this
-
-        q = self.remap_boundary_N(self.dual_edge_excess())
-
-        T = self.topology.matrices[-1]
-        L = T.T * T
-        rhs = T.T * q
-
-        weight = scipy.sparse.linalg.minres(L, rhs, tol=1e-16)[0]
-
-        offset = self.weights_to_offsets(weight)
-
-        PP = self.primal_position
-        augmented = np.concatenate([PP[-1], offset[:, None]], axis=1)
-        tree = scipy.spatial.cKDTree(augmented)
-
-        basis = np.linalg.inv(self.vertices[self.topology.elements[-1]])
-
-        return tree, basis
 
     @cached_property
     def pick_fundamental_precomp(self):
@@ -291,8 +258,53 @@ class ComplexSpherical(BaseComplexSpherical):
                 baries /= baries.sum(axis=1, keepdims=True)
             return domain, baries, domain_idx
 
+    @cached_property
+    def pick_primal_alt_precomp(self):
+        """Can we find a power/weight for each dual such that nearest weighted dual vertex gives us the primal element?
+        think so! for each element, compute the distance to all its bounding elements.
+        the diff of that distance is the required diff in weight over a dual edge.
+        to find weights satisfying that diff, is essentially the dual of streamfunction;
+        we have a dual 1-form that is closed wrt dual 2-form by construction
+
+        how to handle boundary? just discard negative baries?
+
+        can we generalize this to any element? query nearest edges, f.i?
+        edge query seems hard. we can split our simplex however, by inserting a vert in the middle only
+        that should give a new mesh that we can apply the same primal-picking logic to
+        that then gives face and edge in one swoop. tri would have angle >> 90 degree typically though,
+        so does not work great with this picking strategy
+
+        Notes
+        -----
+        As it turned out, the logic for optimizing the primal vertex weights is eerily similar;
+        not sure I fully grasp all the implications thereof.
+        """
+        assert self.topology.is_closed
+        assert self.is_pairwise_delaunay    # if centroids cross eachother, this method fails
+
+        # constructs offsets required
+        q = self.remap_boundary_N(self.dual_edge_excess(signed=False))
+        T = self.topology.matrices[-1]
+        L = T.T * T
+        rhs = T.T * q
+        # rhs = rhs - rhs.mean()
+        weight = scipy.sparse.linalg.minres(L, rhs, tol=1e-16)[0]
+        # print(weight.min(), weight.max())
+        offset = self.weights_to_offsets(weight)
+
+        # PP = self.primal_position
+        # this is like primal position, but without the normalization. otherwise, our dual edge excess should also be in spherical coordinates
+        corners = self.vertices[self.topology.elements[-1]]
+        dual_vertex = np.einsum('...cn,...c->...n', corners, self.primal_barycentric[-1])
+        augmented = np.concatenate([dual_vertex, offset[:, None]], axis=1)
+        tree = scipy.spatial.cKDTree(augmented)
+
+        basis = np.linalg.inv(corners)
+
+        return tree, basis
+
     def pick_primal_alt(self, points, simplex=None):
-        """Picking of primal domain by means of
+        """Picking of primal simplex by means of a point query wrt its dual vertex
 
         Parameters
         ----------
@@ -302,7 +314,12 @@ class ComplexSpherical(BaseComplexSpherical):
         Returns
         -------
 
+        Notes
+        -----
+        Seems to work fine; except when it does not.
+        This strikes me as a numerical stability issue rather than an error in the logic here
         """
+        assert self.is_pairwise_delaunay
         tree, basis = self.pick_primal_alt_precomp
 
         def query(points):
@@ -328,7 +345,8 @@ class ComplexSpherical(BaseComplexSpherical):
         return simplex, baries
 
     def pick_dual(self, points):
-        """Pick the dual elements
+        """Pick the dual elements. By definition of the voronoi dual,
+        this lookup can be trivially implemented as a closest-point query
 
         Returns
         -------
@@ -340,9 +358,9 @@ class ComplexSpherical(BaseComplexSpherical):
         tree, _ = self.pick_precompute
         # finding the dual face we are in is as simple as finding the closest primal vertex,
         # by virtue of the definition of duality
-        _, dual_face_index = tree.query(points)
+        _, dual_element_index = tree.query(points)
 
-        return dual_face_index
+        return dual_element_index
 
     @cached_property
     def pick_cube_precompute(self):
@@ -364,30 +382,33 @@ class ComplexSpherical(BaseComplexSpherical):
 
         weight = scipy.sparse.linalg.minres(L, rhs, tol=1e-16)[0]
 
-        offset = self.weights_to_offsets(weight / np.sqrt(2))
+        # offset = self.weights_to_offsets(weight) / 8 * 7
+        offset = self.weights_to_offsets(weight) / 2
 
-        PP = self.primal_position
+        # PP = self.primal_position
+        PP = [(np.einsum('...cn,...c->...n', self.vertices[c], b))
+                for c, b in zip(self.topology.corners, self.primal_barycentric)]
+
         IN0 = self.topology.elements[-1]
         n_corners = IN0.shape[-1]
         P_idx = np.arange(IN0.size) // n_corners
         D_idx = IN0.flatten()
         # FIXME: how to locate the sampling points? midpoints of unweighted centroids?
-        mid = linalg.normalized(PP[0][D_idx] + PP[-1][P_idx] * 10)
+        mid = linalg.normalized(PP[0][D_idx] + PP[-1][P_idx] * 1)
 
         # FIXME: can we construct some type of basis that will inform us of fundamental domain we are in, in a single call?
         # all fundamental domains meet at both primal and dual vertex. lines seperating them must be linear equations
         augmented = np.concatenate([mid, np.repeat(offset[:, None], n_corners, axis=1).reshape(-1, 1)], axis=1)
         tree = scipy.spatial.cKDTree(augmented)
-        return tree
-
+        return tree, P_idx, D_idx
 
     def pick_cube(self, points):
         points = np.concatenate([points, np.zeros_like(points[:, :1])], axis=1)
 
-        tree = self.pick_cube_precompute
+        tree, P_idx, D_idx = self.pick_cube_precompute
         _, idx = tree.query(points)
-        return idx
 
+        return idx
 
     @cached_property
     def metric(self):
@@ -404,7 +425,7 @@ class ComplexSpherical(BaseComplexSpherical):
         """
         topology = self.topology
         assert topology.is_oriented
-        # assert self.is_well_centered
+        assert self.is_well_centered
         PP = self.primal_position
         domains = self.topology.fundamental_domains()
 
@@ -438,21 +459,6 @@ class ComplexSpherical(BaseComplexSpherical):
             [m * (self.radius ** i) for i, m in enumerate(PM)],
             [m * (self.radius ** i) for i, m in enumerate(DM)]
         )
-
-    @cached_property
-    def is_well_centered(self):
-        """Test that circumcenter is inside each simplex
-
-        Notes
-        -----
-        code duplication with simplicial complex; need a mixin class i think
-        """
-        import pycomplex.geometry.euclidian
-        corners = self.vertices[self.topology.corners[-1]]
-        mean = corners.mean(axis=-2, keepdims=True)  # centering
-        corners = corners - mean
-        bary = pycomplex.geometry.euclidian.circumcenter_barycentric(corners)
-        return np.all(bary >= 0)
 
     def weighted_average_operators(self):
         """Weight averaging over the duals by their barycentric coordinates
@@ -527,13 +533,36 @@ class ComplexSpherical(BaseComplexSpherical):
         return [a * d0 for a in self.cached_averages]
 
     def sample_dual_0(self, d0, points):
+        """Sample a dual 0-form at the given points, using linear interpolation over fundamental domains
+
+        Parameters
+        ----------
+        d0 : ndarray, [topology.dual.n_elements[0]], float
+        points : ndarray, [n_points, self.n_dim], float
+
+        Returns
+        -------
+        ndarray, [n_points], float
+        """
         # extend dual 0 form to all other dual elements by averaging
         dual_forms = self.average_dual(d0)[::-1]
         domain, bary = self.pick_fundamental(points)
         # do interpolation over fundamental domain
         return sum([dual_forms[i][domain[:, i]] * bary[:, [i]]
                     for i in range(self.topology.n_dim + 1)])
+
     def sample_primal_0(self, p0, points):
+        """Sample a primal 0-form at the given points, using linear interpolation over n-simplices
+
+        Parameters
+        ----------
+        p0 : ndarray, [topology.n_elements[0]], float
+        points : ndarray, [n_points, self.n_dim], float
+
+        Returns
+        -------
+        ndarray, [n_points], float
+        """
         element, bary = self.pick_primal(points)
         IN0 = self.topology.incidence[-1, 0]
         verts = IN0[element]

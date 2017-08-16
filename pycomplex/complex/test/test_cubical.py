@@ -1,3 +1,6 @@
+
+import matplotlib.pyplot as plt
+
 from pycomplex.complex.cubical import *
 from pycomplex.math import linalg
 from pycomplex.synthetic import n_cube, n_cube_grid
@@ -59,7 +62,7 @@ def test_cube():
 
 def test_triangulated_cube():
     cube = n_cube(3)
-    cube = cube.copy(vertices = np.dot(cube.vertices, linalg.orthonormalize(np.random.randn(3, 3))))
+    # cube = cube.copy(vertices = np.dot(cube.vertices, linalg.orthonormalize(np.random.randn(3, 3))))
 
     surface = cube.boundary.as_23()
     # surface = surface.subdivide(smooth=True)
@@ -68,14 +71,16 @@ def test_triangulated_cube():
     # surface.plot_3d(backface_culling=True)
 
     # map back to quads again
-    surface = surface.to_cubical().smooth()
+    surface = surface.subdivide_cubical().smooth()
 
-    surface = surface.subdivide()
+    surface = surface.subdivide().smooth()
     # surface = surface.subdivide()
 
     surface.plot(plot_dual=False)
+    plt.show()
     assert surface.topology.is_oriented
 
+test_triangulated_cube()
 
 def test_cube_grid_2():
     grid = n_cube_grid((2, 3))

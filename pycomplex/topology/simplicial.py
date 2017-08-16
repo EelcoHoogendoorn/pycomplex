@@ -236,6 +236,38 @@ class TopologySimplicial(PrimalTopology):
         simplices[..., 0, :] = np.flip(simplices[..., 0, :], axis=-1)
         return type(self).from_simplices(simplices.reshape(-1, self.n_dim + 1))
 
+    def subdivide_cubical(self):
+        """Perform a subdivision into cubical domains"""
+        N = self.n_elements
+
+        cube_shape = (2, ) * self.n_dim
+        cubes = -np.ones((N[-1], self.n_dim + 1) + cube_shape, dtype=index_dtype)
+        corners = np.indices(cube_shape).reshape(self.n_dim, -1).T.astype(sign_dtype)
+
+        def idx(c):
+            return (Ellipsis, ) + tuple(c)
+
+        cubes[idx(corners[0])] = self.incidence[-1, 0]       # 0 corner is attached to 0-simplices
+        cubes[idx(corners[-1])] = self.range(-1)[..., None]  # -1 corner is attached to n-simplices
+
+        if self.n_dim == 2:
+            I21 = self.incidence[2, 1]
+            cubes[:, :, 1, 0] = np.roll(I21, -1, axis=1)
+            cubes[:, :, 0, 1] = np.roll(I21, +1, axis=1)
+        # work out 3d case and see if it generalizes to n-d
+        if self.n_dim == 3:
+            I32 = self.incidence[3, 2]
+            # sum of corners == 2; connect to 2-simplices
+            cubes[:, :, 0, 1, 1] = np.roll(I32, 1, axis=1)
+            cubes[:, :, 1, 0, 1] = np.roll(I32, 2, axis=1)
+            cubes[:, :, 1, 1, 0] = np.roll(I32, 3, axis=1)
+
+            I31 = self.incidence[3, 1]  # this doesnt exist yet, actually
+            cubes[:, :, 1, 0, 0] = np.roll(I31, 1, axis=1)
+
+        from pycomplex.topology.cubical import TopologyCubical
+        return TopologyCubical.from_cubes(cubes.reshape((-1,) + cube_shape))
+
 
 class TopologyTriangular(TopologySimplicial):
 
@@ -402,18 +434,19 @@ class TopologyTriangular(TopologySimplicial):
             (fine.range(2),                          np.repeat(coarse.range(2), 4)),
         ]
 
-    def to_cubical(self):
+    def subdivide_cubical(self):
         """Convert the triangular complex into a cubical complex,
         by forming 3 quads from each triangle
 
         Notes
         -----
-        Can generalize this to n-d; cube as union of fundamental domains
+        We can generalize this to n-d; cube as union of fundamental domains
         Grab all domains sharing a primal-dual combination
         opposite corners are primal/dual vert
         how to connect other cube corners though? can we derive this from the structuring of fundamental domain arrays?
+        Does the 2d roll logic generalize somehow?
 
-        Note that this is better named cubical_subdivision, to contrast with the pure cast that to_cubical implies in the 1d case
+        And what about orientation?
         """
         N0, N1, N2 = self.n_elements
         I20 = self.incidence[2, 0]

@@ -69,11 +69,12 @@ def test_ico():
     assert sphere.topology.is_oriented
 
 
-def test_to_cubical():
+def test_subdivide_cubical():
     """Test that mapping to cubical retains orientation"""
     sphere = synthetic.icosphere(refinement=0).as_euclidian()
     assert sphere.topology.is_oriented
-    quads = sphere.as_2().to_cubical()
+    quads = sphere.as_2().subdivide_cubical()
+    quads = sphere.as_2().subdivide_cubical()
     assert quads.topology.is_oriented
 
 

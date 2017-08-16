@@ -189,13 +189,17 @@ def hexacosichoron():
     return ComplexSpherical(vertices=vertices, topology=topology)
 
 
-def optimal_delaunay_sphere(n_points, n_dim, iterations=50):
-    """Try and construct an optimal delaunay mesh on the sphere, in the sense described in [1]
+def optimal_delaunay_sphere(n_points, n_dim, iterations=50, weights=True, push_iterations=10, condition='delaunay'):
+    """Try and construct an optimal delaunay mesh on the sphere, in the sense described in [1],
+    by repeated averaging over dual centroid positions
 
     References
     ----------
     [1] https://www.math.uci.edu/~chenlong/mesh.html
 
+    Notes
+    -----
+    This tends to rapidly produce well-centered triangles; but tets are another matter already
     """
     # FIXME: convergence here is extremely sensitive to parameter tuning, and only really seems to converge in the n=3 case
     points = np.random.randn(n_points, n_dim)
@@ -206,6 +210,8 @@ def optimal_delaunay_sphere(n_points, n_dim, iterations=50):
         delaunay = scipy.spatial.ConvexHull(points)
         topology = TopologySimplicial.from_simplices(delaunay.simplices).fix_orientation()
         complex = ComplexSpherical(vertices=points, topology=topology)
+        if weights:
+            complex = complex.optimize_weights()
         return complex
 
     def push_points(points, r=5, magnitude=.1):
@@ -222,18 +228,22 @@ def optimal_delaunay_sphere(n_points, n_dim, iterations=50):
 
     for i in range(iterations):
         print(i)
-        for i in range(0):
+        for i in range(push_iterations):
             points = push_points(points)
         complex = complex_from_points(points)
         cc = complex.dual_position[0]
         from pycomplex.geometry import euclidian
         W = euclidian.unsigned_volume(complex.vertices[complex.topology.corners[-1]])[:, None]
-        # W = complex.primal_metric[-1][:, None]
         A = complex.topology.averaging_operators_N[0]
-        # take the average at each dual n-simplex, of all incident
+        # take the average at each dual vertex, of all incident n-simplices
         points = (A * (cc * W)) / (A * W)
         complex = complex_from_points(points)
-        if complex.is_well_centered:
-            break
+
+        if condition == 'delaunay':
+            if complex.is_pairwise_delaunay:
+                break
+        if condition == 'centered':
+            if complex.is_well_centered:
+                break
 
     return complex

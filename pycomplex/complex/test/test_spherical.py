@@ -143,35 +143,45 @@ def test_picking_alt():
 
 def test_picking_alt_visual():
     for n_dim in [3]:
-        sphere = synthetic.optimal_delaunay_sphere(100, n_dim, iterations=20)
+        sphere = synthetic.optimal_delaunay_sphere(100, n_dim, iterations=1, push_iterations=5, condition=None)
+        assert sphere.topology.is_oriented
         # sphere = sphere.copy(weights = np.random.uniform(0, 0.05, 400))
-        sphere = sphere.optimize_weights()
+        # sphere = sphere.optimize_weights()
+        sphere = sphere.copy(weights=None)
+        print(sphere.is_well_centered)
 
-        p = np.linspace(-1, +1, 1024, endpoint=True)
+        p = np.linspace(-1, +1, 256, endpoint=True)
         x, y = np.meshgrid(p, p)
         r2 = x ** 2 + y ** 2
         mask = r2 < 1
         z = np.sqrt(1 - np.clip(r2, 0, 1))
 
         points = np.array([x, y, z]).T
-        # domain, bary = sphere.pick_primal_alt(points.reshape(-1, 3))
-        # assert np.all(domain == cube_idx)
-        # domain, bary = sphere.pick_primal(points.reshape(-1, 3))
+        if True:
+            # alt primal picking
+            # domain, bary = sphere.pick_primal_alt(points.reshape(-1, 3))
+            domain, bary = sphere.pick_primal(points.reshape(-1, 3))
+            # domain = sphere.pick_primal_brute(points.reshape(-1, 3))
 
-        # color = bary.reshape(len(p), len(p), 3)
-
-        cube_idx = sphere.pick_cube(points.reshape(-1, 3))
-        cube_idx = cube_idx.reshape(len(p), len(p))
-        p = np.random.permutation(sphere.topology.n_elements[-1] * 6)
-        cube_idx = p[cube_idx]
+            print(bary.min(), bary.max())
+            # color = domain.reshape(len(p), len(p))
+            # p = np.random.permutation(sphere.topology.n_elements[-1])
+            # color = p[color]
+            color = bary.reshape(len(p), len(p), 3)
+        elif True:
+            # cube picking
+            cube_idx = sphere.pick_cube(points.reshape(-1, 3))
+            cube_idx = cube_idx.reshape(len(p), len(p))
+            p = np.random.permutation(sphere.topology.n_elements[-1] * 6)
+            color = p[cube_idx]
 
         import matplotlib.pyplot as plt
-        # plt.imshow(color)
-        plt.imshow(cube_idx, cmap='jet')
+        plt.imshow(color, cmap='jet')
         plt.show()
 
 
 test_picking_alt_visual()
+quit()
 
 def test_picking_fundamental_visual():
     # subs=3
@@ -186,9 +196,6 @@ def test_picking_fundamental_visual():
 
     sphere.plot(backface_culling=True)
     plt.autoscale(tight=True)
-
-    sphere = sphere.optimize_weights()
-
 
 
     sphere.plot(backface_culling=True)

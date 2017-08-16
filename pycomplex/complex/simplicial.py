@@ -156,23 +156,6 @@ class ComplexSimplicial(BaseComplexEuclidian):
 
         return PM, DM
 
-    @cached_property
-    def is_well_centered(self):
-        """Test that circumcenter is inside each simplex
-
-        Notes
-        -----
-        code duplication with spherical complex; need a mixin class i think
-
-        """
-        # FIXME: does not suffice to test for only the N-simplices; need to check lower level too
-        import pycomplex.geometry.euclidian
-        corners = self.vertices[self.topology.corners[-1]]
-        mean = corners.mean(axis=-2, keepdims=True)  # centering
-        corners = corners - mean
-        bary = pycomplex.geometry.euclidian.circumcenter_barycentric(corners)
-        return np.all(bary >= 0)
-
     def weighted_average_operators(self):
         """Weight averaging over the duals by their barycentric coordinates
 
@@ -333,15 +316,12 @@ class ComplexTriangular(ComplexSimplicial):
 
         return fine
 
-    def to_cubical(self):
-        """Convert the simplicial complex into a cubical complex,
-        by forming 3 quads from each triangle and its dual position"""
-        barycenters = [self.vertices[c].mean(axis=1) for c in self.topology.corners]
-
+    def subdivide_cubical(self):
+        """Convert the simplicial complex into a cubical complex"""
         from pycomplex.complex.cubical import ComplexCubical2
         return ComplexCubical2(
-            vertices=np.concatenate(barycenters, axis=0),
-            topology=self.topology.to_cubical()
+            vertices=np.concatenate(self.primal_position, axis=0),
+            topology=self.topology.subdivide_cubical()
         )
 
     def as_2(self):

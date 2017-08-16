@@ -214,7 +214,7 @@ class BaseComplex(object):
         """Returns true if all dual metrics are positive"""
         return all([np.all(m > 0) for m in self.dual_metric])
 
-    def dual_edge_excess(self):
+    def dual_edge_excess(self, signed=True):
         """Compute the 'dual edge excess'
 
         Used in both weight optimization as well as primal simplex picking
@@ -222,13 +222,21 @@ class BaseComplex(object):
         Returns
         -------
         ndarray, [n_N-elements, n_corners], float
+            how deep the circumcenter sits in the simplex, as viewed from each corner,
+            or relative to the face opposite of that corner
             in units of distance-squared
+
+        Notes
+        -----
+        euclidian metric is used here; need to compensate for that in sperical applications
         """
         PP = self.primal_position
         B = self.topology._boundary[-1]
         delta = PP[-1][:, None, :] - PP[-2][B]
-        sign = np.sign(self.primal_barycentric[-1])
-        return linalg.dot(delta, delta) * sign
+        d = linalg.dot(delta, delta)  #* sign
+        if signed:
+            d = d * np.sign(self.primal_barycentric[-1])
+        return d
 
     def optimize_weights(self):
         """Optimize the weights of a simplicial complex, to improve positivity of the dual metric,
@@ -281,7 +289,7 @@ class BaseComplex(object):
         weights = weights * diag
         return self.copy(weights=weights)
 
-    def remap_boundary_N(self, field):
+    def remap_boundary_N(self, field, oriented=True):
         """Given a quantity computed on each n-simplex-boundary, combine the contributions of each incident n-simplex
 
         Parameters
@@ -294,8 +302,10 @@ class BaseComplex(object):
         field : ndarray, [n_n-simplices], float
         """
         INn = self.topology._boundary[-1]
-        ONn = self.topology._orientation[-1]
-        _, field = npi.group_by(INn.flatten()).sum((field * ONn).flatten())
+        if oriented:
+            ONn = self.topology._orientation[-1]
+            field = field * ONn
+        _, field = npi.group_by(INn.flatten()).sum((field).flatten())
         return field
 
     def remap_boundary_0(self, field):
@@ -332,6 +342,16 @@ class BaseComplex(object):
             of the voronoi diagram
         """
         return np.sqrt(-weights + weights.max())
+
+    @cached_property
+    def is_well_centered(self):
+        """Test that circumcenter is inside each simplex"""
+        return all([np.all(b > 0) for b in self.primal_barycentric])
+
+    @cached_property
+    def is_pairwise_delaunay(self):
+        """Test that adjacent circumcenters do not cross eachother, or that dual 1-metric is positive"""
+        return np.all(self.remap_boundary_N(self.dual_edge_excess(), oriented=False) > 0)
 
 
 class BaseComplexEuclidian(BaseComplex):
