@@ -97,7 +97,7 @@ class ComplexSimplicial(BaseComplexEuclidian):
         from pycomplex.complex.cubical import ComplexCubical
         return ComplexCubical(
             vertices=np.concatenate(self.primal_position, axis=0),
-            topology=self.topology.subdivide_cubical().fix_orientation()
+            topology=self.topology.subdivide_cubical()
         )
 
     @cached_property

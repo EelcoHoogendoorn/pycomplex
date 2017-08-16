@@ -252,8 +252,6 @@ class TopologySimplicial(PrimalTopology):
         def idx(c):
             return (Ellipsis, ) + tuple(c)
 
-        domains = self.fundamental_domains()
-
         cubes[idx(corners[0])] = self.incidence[-1, 0]       # 0 corner is attached to 0-simplices
         cubes[idx(corners[-1])] = self.range(-1)[..., None]  # -1 corner is attached to n-simplices
 
@@ -263,6 +261,7 @@ class TopologySimplicial(PrimalTopology):
             cubes[:, :, 0, 1] = np.roll(I21, 2, axis=1)
         elif self.n_dim == 3:
             # work out 3d case and see if it generalizes to n-d
+            # works for 3d, but nd-generalization isnt obvious to me yet
             I32 = self.incidence[3, 2]
             # sum of corners == 2; connect to 2-simplices
             cubes[:, :, 0, 1, 1] = np.roll(I32, 1, axis=1)
@@ -270,67 +269,31 @@ class TopologySimplicial(PrimalTopology):
             cubes[:, :, 1, 1, 0] = np.roll(I32, 3, axis=1)
             # sum of corners == 1; connect to 1-simplices
             # faces above induce an ordering
-            #[1, 0, 0] edge is bordered by [1, 1, 0] and [1, 0, 1] faces
-            # can we easily find edge incident to these two faces?
-            # of course we have vertex id too
-            # group domains by 0 2 and 3-index
-            # should get groups of two
-            # a, b, c ,d = [domains[:, i] for i in range(4)]
-
-            # from each vertex take the opposing ones by rolling
-            # then find the corresponding edge by looking up the pair
-
-            # alternate relation; [1, 0, 0] edge is edge opposite [0, 1, 1] face
-            # so find the edge that does not share a particular face; is that easier?
+            # [1, 0, 0] edge is bordered by [1, 1, 0] and [1, 0, 1] faces
+            # find edge shared by those two faces
 
             def edge_containing_faces(l, r):
-                # find the edge sharing these two faces
-                T = self.matrix(1, 2).tocoo()
-                e, f = T.row, T.col
-                E = sparse_to_elements(T.T)
-                print()
+                # find the edge sharing two faces
+                fl = self.elements[2][l]
+                fr = self.elements[2][r]
+                q = np.concatenate([fl, fr], axis=-1)
+                q.sort(axis=-1)
+                e = q[np.where(q[:, 1:] == q[:, :-1])].reshape(-1, 2)
+                return generate_boundary_indices(self.elements[1], e)
 
-            if True:
-                domains = self.fundamental_domains()
-                domains_ = domains.reshape(-1, 4)
-                _domains = npi.group_by(domains_[:, [0, -1]]).split_array_as_array(domains_)
-                edges = generate_simplex_boundary(self.elements[2])
-                B = self._boundary[-1]
-                Q = edges[B]
+            for i in range(4):
+                l = cubes[:, i, 1, 0, 1]
+                r = cubes[:, i, 1, 1, 0]
+                cubes[:, i, 1, 0, 0] = edge_containing_faces(l, r)
 
-                for n in range(len(cubes)):
-                    for i in range(4):
-                        cube = cubes[n, i]
-                        ds = domains[n, i]
-                        E = Q[n, i]
+                l = cubes[:, i, 0, 1, 1]
+                r = cubes[:, i, 1, 1, 0]
+                cubes[:, i, 0, 1, 0] = edge_containing_faces(l, r)
 
+                l = cubes[:, i, 1, 0, 1]
+                r = cubes[:, i, 0, 1, 1]
+                cubes[:, i, 0, 0, 1] = edge_containing_faces(l, r)
 
-                        o = cubes[n, i, 0, 1, 1]
-                        l = cubes[n, i, 1, 0, 1]
-                        r = cubes[n, i, 1, 1, 0]
-
-                        cubes[n, i, 1, 0, 0] = 0
-
-                        # edge_containing_faces(l, r)
-
-            if False:
-                I30 = self.elements[-1]
-                for i in range(4):
-                    q = np.roll(I30, i, axis=1)
-                    c0 = q[:, 0:1]
-                    o0 = q[:, 1:]
-                    c0 = np.repeat(c0, 3, axis=1)
-                    e0 = np.concatenate([c0[..., None], o0[..., None]], axis=2)
-                    e0 = e0.reshape(-1, 2)
-                    I = npi.indices(np.sort(self.elements[1], axis=1), np.sort(e0, axis=1))
-                    I = I.reshape(-1, 3)
-
-                    cubes[:, i, 1, 0, 0] = I[:, 0]
-                    cubes[:, i, 0, 1, 0] = I[:, 1]
-                    cubes[:, i, 0, 0, 1] = I[:, 2]
-
-            # I31 = self.incidence[3, 1]  # this doesnt exist yet, actually
-            # cubes[:, :, 1, 0, 0] = np.roll(I31, 1, axis=1)
         else:
             # in 4d case, we get 5 4-cubes, with 16 corners
             # having a 1-4-6-4-1 distribution

@@ -13,10 +13,19 @@ def test_subdivide_cubical():
     simplex = simplex.copy(vertices=np.dot(simplex.vertices, linalg.orthonormalize(np.random.randn(3, 3))))
 
     cubes = simplex.subdivide_cubical()
-    cubes.plot()
+    cubes.plot(plot_dual=False)
     plt.show()
 
-test_subdivide_cubical()
+
+def test_subdivide_cubical_many():
+    # sphere = synthetic.hexacosichoron().as_euclidian()
+    sphere = synthetic.n_cube_dual(4).as_euclidian()
+    sphere = sphere.copy(vertices=np.dot(sphere.vertices, linalg.orthonormalize(np.random.randn(4, 4))))
+
+    cubes = sphere.subdivide_cubical()
+    cubes.plot(plot_dual=False)
+    plt.show()
+test_subdivide_cubical_many()
 
 def test_triangular():
     n_dim = 2
@@ -58,6 +67,7 @@ def test_n_simplex():
         assert simplex.topology.boundary.is_closed
 
         simplex.plot(plot_dual=True)
+        plt.show()
 
 
 def test_subdivided_triangle():
@@ -141,4 +151,3 @@ def test_metric_2():
 
     sphere.plot_3d(backface_culling=True)
     plt.show()
-

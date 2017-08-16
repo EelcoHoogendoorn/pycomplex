@@ -86,7 +86,7 @@ def test_from_cubical():
 
 
 def test_fundamental_domains():
-    for n in [1, 2, 3, 4]:
+    for n in [3, 4]:
         print()
         print(n)
         print()
@@ -94,12 +94,12 @@ def test_fundamental_domains():
         simplex = simplex.copy(vertices = np.dot(simplex.vertices, linalg.orthonormalize(np.random.randn(n, n))))
 
         domains = simplex.topology.fundamental_domains()
-        # import matplotlib.pyplot as plt
-        # fig, ax = plt.subplots(1,1)
-        # simplex.plot_domains(ax)
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots(1,1)
+        simplex.plot_domains(ax)
         # simplex.plot(ax, plot_lines=False)
-        # plt.show()
+        plt.show()
         # print(domains.shape)
         # print(domains)
 
-# test_fundamental_domains()
+test_fundamental_domains()

@@ -97,6 +97,10 @@ class ComplexSpherical(BaseComplexSpherical):
     def as_2(self):
         return ComplexSpherical2(vertices=self.vertices, topology=self.topology.as_2())
 
+    def as_euclidian(self):
+        from pycomplex.complex.simplicial import ComplexSimplicial
+        return ComplexSimplicial(vertices=self.vertices, topology=self.topology)
+
     @cached_property
     def pick_precompute(self):
         """Cached precomputations for spherical picking operations"""
@@ -173,6 +177,14 @@ class ComplexSpherical(BaseComplexSpherical):
         return type(self)(
             vertices=np.concatenate(self.primal_position, axis=0),
             topology=self.topology.subdivide_fundamental()
+        )
+
+    def subdivide_cubical(self):
+        """Subdivide the spherical simplical complex into a cubical complex"""
+        from pycomplex.complex.cubical import ComplexCubical
+        return ComplexCubical(
+            vertices=np.concatenate(self.primal_position, axis=0),
+            topology=self.topology.subdivide_cubical()
         )
 
     @cached_property
