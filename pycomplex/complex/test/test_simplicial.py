@@ -4,7 +4,7 @@ import numpy.testing as npt
 import matplotlib.pyplot as plt
 
 from pycomplex import synthetic
-from pycomplex.complex.simplicial import ComplexTriangularEuclidian2, ComplexTriangularEuclidian3
+from pycomplex.complex.simplicial import ComplexTriangularEuclidian2
 from pycomplex.math import linalg
 
 
@@ -22,10 +22,10 @@ def test_subdivide_cubical_many():
     sphere = synthetic.n_cube_dual(4).as_euclidian()
     sphere = sphere.copy(vertices=np.dot(sphere.vertices, linalg.orthonormalize(np.random.randn(4, 4))))
 
-    cubes = sphere.subdivide_cubical()
+    cubes = sphere.subdivide_cubical().smooth()#.subdivide().smooth()
     cubes.plot(plot_dual=False)
     plt.show()
-test_subdivide_cubical_many()
+
 
 def test_triangular():
     n_dim = 2
@@ -80,8 +80,7 @@ def test_power_dual():
     tri = synthetic.n_simplex(2).as_2().as_2()
     for i in range(3):
         tri = tri.subdivide()
-    # FIXME: not super happy with boundary handling yet
-    tri = tri.optimize_weights()
+    tri = tri.optimize_weights_metric()
     # tri = tri.copy(weights = np.random.uniform(0, 0.02, tri.topology.n_elements[0]))
     tri.plot()
     plt.show()

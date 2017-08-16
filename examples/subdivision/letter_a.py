@@ -125,6 +125,7 @@ if __name__ == '__main__':
 
     letter = letter.subdivide_simplicial()#.smooth().smooth()
 
+    # letter = letter.as_3().optimize_weights_metric()
     letter = letter.as_3().optimize_weights()
 
     letter.plot_3d(plot_dual=True, plot_vertices=False)

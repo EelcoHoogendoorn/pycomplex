@@ -209,11 +209,6 @@ class BaseComplex(object):
     def pick_dual(self, points):
         raise NotImplementedError
 
-    @cached_property
-    def positive_dual_metric(self):
-        """Returns true if all dual metrics are positive"""
-        return all([np.all(m > 0) for m in self.dual_metric])
-
     def dual_edge_excess(self, signed=True):
         """Compute the 'dual edge excess'
 
@@ -289,6 +284,53 @@ class BaseComplex(object):
         weights = weights * diag
         return self.copy(weights=weights)
 
+    def optimize_weights_metric(self):
+        """Optimize the weights of a simplicial complex, to improve positivity of the dual metric,
+        and the condition number of equations based on their hodges.
+
+        Returns
+        -------
+        type(self)
+            copy of self with optimized weights
+
+        References
+        ----------
+        http://www.geometry.caltech.edu/pubs/MMdGD11.pdf
+        http://www.geometry.caltech.edu/pubs/dGMMD14.pdf
+        """
+        assert self.weights is None # not sure this is required
+
+        T = self.topology.matrices[0]
+        DnP1 = self.hodge_DP[1]
+        P1P0 = T.T
+        DNDn = T
+        laplacian = DNDn * scipy.sparse.diags(DnP1) * P1P0
+
+        # get it now; rhs is centrodi - bary of weight=0 mesh; laplace is symmetric.
+        # gradient vector adds another r**(n-1)
+
+        barycenter = self.vertices[self.topology.corners[-1]].mean(axis=1)
+        PP = self.primal_position
+        circumcenter = PP[-1]
+        diff = circumcenter - barycenter
+        B = self.topology._boundary[-1]
+        delta = linalg.normalized(PP[-1][:, None, :] - PP[-2][B])
+
+        # can use metric instead; need n-1 metric, not edge
+        edge_length = np.linalg.norm(self.topology.matrices[0].T * PP[0], axis=1)
+        field = linalg.dot(diff[:, None, :], delta) * edge_length[B]
+
+        field = self.remap_boundary_0(field)
+
+        rhs = field - field.mean()
+        # We do only a few iterations of jacobi iterations to solve our equations,
+        # since in practice local redistributions of dual edge length are the only ones of interest
+        diag = laplacian.diagonal()
+        weights = np.zeros_like(field)
+        for i in range(3):
+            weights = (rhs - laplacian * weights + diag * weights) / diag
+        return self.copy(weights=weights)
+
     def remap_boundary_N(self, field, oriented=True):
         """Given a quantity computed on each n-simplex-boundary, combine the contributions of each incident n-simplex
 
@@ -344,8 +386,13 @@ class BaseComplex(object):
         return np.sqrt(-weights + weights.max())
 
     @cached_property
+    def positive_dual_metric(self):
+        """Returns true if all dual metrics are positive"""
+        return all([np.all(m > 0) for m in self.dual_metric])
+
+    @cached_property
     def is_well_centered(self):
-        """Test that circumcenter is inside each simplex"""
+        """Test that all circumcenters are inside each simplex"""
         return all([np.all(b > 0) for b in self.primal_barycentric])
 
     @cached_property
