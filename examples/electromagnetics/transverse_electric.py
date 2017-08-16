@@ -69,7 +69,7 @@ if __name__ == "__main__":
     if complex_type == 'grid':
         complex, all, left, bottom, current, closed = make_mesh()
         # complex.plot(plot_dual=False, plot_vertices=False)
-        tris = complex.as_22().to_simplicial()
+        tris = complex.as_22().subdivide_simplicial()
     if complex_type == 'sphere':
         complex = synthetic.icosphere(refinement=6)
 

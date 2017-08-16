@@ -91,7 +91,7 @@ def test_to_simplicial():
     """Check that mapping cubical to simplicial retains orientation"""
     cube = synthetic.n_cube(3).boundary
     assert cube.topology.is_oriented
-    assert cube.as_23().to_simplicial().topology.is_oriented
+    assert cube.as_23().subdivide_simplicial().topology.is_oriented
 
 
 def test_hole():

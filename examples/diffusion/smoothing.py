@@ -18,7 +18,7 @@ from examples.subdivision import letter_a
 from examples.util import save_animation
 
 
-surface = letter_a.create_letter(3).to_simplicial().as_3()
+surface = letter_a.create_letter(3).subdivide_simplicial().as_3()
 surface = surface.copy(vertices=surface.vertices * 30)
 surface = surface.copy(vertices=np.dot(surface.vertices, linalg.power(linalg.orthonormalize(np.random.randn(3, 3)), 0.2)))
 

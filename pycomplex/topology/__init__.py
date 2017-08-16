@@ -94,7 +94,6 @@ def selection_matrix(s):
     return scipy.sparse.csr_matrix((data, (rows, cols)), shape=(len(rows), len(s)))
 
 
-
 def generate_boundary_indices(this, that):
     """map boundary in terms of vertices to their unique indices
 
@@ -111,12 +110,9 @@ def generate_boundary_indices(this, that):
     """
     n_elements = len(this)
     n_vertices = this.size // n_elements
-    # FIXME: would we like an optional sorting over n_vertices here?
+    # FIXME: make sorting optional?
     i = npi.indices(
         np.sort(this.reshape(n_elements, n_vertices), axis=1),
         np.sort(that.reshape(-1, n_vertices), axis=1),
     ).astype(index_dtype)
     return i.reshape(that.shape[:that.ndim - (this.ndim - 1)])
-
-
-

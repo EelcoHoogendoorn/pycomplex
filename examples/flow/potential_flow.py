@@ -210,7 +210,7 @@ solution = [s / np.sqrt(d) for s, d in zip(solution, normal.diag())]
 flux, = solution
 
 # plot result
-tris = mesh.to_simplicial()
+tris = mesh.subdivide_simplicial()
 
 # now we compute a streamfunction after all; just for visualization.
 # no streamfunctions were harmed in the finding of the flowfield.

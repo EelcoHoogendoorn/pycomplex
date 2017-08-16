@@ -237,7 +237,12 @@ class TopologySimplicial(PrimalTopology):
         return type(self).from_simplices(simplices.reshape(-1, self.n_dim + 1))
 
     def subdivide_cubical(self):
-        """Perform a subdivision into cubical domains"""
+        """Perform a subdivision of n-simplices into n+1 cubical domains
+
+        Returns
+        -------
+        TopologyCubical
+        """
         N = self.n_elements
 
         cube_shape = (2, ) * self.n_dim
@@ -247,23 +252,72 @@ class TopologySimplicial(PrimalTopology):
         def idx(c):
             return (Ellipsis, ) + tuple(c)
 
+        domains = self.fundamental_domains()
+
         cubes[idx(corners[0])] = self.incidence[-1, 0]       # 0 corner is attached to 0-simplices
         cubes[idx(corners[-1])] = self.range(-1)[..., None]  # -1 corner is attached to n-simplices
 
         if self.n_dim == 2:
             I21 = self.incidence[2, 1]
-            cubes[:, :, 1, 0] = np.roll(I21, -1, axis=1)
-            cubes[:, :, 0, 1] = np.roll(I21, +1, axis=1)
-        # work out 3d case and see if it generalizes to n-d
-        if self.n_dim == 3:
+            cubes[:, :, 1, 0] = np.roll(I21, 1, axis=1)
+            cubes[:, :, 0, 1] = np.roll(I21, 2, axis=1)
+        elif self.n_dim == 3:
+            # work out 3d case and see if it generalizes to n-d
             I32 = self.incidence[3, 2]
             # sum of corners == 2; connect to 2-simplices
             cubes[:, :, 0, 1, 1] = np.roll(I32, 1, axis=1)
             cubes[:, :, 1, 0, 1] = np.roll(I32, 2, axis=1)
             cubes[:, :, 1, 1, 0] = np.roll(I32, 3, axis=1)
+            # sum of corners == 1; connect to 1-simplices
+            # faces above induce an ordering
+            #[1, 0, 0] edge is bordered by [1, 1, 0] and [1, 0, 1] faces
+            # can we easily find edge incident to these two faces?
+            # of course we have vertex id too
+            # group domains by 0 2 and 3-index
+            # should get groups of two
+            # a, b, c ,d = [domains[:, i] for i in range(4)]
 
-            I31 = self.incidence[3, 1]  # this doesnt exist yet, actually
-            cubes[:, :, 1, 0, 0] = np.roll(I31, 1, axis=1)
+            # from each vertex take the opposing ones by rolling
+            # then find the corresponding edge by looking up the pair
+
+            if True:
+                domains = self.fundamental_domains()
+                for i in range(4):
+
+                    l = cubes[:, i, 1, 0, 1]
+                    r = cubes[:, i, 1, 1, 0]
+                    # find the edge sharing these two faces
+                    T = self.matrix(1, 2).tocoo()
+                    e, f = T.row, T.col
+                    cubes[:, i, 1, 0, 0] = 0
+
+            if False:
+                I30 = self.elements[-1]
+                for i in range(4):
+                    q = np.roll(I30, i, axis=1)
+                    c0 = q[:, 0:1]
+                    o0 = q[:, 1:]
+                    c0 = np.repeat(c0, 3, axis=1)
+                    e0 = np.concatenate([c0[..., None], o0[..., None]], axis=2)
+                    e0 = e0.reshape(-1, 2)
+                    I = npi.indices(np.sort(self.elements[1], axis=1), np.sort(e0, axis=1))
+                    I = I.reshape(-1, 3)
+
+                    cubes[:, i, 1, 0, 0] = I[:, 0]
+                    cubes[:, i, 0, 1, 0] = I[:, 1]
+                    cubes[:, i, 0, 0, 1] = I[:, 2]
+
+            # I31 = self.incidence[3, 1]  # this doesnt exist yet, actually
+            # cubes[:, :, 1, 0, 0] = np.roll(I31, 1, axis=1)
+        else:
+            # in 4d case, we get 5 4-cubes, with 16 corners
+            # having a 1-4-6-4-1 distribution
+            raise NotImplementedError
+
+        offset = np.cumsum([0] + self.n_elements)
+        for c in corners:
+            idx = (Ellipsis, ) + tuple(c)
+            cubes[idx] += offset[c.sum()]
 
         from pycomplex.topology.cubical import TopologyCubical
         return TopologyCubical.from_cubes(cubes.reshape((-1,) + cube_shape))
@@ -435,31 +489,7 @@ class TopologyTriangular(TopologySimplicial):
         ]
 
     def subdivide_cubical(self):
-        """Convert the triangular complex into a cubical complex,
-        by forming 3 quads from each triangle
-
-        Notes
-        -----
-        We can generalize this to n-d; cube as union of fundamental domains
-        Grab all domains sharing a primal-dual combination
-        opposite corners are primal/dual vert
-        how to connect other cube corners though? can we derive this from the structuring of fundamental domain arrays?
-        Does the 2d roll logic generalize somehow?
-
-        And what about orientation?
-        """
-        N0, N1, N2 = self.n_elements
-        I20 = self.incidence[2, 0]
-        I21 = self.incidence[2, 1]
-
-        Q20 = -np.ones((N2, 3, 2, 2), dtype=index_dtype)
-        Q20[:, :, 0, 0] = self.range(2)[:, None] + N0 + N1
-        Q20[:, :, 0, 1] = np.roll(I21, -1, axis=1) + N0
-        Q20[:, :, 1, 0] = np.roll(I21, +1, axis=1) + N0
-        Q20[:, :, 1, 1] = I20
-
-        from pycomplex.topology.cubical import TopologyCubical2
-        return TopologyCubical2.from_cubes(Q20.reshape(N2 * 3, 2, 2))
+        return super(TopologyTriangular, self).subdivide_cubical().as_2()
 
     # some convenient named accessors
     def face_edge(self):

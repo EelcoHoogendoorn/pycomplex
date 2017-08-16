@@ -22,7 +22,7 @@ for i in range(6):
 
 grid = grid.as_22().as_regular()
 grid.topology.check_chain()
-tris = grid.to_simplicial()
+tris = grid.subdivide_simplicial()
 
 if False:
     grid.plot()

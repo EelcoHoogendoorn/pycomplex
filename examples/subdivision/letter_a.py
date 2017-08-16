@@ -123,7 +123,7 @@ if __name__ == '__main__':
 
     letter.plot(plot_dual=False, plot_vertices=False)
 
-    letter = letter.to_simplicial()#.smooth().smooth()
+    letter = letter.subdivide_simplicial()#.smooth().smooth()
 
     letter = letter.as_3().optimize_weights()
 

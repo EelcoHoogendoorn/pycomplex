@@ -1,11 +1,22 @@
 
 import numpy as np
 import numpy.testing as npt
+import matplotlib.pyplot as plt
 
 from pycomplex import synthetic
 from pycomplex.complex.simplicial import ComplexTriangularEuclidian2, ComplexTriangularEuclidian3
 from pycomplex.math import linalg
 
+
+def test_subdivide_cubical():
+    simplex = synthetic.n_simplex(3)
+    simplex = simplex.copy(vertices=np.dot(simplex.vertices, linalg.orthonormalize(np.random.randn(3, 3))))
+
+    cubes = simplex.subdivide_cubical()
+    cubes.plot()
+    plt.show()
+
+test_subdivide_cubical()
 
 def test_triangular():
     n_dim = 2
@@ -59,14 +70,11 @@ def test_power_dual():
     tri = synthetic.n_simplex(2).as_2().as_2()
     for i in range(3):
         tri = tri.subdivide()
+    # FIXME: not super happy with boundary handling yet
     tri = tri.optimize_weights()
     # tri = tri.copy(weights = np.random.uniform(0, 0.02, tri.topology.n_elements[0]))
     tri.plot()
-    import matplotlib.pyplot as plt
     plt.show()
-
-test_power_dual()
-quit()
 
 
 def test_delaunay():
@@ -132,6 +140,5 @@ def test_metric_2():
         print(m.min(), m.max())
 
     sphere.plot_3d(backface_culling=True)
-    import matplotlib.pyplot as plt
     plt.show()
 

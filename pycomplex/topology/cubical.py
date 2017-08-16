@@ -283,18 +283,6 @@ class TopologyCubical(PrimalTopology):
 
         return sub
 
-    def subdivide_octohedral(self):
-        """Subdivision by inserting a new 0-cube at each n-cube, and creating a new 'octahedron'
-        at each n-1-cube. This requires the addition of a wholly new topology type however, where each element
-        has 2 * n_dim vertices.
-        At the boundary, we would only get a half-element, so only elegant on closed topologies really
-
-        Also, edges do not map to edges, so thats bad for crease modelling
-
-        """
-        assert self.is_closed
-        raise NotImplementedError
-
     def subdivide_transfers(coarse, fine, O):
         """build up transfer operators
 
@@ -313,6 +301,18 @@ class TopologyCubical(PrimalTopology):
             q = q[:, -1] - o
             transfers.append((idx, q))
         return transfers
+
+    def subdivide_octohedral(self):
+        """Subdivision by inserting a new 0-cube at each n-cube, and creating a new 'octahedron'
+        at each n-1-cube. This requires the addition of a wholly new topology type however, where each element
+        has 2 * n_dim vertices.
+        At the boundary, we would only get a half-element, so only elegant on closed topologies really
+
+        Also, edges do not map to edges, so thats bad for crease modelling
+
+        """
+        assert self.is_closed
+        raise NotImplementedError
 
     def fundamental_domains(self):
         """Generate fundamental domains
@@ -397,13 +397,18 @@ class TopologyCubical(PrimalTopology):
 
 class TopologyCubical2(TopologyCubical):
 
-    def to_simplicial(self):
+    def subdivide_simplicial(self):
         """Convert the cubical topology into a simplicial topology,
         by forming 4 tris from each quad
 
         Returns
         -------
         TopologyTriangular
+
+        Notes
+        -----
+        There does not appear to be a way to generelize this to nd
+
         """
         Q20 = self.elements[2]
         n_e = self.n_elements
@@ -418,10 +423,10 @@ class TopologyCubical2(TopologyCubical):
 
         from pycomplex.topology.simplicial import TopologyTriangular
         simplicial = TopologyTriangular.from_simplices(T20.reshape(-1, 3))
-        self.to_simplicial_transfer(simplicial)
+        self.subdivide_simplicial_transfer(simplicial)
         return simplicial
 
-    def to_simplicial_transfer(cubical, simplicial):
+    def subdivide_simplicial_transfer(cubical, simplicial):
         """Construct transfer operators from cubical to simplicial
 
         The n-th operator in this list by right-multiplication with a cubical n-chain

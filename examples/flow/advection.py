@@ -112,7 +112,7 @@ if __name__ == "__main__":
 
         complex = complex.as_22().as_regular()
         complex.topology.check_chain()
-        tris = complex.to_simplicial()
+        tris = complex.subdivide_simplicial()
 
 
     # generate an interesting texture using RD

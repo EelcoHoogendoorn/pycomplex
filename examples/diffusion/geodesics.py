@@ -118,7 +118,7 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
 
     # create an interesting shape to compute geodesics over
-    letter = create_letter(3).as_23().to_simplicial().as_3()
+    letter = create_letter(3).as_23().subdivide_simplicial().as_3()
     letter = MyComplex(vertices=letter.vertices, topology=letter.topology)#.optimize_weights()
 
     seed = letter.topology.chain(0, dtype=np.float)

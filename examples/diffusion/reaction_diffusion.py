@@ -104,7 +104,7 @@ if __name__ == '__main__':
         surface = synthetic.icosphere(refinement=6).copy(radius=50)
     if kind == 'letter':
         from examples.subdivision import letter_a
-        surface = letter_a.create_letter(5).to_simplicial().as_3()
+        surface = letter_a.create_letter(5).subdivide_simplicial().as_3()
         surface = surface.copy(vertices=surface.vertices * 40)
         surface = surface.copy(vertices=np.dot(surface.vertices, linalg.power(linalg.orthonormalize(np.random.randn(3, 3)).T, 0.2)))
 
@@ -118,7 +118,7 @@ if __name__ == '__main__':
             for i in range(1):
                 surface = surface.subdivide()
         surface = surface.as_22().as_regular()
-        tris = surface.to_simplicial()
+        tris = surface.subdivide_simplicial()
 
 
     assert surface.topology.is_oriented

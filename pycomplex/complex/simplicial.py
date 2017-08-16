@@ -92,6 +92,14 @@ class ComplexSimplicial(BaseComplexEuclidian):
             topology=self.topology.subdivide_fundamental()
         )
 
+    def subdivide_cubical(self):
+        """Subdivide the simplicial complex into a cubical complex"""
+        from pycomplex.complex.cubical import ComplexCubical
+        return ComplexCubical(
+            vertices=np.concatenate(self.primal_position, axis=0),
+            topology=self.topology.subdivide_cubical().fix_orientation()
+        )
+
     @cached_property
     def metric_experimental(self):
         """Compute metrics from fundamental domain contributions

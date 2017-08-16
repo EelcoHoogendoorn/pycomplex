@@ -114,7 +114,7 @@ if __name__ == '__main__':
             complex = complex.subdivide()
     if kind == 'letter':
         from examples.subdivision import letter_a
-        complex = letter_a.create_letter(4).to_simplicial().as_3()
+        complex = letter_a.create_letter(4).subdivide_simplicial().as_3()
         complex = complex.copy(vertices=complex.vertices * 10)
 
     if True:
@@ -134,7 +134,7 @@ if __name__ == '__main__':
         complex = complex.as_euclidian()
         complex.plot_primal_0_form(field)
     if kind == 'regular':
-        tris = complex.to_simplicial()
+        tris = complex.subdivide_simplicial()
         field = tris.topology.transfer_operators[0] * field
         tris.as_2().plot_primal_0_form(field)
     if kind == 'letter':

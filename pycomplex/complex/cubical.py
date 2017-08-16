@@ -56,6 +56,8 @@ class ComplexCubical(BaseComplexCubical):
 
         if smooth:
             fine = fine.smooth(creases)
+
+        # FIXME: implement subdivide_transfer for cubes
         return fine
 
     def subdivide_operator(coarse, creases=None, smooth=False):
@@ -201,8 +203,6 @@ class ComplexCubical(BaseComplexCubical):
 
 
 
-
-
 class ComplexCubical1(ComplexCubical):
     """Specialization for 2d quads"""
 
@@ -211,20 +211,20 @@ class ComplexCubical1(ComplexCubical):
         from pycomplex.complex.simplicial import ComplexSimplicial1
         return ComplexSimplicial1(
             vertices=self.vertices,
-            topology=self.topology.as_1().to_simplicial()
+            topology=self.topology.as_1().subdivide_simplicial()
         )
 
 
 class ComplexCubical2(ComplexCubical):
     """Specialization for 2d quads"""
 
-    def to_simplicial(self):
+    def subdivide_simplicial(self):
         """Convert the cubical complex into a simplicial complex,
         by forming 4 tris from each quad and its dual position"""
         from pycomplex.complex.simplicial import ComplexTriangular  # Triangular and Quadrilateral or Simplical2 and Cubical2; pick one...
         return ComplexTriangular(
             vertices=np.concatenate(self.primal_position[::2], axis=0),
-            topology=self.topology.as_2().to_simplicial()
+            topology=self.topology.as_2().subdivide_simplicial()
         )
 
 

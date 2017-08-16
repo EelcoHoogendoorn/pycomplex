@@ -147,7 +147,7 @@ if True:
     rd.simulate(300)
     form = rd.state[0]
     if True:
-        tris = mesh.to_simplicial()
+        tris = mesh.subdivide_simplicial()
         tris.as_2().plot_primal_0_form(tris.topology.transfer_operators[0] * form, plot_contour=False, cmap='jet')
     mu = form[mesh.topology.elements[1]].mean(axis=1)   # map vertices to edges
     mu -= mu.min()
@@ -173,7 +173,7 @@ solution = [s / np.sqrt(d) for s, d in zip(solution, normal.diag())]
 flux, pressure = solution
 
 # plot result
-tris = mesh.to_simplicial()
+tris = mesh.subdivide_simplicial()
 pressure = mesh.topology.dual.selector[2] * pressure
 pressure = mesh.hodge_PD[2] * pressure
 pressure = tris.topology.transfer_operators[2] * pressure

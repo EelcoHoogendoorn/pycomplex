@@ -45,7 +45,7 @@ def test_2cube_3space():
     quads = quads.copy(vertices=np.dot(quads.vertices, linalg.orthonormalize(np.random.randn(3, 3))))
     quads.plot()
 
-    quads.to_simplicial().as_3().plot_3d(plot_vertices=False, backface_culling=True, plot_dual=False)
+    quads.subdivide_simplicial().as_3().plot_3d(plot_vertices=False, backface_culling=True, plot_dual=False)
 
 
 def test_cube():
@@ -66,7 +66,7 @@ def test_triangulated_cube():
 
     surface = cube.boundary.as_23()
     # surface = surface.subdivide(smooth=True)
-    surface = surface.to_simplicial().smooth()
+    surface = surface.subdivide_simplicial().smooth()
     surface = surface.subdivide(smooth=True)
     # surface.plot_3d(backface_culling=True)
 
@@ -76,11 +76,10 @@ def test_triangulated_cube():
     surface = surface.subdivide().smooth()
     # surface = surface.subdivide()
 
+    assert surface.topology.is_oriented
     surface.plot(plot_dual=False)
     plt.show()
-    assert surface.topology.is_oriented
 
-test_triangulated_cube()
 
 def test_cube_grid_2():
     grid = n_cube_grid((2, 3))

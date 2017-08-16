@@ -194,7 +194,7 @@ vorticity, flux, pressure = solution
 
 
 # plot result
-tris = mesh.to_simplicial()
+tris = mesh.subdivide_simplicial()
 pressure = mesh.topology.dual.selector[2] * pressure
 pressure = mesh.hodge_PD[2] * pressure
 pressure = tris.topology.transfer_operators[2] * pressure

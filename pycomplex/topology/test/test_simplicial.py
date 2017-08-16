@@ -79,7 +79,7 @@ def test_subdivide_cubical():
 
 
 def test_from_cubical():
-    topology = synthetic.n_cube_grid((2, 3)).as_22().to_simplicial().topology
+    topology = synthetic.n_cube_grid((2, 3)).as_22().subdivide_simplicial().topology
 
     assert topology.is_oriented
     assert not topology.is_closed
