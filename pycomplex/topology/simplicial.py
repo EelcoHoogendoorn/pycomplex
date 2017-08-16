@@ -5,7 +5,7 @@ import numpy as np
 import numpy_indexed as npi
 from cached_property import cached_property
 
-from pycomplex.topology import topology_matrix, sign_dtype, index_dtype, transfer_matrix, generate_boundary_indices
+from pycomplex.topology import topology_matrix, sign_dtype, index_dtype, transfer_matrix, generate_boundary_indices, sparse_to_elements
 from pycomplex.topology.primal import *
 
 
@@ -280,16 +280,38 @@ class TopologySimplicial(PrimalTopology):
             # from each vertex take the opposing ones by rolling
             # then find the corresponding edge by looking up the pair
 
+            # alternate relation; [1, 0, 0] edge is edge opposite [0, 1, 1] face
+            # so find the edge that does not share a particular face; is that easier?
+
+            def edge_containing_faces(l, r):
+                # find the edge sharing these two faces
+                T = self.matrix(1, 2).tocoo()
+                e, f = T.row, T.col
+                E = sparse_to_elements(T.T)
+                print()
+
             if True:
                 domains = self.fundamental_domains()
-                for i in range(4):
+                domains_ = domains.reshape(-1, 4)
+                _domains = npi.group_by(domains_[:, [0, -1]]).split_array_as_array(domains_)
+                edges = generate_simplex_boundary(self.elements[2])
+                B = self._boundary[-1]
+                Q = edges[B]
 
-                    l = cubes[:, i, 1, 0, 1]
-                    r = cubes[:, i, 1, 1, 0]
-                    # find the edge sharing these two faces
-                    T = self.matrix(1, 2).tocoo()
-                    e, f = T.row, T.col
-                    cubes[:, i, 1, 0, 0] = 0
+                for n in range(len(cubes)):
+                    for i in range(4):
+                        cube = cubes[n, i]
+                        ds = domains[n, i]
+                        E = Q[n, i]
+
+
+                        o = cubes[n, i, 0, 1, 1]
+                        l = cubes[n, i, 1, 0, 1]
+                        r = cubes[n, i, 1, 1, 0]
+
+                        cubes[n, i, 1, 0, 0] = 0
+
+                        # edge_containing_faces(l, r)
 
             if False:
                 I30 = self.elements[-1]
