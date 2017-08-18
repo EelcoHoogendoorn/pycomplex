@@ -78,17 +78,26 @@ def test_subdivided_triangle():
 
 def test_power_dual():
     tri = synthetic.n_simplex(2).as_2().as_2()
-    for i in range(3):
+    for i in range(2):
         tri = tri.subdivide()
-    tri = tri.subdivide_fundamental()
-    # tri = tri.optimize_weights_metric()
-    tri = tri.optimize_weights()
-    # tri = tri.copy(weights = np.random.uniform(0, 0.02, tri.topology.n_elements[0]))
+    tri = tri.copy(weights = np.random.uniform(0, tri.primal_metric[1].mean()/5, tri.topology.n_elements[0]))
+    print(tri.is_pairwise_delaunay)
+    print(tri.is_well_centered)
     tri.plot()
+    fundamental = tri.subdivide_fundamental()
+
+
+    # fundamental = fundamental.optimize_weights_metric()
+    # fundamental = fundamental.optimize_weights()
+    fundamental = fundamental.optimize_weights_fundamental()
+    print(fundamental.is_pairwise_delaunay)
+    print(fundamental.is_well_centered)
+
+    fundamental.plot()
     plt.show()
 
-# test_power_dual()
-
+test_power_dual()
+quit()
 
 def test_delaunay():
     """Triangulate a quad """

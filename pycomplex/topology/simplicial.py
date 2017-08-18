@@ -232,8 +232,10 @@ class TopologySimplicial(PrimalTopology):
         # subdivision is essentially just remapping fundamental-domain n-simplex indices to 0-simplex indices
         simplices = self.fundamental_domains() + offset
         # flip the mirrored side to preserve orientation;
-        simplices[..., 0, [0, 1]] = simplices[..., 0, [1, 0]]
-        return type(self).from_simplices(simplices.reshape(-1, self.n_dim + 1))
+        simplices[..., 0, [0, -1]] = simplices[..., 0, [-1, 0]]
+        sub = type(self).from_simplices(simplices.reshape(-1, self.n_dim + 1))
+        sub.parent = self
+        return sub
 
     def subdivide_cubical(self):
         """Perform a subdivision of n-simplices into n+1 cubical domains

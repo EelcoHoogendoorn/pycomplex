@@ -96,7 +96,7 @@ def test_fundamental_domains():
         simplex.plot_domains(ax)
         plt.show()
 
-
+# test_fundamental_domains()
 def test_subdivide_fundamental():
     for n in [2, 3, 4, 5]:
         sphere = synthetic.n_cube_dual(4).as_euclidian()

@@ -320,9 +320,11 @@ class TopologyCubical(PrimalTopology):
         # subdivision is essentially just remapping fundamental-domain n-simplex indices to 0-simplex indices
         simplices = self.true_fundamental_domains() + offset
         # flip the mirrored side to preserve orientation;
-        simplices[..., 0, [0, 1]] = simplices[..., 0, [1, 0]]
+        simplices[..., 0, [0, -1]] = simplices[..., 0, [-1, 0]]
         from pycomplex.topology.simplicial import TopologySimplicial
-        return TopologySimplicial.from_simplices(simplices.reshape(-1, self.n_dim + 1))
+        sub = TopologySimplicial.from_simplices(simplices.reshape(-1, self.n_dim + 1))
+        sub.parent = self
+        return sub
 
     def true_fundamental_domains(self):
         """Form fundamental domain simplices by connecting corners of all degrees

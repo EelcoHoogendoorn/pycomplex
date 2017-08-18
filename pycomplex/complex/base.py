@@ -280,7 +280,7 @@ class BaseComplex(object):
         field = field / diag
         rhs = field - field.mean()
         weights = np.zeros_like(field)
-        for i in range(3):
+        for i in range(1):
             weights = (rhs - laplacian * weights + diag * weights) / diag
         weights = weights * diag
         return self.copy(weights=weights)
@@ -322,7 +322,7 @@ class BaseComplex(object):
         barycenter = corners.mean(axis=1)
         PP = self.primal_position
         circumcenter = PP[-1]
-        diff = circumcenter - barycenter
+        diff = circumcenter - barycenter    # this is what we seek to minimize
         B = self.topology._boundary[-1]
 
         # FIXME: using this as gradient directions is brittle; will fail around 0
@@ -341,8 +341,38 @@ class BaseComplex(object):
         # since in practice local redistributions of dual edge length are the only ones of interest
         diag = laplacian.diagonal()
         weights = np.zeros_like(field)
-        for i in range(3):
+        for i in range(1):
             weights = (rhs - laplacian * weights + diag * weights) / diag
+        return self.copy(weights=weights)
+
+    def optimize_weights_fundamental(self):
+        """Optimize the weights of a complex derived from fundamental domain subdivision,
+        such that the resulting primal simplices become strictly well-centered,
+        in case it is derived form a simplex itself.
+        Not true if it comes from a cubical complex embedded in space
+
+        This can be accomplished simply by bumping the weights of fundamental vertices
+        corresponding to parent vertices a little
+
+        Returns
+        -------
+        copy of self, with optimized weights such that the dual vertex is well-centered
+        """
+        assert self.weights is None
+
+        parent = self.topology.parent
+        weights = self.topology.form(0)
+
+        # calculate average length of edge connecting to vertex-vertex
+        edge_length = self.primal_metric[1] ** 2
+        A = self.topology.averaging_operators_0[1].T
+        scale = (A * edge_length) / (A * np.ones_like(edge_length))
+
+        # best to only push away along primal edges, since dual edge lengths are much more variable
+        weights[:parent.n_elements[0]] = scale[:parent.n_elements[0]] / 4
+        # weights[-parent.n_elements[-1]:] = scale
+        # weights[parent.n_elements[0]:-parent.n_elements[-1]] = -scale / 2
+
         return self.copy(weights=weights)
 
     def remap_boundary_N(self, field, oriented=True):

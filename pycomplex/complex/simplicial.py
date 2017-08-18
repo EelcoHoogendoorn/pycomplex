@@ -98,6 +98,9 @@ class ComplexSimplicial(BaseComplexEuclidian):
             topology=self.topology.subdivide_fundamental()
         )
 
+    def subdivide_fundamental_transfer(self):
+        return
+
     def subdivide_cubical(self):
         """Subdivide the simplicial complex into a cubical complex"""
         from pycomplex.complex.cubical import ComplexCubical
