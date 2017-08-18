@@ -129,7 +129,7 @@ if __name__ == '__main__':
     # letter = letter.optimize_weights_metric()
     # letter = letter.as_3().optimize_weights()
     letter = letter.optimize_weights_fundamental()
-
+    print(letter.weights)
 
     letter.as_2().as_3().plot_3d(plot_dual=True, plot_vertices=False)
 

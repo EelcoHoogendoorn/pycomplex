@@ -80,9 +80,13 @@ def test_power_dual():
     tri = synthetic.n_simplex(2).as_2().as_2()
     for i in range(2):
         tri = tri.subdivide()
-    tri = tri.copy(weights = np.random.uniform(0, tri.primal_metric[1].mean()/5, tri.topology.n_elements[0]))
+    tri = tri.copy(
+        vertices = tri.vertices + np.random.normal(0, 0.06, size=tri.vertices.shape),
+        # weights = np.random.uniform(0, tri.primal_metric[1].mean()**2/1, tri.topology.n_elements[0])
+    )
     print(tri.is_pairwise_delaunay)
     print(tri.is_well_centered)
+    tri = tri.optimize_weights()
     tri.plot()
     fundamental = tri.subdivide_fundamental()
 
