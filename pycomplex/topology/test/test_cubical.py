@@ -120,3 +120,15 @@ def test_fundamental_domains():
     for n in [2, 3, 4, 5]:
         cube = synthetic.n_cube(n)
         domains = cube.topology.fundamental_domains()
+
+
+def test_true_fundamental_domains():
+    for n in [1, 2, 3, 4]:
+        cube = synthetic.n_cube(n+1).boundary
+        domains = cube.topology.true_fundamental_domains()
+        print(domains.shape)
+        print(npi.all_unique(domains.reshape(-1, n+1)))
+
+        simplices = cube.topology.subdivide_fundamental_simplicial()
+        print(simplices.is_oriented)
+test_true_fundamental_domains()

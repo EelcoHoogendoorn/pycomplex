@@ -232,8 +232,7 @@ class TopologySimplicial(PrimalTopology):
         # subdivision is essentially just remapping fundamental-domain n-simplex indices to 0-simplex indices
         simplices = self.fundamental_domains() + offset
         # flip the mirrored side to preserve orientation;
-        # FIXME: in n-dim > 3 we still need a fix-orientation somehow...
-        simplices[..., 0, :] = np.flip(simplices[..., 0, :], axis=-1)
+        simplices[..., 0, [0, 1]] = simplices[..., 0, [1, 0]]
         return type(self).from_simplices(simplices.reshape(-1, self.n_dim + 1))
 
     def subdivide_cubical(self):

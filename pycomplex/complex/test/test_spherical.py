@@ -34,13 +34,14 @@ def test_icosahedron():
 
 def test_overlap():
     # drawing to intuit multigrid transfer operators
-    sphere = synthetic.icosahedron().subdivide_fundamental()
-    sphere = sphere.select_subset(np.eye(20*6)[0])
+    # sphere = synthetic.icosahedron().subdivide_fundamental()
+    # sphere = sphere.select_subset(np.eye(20*6)[0])
     for i in range(2):
         sphere = sphere.subdivide()
 
     fig, ax = plt.subplots(1, 1)
     sphere = sphere.optimize_weights()
+    # sphere = sphere.optimize_weights_metric()
     subsphere = sphere.subdivide()
     sphere.plot(ax=ax)
     subsphere = subsphere.optimize_weights()
@@ -147,10 +148,11 @@ def test_picking_alt_visual():
         assert sphere.topology.is_oriented
         # sphere = sphere.copy(weights = np.random.uniform(0, 0.05, 400))
         # sphere = sphere.optimize_weights()
-        sphere = sphere.copy(weights=None)
+        sphere = sphere.copy(weights=None).optimize_weights()
         print(sphere.is_well_centered)
+        print(sphere.is_pairwise_delaunay)
 
-        p = np.linspace(-1, +1, 256, endpoint=True)
+        p = np.linspace(-1, +1, 1024, endpoint=True)
         x, y = np.meshgrid(p, p)
         r2 = x ** 2 + y ** 2
         mask = r2 < 1
@@ -159,11 +161,12 @@ def test_picking_alt_visual():
         points = np.array([x, y, z]).T
         if True:
             # alt primal picking
-            # domain, bary = sphere.pick_primal_alt(points.reshape(-1, 3))
-            domain, bary = sphere.pick_primal(points.reshape(-1, 3))
+            domain, bary = sphere.pick_primal_alt(points.reshape(-1, 3))
+            # domain, bary = sphere.pick_primal(points.reshape(-1, 3))
             # domain = sphere.pick_primal_brute(points.reshape(-1, 3))
 
             print(bary.min(), bary.max())
+            # bary = np.clip(bary, 0, 1)
             # color = domain.reshape(len(p), len(p))
             # p = np.random.permutation(sphere.topology.n_elements[-1])
             # color = p[color]
@@ -176,12 +179,14 @@ def test_picking_alt_visual():
             color = p[cube_idx]
 
         import matplotlib.pyplot as plt
-        plt.imshow(color, cmap='jet')
+        plt.imshow(np.swapaxes(color, 0, 1)[::-1], cmap='jet')
+        sphere.plot(backface_culling=True)
+        plt.autoscale(tight=True)
         plt.show()
 
 
-# test_picking_alt_visual()
-# quit()
+test_picking_alt_visual()
+quit()
 
 def test_picking_fundamental_visual():
     # subs=3

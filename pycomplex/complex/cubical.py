@@ -106,6 +106,13 @@ class ComplexCubical(BaseComplexCubical):
 
         return operator
 
+    def subdivide_fundamental_simplicial(self):
+        from pycomplex.complex.simplicial import ComplexSimplicial
+        return ComplexSimplicial(
+            vertices=np.concatenate(self.primal_position, axis=0),
+            topology=self.topology.subdivide_fundamental_simplicial()
+        )
+
     def product(self, other):
         """Construct the product of two cubical complexes
 

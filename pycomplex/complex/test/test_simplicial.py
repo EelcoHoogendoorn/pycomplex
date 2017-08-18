@@ -80,10 +80,14 @@ def test_power_dual():
     tri = synthetic.n_simplex(2).as_2().as_2()
     for i in range(3):
         tri = tri.subdivide()
-    tri = tri.optimize_weights_metric()
+    tri = tri.subdivide_fundamental()
+    # tri = tri.optimize_weights_metric()
+    tri = tri.optimize_weights()
     # tri = tri.copy(weights = np.random.uniform(0, 0.02, tri.topology.n_elements[0]))
     tri.plot()
     plt.show()
+
+# test_power_dual()
 
 
 def test_delaunay():

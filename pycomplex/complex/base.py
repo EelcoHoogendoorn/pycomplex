@@ -223,8 +223,9 @@ class BaseComplex(object):
 
         Notes
         -----
-        euclidian metric is used here; need to compensate for that in sperical applications
+        euclidian metric is used here; need to compensate for that in spherical applications
         """
+        # raise Exception('these PP should also be euclidian in the spherical case!')
         PP = self.primal_position
         B = self.topology._boundary[-1]
         delta = PP[-1][:, None, :] - PP[-2][B]
@@ -237,7 +238,7 @@ class BaseComplex(object):
         """Optimize the weights of a simplicial complex, to improve positivity of the dual metric,
         and the condition number of equations based on their hodges.
 
-        This is the simplest form of weight optimization that I am aware of.
+        This method optimizes the
 
         Returns
         -------
@@ -288,6 +289,11 @@ class BaseComplex(object):
         """Optimize the weights of a simplicial complex, to improve positivity of the dual metric,
         and the condition number of equations based on their hodges.
 
+        This optimizes the weights such as to minimize the distance of the circumcenters to the barycenters.
+
+        Indeed this objective is accomplished very well by the method, but it does feel a bit overly
+        'aggressive' for many applications
+
         Returns
         -------
         type(self)
@@ -300,25 +306,33 @@ class BaseComplex(object):
         """
         assert self.weights is None # not sure this is required
 
+        # FIXME: spherical and simplicial should use the same code path; rethink class hierarchy
+        if isinstance(self, BaseComplexEuclidian):
+            euclidian = self
+        else:
+            euclidian = self.as_euclidian()
+
         T = self.topology.matrices[0]
-        DnP1 = self.hodge_DP[1]
+        DnP1 = euclidian.hodge_DP[1]
         P1P0 = T.T
         DNDn = T
         laplacian = DNDn * scipy.sparse.diags(DnP1) * P1P0
 
-        # get it now; rhs is centrodi - bary of weight=0 mesh; laplace is symmetric.
-        # gradient vector adds another r**(n-1)
-
-        barycenter = self.vertices[self.topology.corners[-1]].mean(axis=1)
+        corners = self.vertices[self.topology.corners[-1]]
+        barycenter = corners.mean(axis=1)
         PP = self.primal_position
         circumcenter = PP[-1]
         diff = circumcenter - barycenter
         B = self.topology._boundary[-1]
-        delta = linalg.normalized(PP[-1][:, None, :] - PP[-2][B])
 
-        # can use metric instead; need n-1 metric, not edge
-        edge_length = np.linalg.norm(self.topology.matrices[0].T * PP[0], axis=1)
-        field = linalg.dot(diff[:, None, :], delta) * edge_length[B]
+        # FIXME: using this as gradient directions is brittle; will fail around 0
+        # delta = linalg.normalized(PP[-1][:, None, :] - PP[-2][B])
+
+        boundary_normals = linalg.pinv(corners - barycenter[:, None, :])
+        boundary_normals = np.swapaxes(boundary_normals, -2, -1)
+        boundary_normals = linalg.normalized(boundary_normals)
+        face_metric = euclidian.primal_metric[-2]
+        field = linalg.dot(diff[:, None, :], boundary_normals) * face_metric[B] #* np.sign(self.primal_barycentric[-1])
 
         field = self.remap_boundary_0(field)
 
@@ -342,6 +356,7 @@ class BaseComplex(object):
         Returns
         -------
         field : ndarray, [n_n-simplices], float
+            quantity defined on all boundaries
         """
         INn = self.topology._boundary[-1]
         if oriented:

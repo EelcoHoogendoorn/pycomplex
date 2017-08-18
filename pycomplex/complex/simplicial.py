@@ -1,4 +1,10 @@
-"""Triangular (2d simplicial) complex embedded in euclidian space"""
+"""Simplicial topology embedded in euclidian space
+
+Notes
+-----
+Would be better to seperate the simplicial complex and euclidian complex part,
+for better code reuse with spherical simplicial complexes
+"""
 
 import numpy as np
 import numpy_indexed as npi
@@ -101,24 +107,21 @@ class ComplexSimplicial(BaseComplexEuclidian):
         )
 
     @cached_property
-    def metric_experimental(self):
+    def metric(self):
         """Compute metrics from fundamental domain contributions
 
         Notes
         -----
-        Do not fully grasp yet the meaning of net negative dual areas.
         according to [1], seems we can only have guaranteed non-negativity of vertex duals
         if the mesh is pairwise-delaunay; but it need not be strictly well-centered!
-        quad subdivision surface to simplicial leads to negative vertex duals already
-        this appears to be expected then; but what to do with such meshes?
-        seems overly restrictive not to use them at all; vertex area hodges work quite alright
+        quad subdivision surface to simplicial leads to negative vertex duals already.
+        Optimization of hodges may make this problem go away; but not always it seems.
+        Seems like there is still a use case for the simple barycentric dual vertex volumes
 
         References
         ----------
         [1] http://www.math.uiuc.edu/~hirani/papers/HiKaVa2013_CAD.pdf
         """
-        # FIXME: always compute and cache all bary decompositions? can do proper well-centered calculation then
-        # does adding power dual help solve this problem? seems like it should; gives control over the area of dual cells
         topology = self.topology
         assert topology.is_oriented
         PP = self.primal_position
@@ -150,17 +153,12 @@ class ComplexSimplicial(BaseComplexEuclidian):
         for i in range(1, self.topology.n_dim):
             n = i + 1
             d = self.topology.n_dim - i
-            PM[i] = groups[i].mean(unsigned(corners[:, :n]))[1] * factorial(n)  # FIXME: primal can be signed too! tri of tet for instance
+            PM[i] = groups[i].mean(unsigned(corners[:, :n]))[1] * factorial(n)  # FIXME: primal can be signed too! tri of tet for instance. need to work out signs logic better
             DM[i] = groups[d].sum (unsigned(corners[:, d:]) * signs)[1] / factorial(d+1)
 
-        # FIXME: negative signed volume should contribute to negative dual edge lengths; how to accomplish?
-        # would like this to working in embedded spaces too; should consider orientation relative to primal n-element perhaps?
-        # fundamental domain is inverted if its bary relative to the parent n-simplex is negative.
-        # if so, negate all dual contributions
         V = euclidian.unsigned_volume(corners) * signs
         PM[-1] = groups[-1].sum(V)[1]
         DM[-1] = groups[+0].sum(V)[1]
-        # FIXME: can get negative net dual volume this way; solvers not happy
 
         return PM, DM
 
@@ -251,6 +249,7 @@ class ComplexTriangular(ComplexSimplicial):
     @cached_property
     def compute_vertex_areas(self):
         # FIXME: this corresponds to barycentric dual, not circumcentric!
+        # this may be a feature rather than a bug, however
         _, vertex_areas = npi.group_by(self.topology.triangles.flatten()).sum(np.repeat(self.compute_triangle_areas, 3))
         return vertex_areas / 3
 
@@ -289,21 +288,21 @@ class ComplexTriangular(ComplexSimplicial):
         """
         return euclidian.unsigned_volume(self.vertices[self.topology.triangles])
 
-    @cached_property
-    def metric(self):
-        # FIXME: implement edge metrics; should not be hard
-        # FIXME: implement true circumcentric-dual vertex areas
-        PM = [self.topology.chain(0, fill=1), None, self.compute_triangle_areas]
-        DM = [self.topology.chain(2, fill=1), None, 1 / self.compute_vertex_areas]
-        return PM, DM
-
-    @cached_property
-    def hodge_DP(self):
-        """Triangular complex overloads these for the time being"""
-        return [self.compute_vertex_areas, self.compute_edge_ratio, 1 / self.compute_triangle_areas]
-    @cached_property
-    def hodge_PD(self):
-        return [1 / h for h in self.hodge_DP]
+    # @cached_property
+    # def metric(self):
+    #     # FIXME: implement edge metrics; should not be hard
+    #     # FIXME: implement true circumcentric-dual vertex areas
+    #     PM = [self.topology.chain(0, fill=1), None, self.compute_triangle_areas]
+    #     DM = [self.topology.chain(2, fill=1), None, 1 / self.compute_vertex_areas]
+    #     return PM, DM
+    #
+    # @cached_property
+    # def hodge_DP(self):
+    #     """Triangular complex overloads these for the time being"""
+    #     return [self.compute_vertex_areas, self.compute_edge_ratio, 1 / self.compute_triangle_areas]
+    # @cached_property
+    # def hodge_PD(self):
+    #     return [1 / h for h in self.hodge_DP]
 
     def subdivide(coarse, smooth=False, creases=None):
         """Loop subdivision

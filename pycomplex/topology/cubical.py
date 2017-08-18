@@ -8,7 +8,7 @@ from pycomplex.topology import index_dtype, sign_dtype, transfer_matrix, generat
 from pycomplex.topology.primal import *
 
 
-def generate_cube_boundary(cubes, degree=1, return_corners=False):
+def generate_cube_boundary(cubes, degree=1, return_corners=False, mirror=True):
     """Given a set of n-cubes, construct overcomplete boundary set of n-d-cubes
     
     every n-cube is bounded on n-dim dimensions; but the d-boundary has permutations given by pascals triangle
@@ -46,11 +46,11 @@ def generate_cube_boundary(cubes, degree=1, return_corners=False):
             s_view = np.moveaxis(s_view, axis + 1, j + 1)
             corner[axis] = 1
         corners.append(tuple(corner))
-        if p:
+        if p and mirror:
             s_view = np.flip(s_view, axis=-1)
         boundary[:, i] = s_view
 
-    if degree == 1:
+    if degree == 1 and mirror:
         # flip the parity of elements on one side of the cube
         boundary[:, :, 1] = np.flip(boundary[:, :, 1], axis=-1)
 
@@ -308,11 +308,47 @@ class TopologyCubical(PrimalTopology):
         has 2 * n_dim vertices.
         At the boundary, we would only get a half-element, so only elegant on closed topologies really
 
-        Also, edges do not map to edges, so thats bad for crease modelling
+        Also, edges do not map to edges, so thats bad for crease modelling.
 
+        Cute, but not much point to it
         """
         assert self.is_closed
         raise NotImplementedError
+
+    def subdivide_fundamental_simplicial(self):
+        offset = np.cumsum([0] + self.n_elements)[:-1]
+        # subdivision is essentially just remapping fundamental-domain n-simplex indices to 0-simplex indices
+        simplices = self.true_fundamental_domains() + offset
+        # flip the mirrored side to preserve orientation;
+        simplices[..., 0, [0, 1]] = simplices[..., 0, [1, 0]]
+        from pycomplex.topology.simplicial import TopologySimplicial
+        return TopologySimplicial.from_simplices(simplices.reshape(-1, self.n_dim + 1))
+
+    def true_fundamental_domains(self):
+        """Form fundamental domain simplices by connecting corners of all degrees
+
+        This is very similar to simplex fundamental domain subdivision logic
+        """
+        n_simplex_corners = self.n_dim + 1
+        dim = ((np.arange(1, n_simplex_corners)) * 2)[::-1]
+
+        shape = np.asarray([self.n_elements[-1]] + list(dim) + [n_simplex_corners])
+
+        domains = -np.ones(shape, dtype=index_dtype)
+        domains[..., -1] = self.range(-1).reshape((-1,) + (1,)*self.n_dim) # they all refer to their parent primal simplex
+
+        IN0 = self.elements[-1]
+        cube_shape = self.cube_shape
+        for i in range(2, self.n_dim + 1):
+            s = shape[:-1].copy()
+            s[i:] = 1
+            IN0 = generate_cube_boundary(IN0.reshape((-1,)+cube_shape), mirror=True)
+            cube_shape = cube_shape[1:]
+            IN0 = IN0.reshape(tuple(s[:i]) + cube_shape)
+            domains[..., -i] = generate_boundary_indices(self.elements[-i], IN0).reshape(s)
+        domains[..., 0] = IN0
+
+        return domains
 
     def fundamental_domains(self):
         """Generate fundamental domains
@@ -323,6 +359,10 @@ class TopologyCubical(PrimalTopology):
             each cube generates a cube of fundamental domains,
             each consisting of a cube of cube indices
 
+        Notes
+        -----
+        These are cubical fundamental domains, not true fundamental domains also reflecting the diagonal symmetry
+        Do a bit of claenup to clarify these naming differences
         """
         # FIXME: fundamental domain isnt really the right word for what we are doing here;
         # that would be the direct analogue of the simplex case

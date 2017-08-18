@@ -123,14 +123,15 @@ if __name__ == '__main__':
 
     letter.plot(plot_dual=False, plot_vertices=False)
 
-    letter = letter.subdivide_simplicial()#.smooth().smooth()
+    # turns out fundamental-simplicial subdivision is the surest method for getting positive duals
+    letter = letter.subdivide_fundamental_simplicial().as_2().as_3()#.smooth()#.smooth()
 
-    # letter = letter.as_3().optimize_weights_metric()
-    letter = letter.as_3().optimize_weights()
+    # letter = letter.optimize_weights_metric()
+    # letter = letter.as_3().optimize_weights()
 
     letter.plot_3d(plot_dual=True, plot_vertices=False)
 
-    PM, DM = letter.metric_experimental
+    PM, DM = letter.metric
     plt.scatter(*letter.vertices[DM[2]<0][:, :2].T, c='k')
     for i, m in enumerate(PM):
         print(i)

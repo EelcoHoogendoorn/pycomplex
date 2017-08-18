@@ -218,16 +218,21 @@ class ComplexSpherical(BaseComplexSpherical):
             barycentric weights corresponding to the domain indices
         domain_idx : ndarray, [n_points], index_dtype, optional
             returned if domain_idx input is not None
+
+        Notes
+        -----
+        Using a weighted fundamental subdivision, directly picking the right domain should in fact be possible
+        Certainly in a euclidian space; need to think about the spherical case a little more
         """
+        assert self.positive_dual_metric
         domains, basis, domains_index = self.pick_fundamental_precomp
 
         def query(points):
             n_points, n_dim = points.shape
             # FiXME: can be unified with its own tree; midpoint between primals and duals
-            if False and self.positive_dual_metric:
+            if False:
                 primal, bary = self.pick_primal_alt(points) # FIXME: still have failures for 4-spheres sometimes. would picking primal/dual together fix this?
             else:
-                # revert to slower method for badly inverted geometry
                 primal, bary = self.pick_primal(points)
             dual = self.pick_dual(points)
 
@@ -292,11 +297,21 @@ class ComplexSpherical(BaseComplexSpherical):
         not sure I fully grasp all the implications thereof.
         """
         assert self.topology.is_closed
+        euc = self.as_euclidian().copy(weights=self.weights)
         assert self.is_pairwise_delaunay    # if centroids cross eachother, this method fails
+        # FIXME as euclidian appears to do the trick; does lead to cracks tho, but more understabale. think about this aspect more!
+        # worst case, crack can be solved by considering opposing simplex in case of negative bary
+        # edge excess is the squared distance of each N-dual to its bounding n-1 duals; shape [n_N-simplices, N+1]
+        ee = euc.dual_edge_excess(signed=False)
+        # this is like primal position, but without the normalization. otherwise, our dual edge excess should also be in spherical coordinates
+        corners = self.vertices[self.topology.elements[-1]]
+        dual_vertex = np.einsum('...cn,...c->...n', corners, euc.primal_barycentric[-1])
 
-        # constructs offsets required
-        q = self.remap_boundary_N(self.dual_edge_excess(signed=False))
+        # sum these around each n-1-simplex, or bounding face, to get n-1-form
+        q = self.remap_boundary_N(ee, oriented=True)
         T = self.topology.matrices[-1]
+        # solve T * w = q; that is,
+        # difference in desired weights on simplices over faces equals difference in squared distance over boundary
         L = T.T * T
         rhs = T.T * q
         # rhs = rhs - rhs.mean()
@@ -305,9 +320,6 @@ class ComplexSpherical(BaseComplexSpherical):
         offset = self.weights_to_offsets(weight)
 
         # PP = self.primal_position
-        # this is like primal position, but without the normalization. otherwise, our dual edge excess should also be in spherical coordinates
-        corners = self.vertices[self.topology.elements[-1]]
-        dual_vertex = np.einsum('...cn,...c->...n', corners, self.primal_barycentric[-1])
         augmented = np.concatenate([dual_vertex, offset[:, None]], axis=1)
         tree = scipy.spatial.cKDTree(augmented)
 
@@ -432,8 +444,8 @@ class ComplexSpherical(BaseComplexSpherical):
         Would it pay to construct the fundamental topology first?
 
         Only works up to ndim=2 for now. general spherical case seems hard
-        we might approximate by doing some additional subdivision steps, and approximating with euclidian measure
-        once sufficiently flat. still leaves the problem of subdividing arbitrary simplices however
+        we might approximate by doing some additional subdivision steps using cubes, and approximating with euclidian measure
+        Or we could simply cast to euclidian, and return the metric of that
         """
         topology = self.topology
         assert topology.is_oriented
