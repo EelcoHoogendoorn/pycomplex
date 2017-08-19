@@ -448,6 +448,7 @@ class BaseComplex(object):
         """Test that adjacent circumcenters do not cross eachother, or that dual 1-metric is positive"""
         return np.all(self.remap_boundary_N(self.dual_edge_excess(), oriented=False) > 0)
 
+    @cached_property
     def weighted_average_operators(self):
         """Weight averaging over the duals by their barycentric mean coordinates
 

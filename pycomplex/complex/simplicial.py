@@ -271,7 +271,76 @@ class ComplexSimplicial(BaseComplexEuclidian):
 
         return dual_element_index
 
+    @cached_property
+    def pick_fundamental_precomp(self):
+        # this may be a bit expensive; but hey it is cached; and it sure is elegant
+        fundamental = self.subdivide_fundamental().optimize_weights_fundamental()
+        domains = self.topology.fundamental_domains().reshape(-1, self.topology.n_dim + 1)
+        return fundamental, domains
 
+    def pick_fundamental(self, points, domain_idx=None):
+        """Pick the fundamental domain
+
+        Parameters
+        ----------
+        points : ndarray, [n_points, n_dim], float
+            points to pick
+        domain_idx : ndarray, [n_points], index_dtype, optional
+            feed previous returned idx in to exploit temporal coherence in queries
+
+        Returns
+        -------
+        domains : ndarray, [n_points, n_dim], index_dtype
+            n-th column corresponds to indices of n-element
+        baries: ndarray, [n_points, n_dim] float
+            barycentric weights corresponding to the domain indices
+        domain_idx : ndarray, [n_points], index_dtype, optional
+            returned if domain_idx input is not None
+
+        """
+        assert self.is_pairwise_delaunay
+        fundamental, domains = self.pick_fundamental_precomp
+
+        domain_idx, bary = fundamental.pick_primal(points, simplex_idx=domain_idx)
+        return domain_idx, bary, domains[domain_idx]
+
+    def sample_dual_0(self, d0, points):
+        """Sample a dual 0-form at the given points, using linear interpolation over fundamental domains
+
+        Parameters
+        ----------
+        d0 : ndarray, [topology.dual.n_elements[0]], float
+        points : ndarray, [n_points, self.n_dim], float
+
+        Returns
+        -------
+        ndarray, [n_points], float
+        """
+        # extend dual 0 form to all other dual elements by averaging
+        dual_forms = [a * d0 for a in self.weighted_average_operators][::-1]
+
+        domain_idx, bary, domain = self.pick_fundamental(points)
+        # do interpolation over fundamental domain
+        i = [dual_forms[i][domain[:, i]] * bary[:, i]
+            for i in range(self.topology.n_dim + 1)]
+        return sum(i)
+
+    def sample_primal_0(self, p0, points):
+        """Sample a primal 0-form at the given points, using linear interpolation over n-simplices
+
+        Parameters
+        ----------
+        p0 : ndarray, [topology.n_elements[0]], float
+        points : ndarray, [n_points, self.n_dim], float
+
+        Returns
+        -------
+        ndarray, [n_points], float
+        """
+        simplex_idx, bary = self.pick_primal(points)
+        simplices = self.topology.elements[-1]
+        vertex_idx = simplices[simplex_idx]
+        return (p0[vertex_idx] * bary).sum(axis=1)
 
 
 class ComplexTriangular(ComplexSimplicial):
@@ -389,7 +458,7 @@ class ComplexTriangular(ComplexSimplicial):
 
     def plot_dual_0_form_interpolated(self, d0, weighted=False, **kwargs):
         if weighted:
-            average = self.weighted_average_operators()
+            average = self.weighted_average_operators
         else:
             average = self.topology.dual.averaging_operators_0
         S = self.topology.dual.selector

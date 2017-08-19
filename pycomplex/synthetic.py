@@ -249,7 +249,7 @@ def optimal_delaunay_sphere(n_points, n_dim, iterations=50, weights=True, push_i
     return complex
 
 
-def delaunay_cube(density=30, n_dim=2):
+def delaunay_cube(density=30, n_dim=2, iterations=30):
     """Generate a delaunay simplex mesh on a cube"""
     import scipy.spatial
 
@@ -274,7 +274,7 @@ def delaunay_cube(density=30, n_dim=2):
     points = np.random.uniform(0, 1, (density ** 2, n_dim))
     complex = complex_from_points(points)
 
-    for i in range(30):
+    for i in range(iterations):
         cc = complex.primal_position[-1]
         from pycomplex.geometry import euclidian
         W = euclidian.unsigned_volume(complex.vertices[complex.topology.corners[-1]])[:, None]

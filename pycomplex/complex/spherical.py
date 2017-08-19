@@ -486,15 +486,6 @@ class ComplexSpherical(BaseComplexSpherical):
             [m * (self.radius ** i) for i, m in enumerate(DM)]
         )
 
-    @cached_property
-    def cached_averages(self):
-        # note: weighted average is more correct, but the difference appears very minimal in practice
-        return self.weighted_average_operators()
-        # return self.topology.dual.averaging_operators_0
-
-    def average_dual(self, d0):
-        return [a * d0 for a in self.cached_averages]
-
     def sample_dual_0(self, d0, points):
         """Sample a dual 0-form at the given points, using linear interpolation over fundamental domains
 
@@ -508,7 +499,7 @@ class ComplexSpherical(BaseComplexSpherical):
         ndarray, [n_points], float
         """
         # extend dual 0 form to all other dual elements by averaging
-        dual_forms = self.average_dual(d0)[::-1]
+        dual_forms = [a * d0 for a in self.weighted_average_operators]
         domain, bary = self.pick_fundamental(points)
         # do interpolation over fundamental domain
         return sum([dual_forms[i][domain[:, i]] * bary[:, [i]]
