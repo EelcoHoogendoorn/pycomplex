@@ -165,6 +165,114 @@ class ComplexSimplicial(BaseComplexEuclidian):
 
         return PM, DM
 
+    @cached_property
+    def pick_primal_precomp(self):
+        """Precomputations for primal picking
+
+        Notes
+        -----
+        Requires pairwise delaunay complex
+        """
+        assert self.is_pairwise_delaunay    # if centroids cross eachother, this method fails
+        ee = self.dual_edge_excess(signed=False)
+
+        corners = self.vertices[self.topology.elements[-1]]
+        dual_vertex = np.einsum('...cn,...c->...n', corners, self.primal_barycentric[-1])
+
+        # sum these around each n-1-simplex, or bounding face, to get n-1-form
+        q = self.remap_boundary_N(ee, oriented=True)
+        S = self.topology.selector[-2]
+        T = S * self.topology.matrices[-1]
+        # solve T * w = q; that is,
+        # difference in desired weights on simplices over faces equals difference in squared distance over boundary between simplices
+        L = T.T * T
+        rhs = T.T * S * q
+        rhs = rhs - rhs.mean()  # this might aid numerical stability of minres
+        weight = scipy.sparse.linalg.minres(L, rhs, tol=1e-16)[0]
+
+        offset = self.weights_to_offsets(weight)
+        augmented = np.concatenate([dual_vertex, offset[:, None]], axis=1)
+        tree = scipy.spatial.cKDTree(augmented)
+
+        homogeneous = np.concatenate([corners, np.ones_like(corners[:, :, :1])], axis=-1)
+        basis = np.linalg.inv(homogeneous)
+
+        return tree, basis
+
+    def pick_primal(self, points, simplex_idx=None):
+        """Picking of primal simplex by means of a point query wrt its dual vertex
+
+        Parameters
+        ----------
+        points : ndarray, [n_points, n_dim], float
+        simplex_idx : ndarray, [n_points], index_dtype
+            initial guess
+
+        Returns
+        -------
+        simplex_idx : ndarray, [n_points], index_dtype
+        bary : ndarray, [n_points, topology.n_dim + 1], float
+            barycentric coordinates
+
+        """
+        assert self.is_pairwise_delaunay
+        tree, basis = self.pick_primal_precomp
+
+        def query(points):
+            augmented = np.concatenate([points, np.zeros_like(points[:, :1])], axis=1)
+            dist, idx = tree.query(augmented)
+            homogeneous = np.concatenate([points, np.ones_like(points[:, :1])], axis=1)
+            baries = np.einsum('tcv,tc->tv', basis[idx], homogeneous)
+            return idx, baries
+
+        if simplex_idx is None:
+            simplex_idx, baries = query(points)
+        else:
+            homogeneous = np.concatenate([points, np.ones_like(points[:, :1])], axis=1)
+            baries = np.einsum('tcv,tc->tv', basis[simplex_idx], homogeneous)
+            update = np.any(baries < 0, axis=1)
+            if np.any(update):
+                simplex_idx = simplex_idx.copy()
+                s, b = query(points[update])
+                simplex_idx[update] = s
+                baries[update] = b
+
+        baries /= baries.sum(axis=1, keepdims=True)
+
+        return simplex_idx, baries
+
+    @cached_property
+    def pick_precompute(self):
+        """Cached precomputations for spherical picking operations"""
+        c = self.primal_position[0]
+        if self.weights is not None:
+            # NOTE: if using this for primal simplex picking, we could omit the weights
+            offsets = self.weights_to_offsets(self.weights)
+            c = np.concatenate([c, offsets[:, None]], axis=1)
+        tree = scipy.spatial.cKDTree(c)
+        basis = np.linalg.inv(self.vertices[self.topology.elements[-1]])
+        return tree, basis
+
+    def pick_dual(self, points):
+        """Pick the dual elements. By definition of the voronoi dual,
+        this lookup can be trivially implemented as a closest-point query
+
+        Returns
+        -------
+        ndarray, [self.topology.n_elements[0]], index_dtype
+            primal vertex / dual element index
+        """
+        if self.weights is not None:
+            points = np.concatenate([points, np.zeros_like(points[:, :1])], axis=1)
+        tree, _ = self.pick_precompute
+        # finding the dual face we are in is as simple as finding the closest primal vertex,
+        # by virtue of the definition of duality
+        _, dual_element_index = tree.query(points)
+
+        return dual_element_index
+
+
+
 
 class ComplexTriangular(ComplexSimplicial):
     """Triangular simplicial complex"""

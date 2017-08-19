@@ -32,6 +32,7 @@ Features
 Possible novelties
 ------------------
 - Construction of boundary dual and relation to formulation of boundary conditions
+- Picking of primal/dual power diagram elements using only a single closest-point query
 - Fundamental-domain interpolation of dual 0-forms; much simpler conceptually than barycentric, and can be efficiently implemented
 
 See also
