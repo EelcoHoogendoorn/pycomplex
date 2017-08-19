@@ -1,5 +1,8 @@
+
 from abc import abstractmethod
 from cached_property import cached_property
+import functools
+import operator
 
 import numpy as np
 import scipy
@@ -445,8 +448,88 @@ class BaseComplex(object):
         """Test that adjacent circumcenters do not cross eachother, or that dual 1-metric is positive"""
         return np.all(self.remap_boundary_N(self.dual_edge_excess(), oriented=False) > 0)
 
+    def weighted_average_operators(self):
+        """Weight averaging over the duals by their barycentric mean coordinates
+
+        Divide by distance to dual vertex to make all other zero when approaching vertex
+        Divide by distance to dual edge to make all other zero when approaching dual edge
+        Divide by distance to dual face to make all other zero when approaching dual face
+        and so on.
+
+        General idea; divide perimeter of a dual element
+        by the distance to all corners corresponding to lower order duals
+
+        References
+        ----------
+        http://vcg.isti.cnr.it/Publications/2004/HF04/coordinates_aicm04.pdf
+        https://www.researchgate.net/publication/2856409_Generalized_Barycentric_Coordinates_on_Irregular_Polygons
+
+        Notes
+        -----
+        Requires a well-centered mesh.
+        Getting this working on non-well centered meshes requires handling of sign in metric caluculations,
+        but also replacing the division by the distance to each corner of a domain,
+        with a product to all other distances in the cell, to avoid divisions by zero.
+        This strikes me as a bit daunting still
+
+        While I think its really neat how well this can be implemented for any dimension,
+        the utility thereof isnt that obvious, considering the seeming difficulty of finding
+        well-centered simplicial meshes in dimensions greater than 2.
+        """
+
+        topology = self.topology
+        assert topology.is_oriented
+        assert self.is_well_centered
+
+        PP = self.primal_position
+        domains = self.topology.fundamental_domains()
+
+        domains = domains.reshape(-1, domains.shape[-1])
+        corners = np.concatenate([p[d][:, None, :] for p, d in zip(PP, domains.T)], axis=1)
+
+        unsigned = self.unsigned_volume
+
+        # construct required distances; all edges lengths
+        def edge_length(a, b):
+            return unsigned(corners[:, [a, b]])
+
+        def edge_length_prod(n):
+            return functools.reduce(operator.mul, [edge_length(n, m + 1) for m in range(n, self.topology.n_dim)])
+
+        # the perimeter of a dual element fundamental domain is given by this expression
+        perimeter = [unsigned(corners[:, i + 1:]) for i in range(self.topology.n_dim)]
+
+        # mean barycentric weights of an element is given by perimeter divided by the distance to all its corners
+        W = [1] * (self.topology.n_dim + 1)
+        for i in range(self.topology.n_dim):
+            n = i + 1
+            c = self.topology.n_dim - n
+            W[n] = perimeter[c] / edge_length_prod(c)
+
+        # we bias the averaging operators with these weights
+        res = [1]
+        for i, (w, a) in enumerate(zip(W[1:], self.topology.dual.averaging_operators_0[1:])):
+            M = scipy.sparse.coo_matrix((
+                w,
+                (domains[:, -(i + 2)], domains[:, -1])),
+                shape=a.shape
+            )
+            q = a.multiply(M)
+            res.append(normalize_l1(q, axis=1))
+
+        return res
+
+    @abstractmethod
+    def unsigned_volume(self, pts):
+        raise NotADirectoryError
+
+
+from pycomplex.geometry import euclidian
 
 class BaseComplexEuclidian(BaseComplex):
+
+    def unsigned_volume(self, pts):
+        return euclidian.unsigned_volume(pts)
 
     @cached_property
     def primal_barycentric(self):
@@ -456,7 +539,6 @@ class BaseComplexEuclidian(BaseComplex):
         -------
         pp : list of primal element positions, length n_dim
         """
-        from pycomplex.geometry import euclidian
         return [euclidian.circumcenter_barycentric(
                     self.vertices[c],
                     self.weights[c] if self.weights is not None else None)
@@ -488,6 +570,10 @@ class BaseComplexCubical(BaseComplex):
 
 
 class BaseComplexSpherical(BaseComplex):
+
+    def unsigned_volume(self, pts):
+        from pycomplex.geometry import spherical
+        return spherical.unsigned_volume(pts)
 
     @cached_property
     def primal_barycentric(self):

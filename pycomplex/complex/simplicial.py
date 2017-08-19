@@ -90,7 +90,7 @@ class ComplexSimplicial(BaseComplexEuclidian):
         return ComplexSpherical(vertices=self.vertices, topology=self.topology)
 
     def as_2(self):
-        return ComplexTriangular(vertices=self.vertices, topology=self.topology.as_2())
+        return ComplexTriangular(vertices=self.vertices, topology=self.topology.as_2(), weights=self.weights)
 
     def subdivide_fundamental(self):
         return type(self)(
@@ -164,67 +164,6 @@ class ComplexSimplicial(BaseComplexEuclidian):
         DM[-1] = groups[+0].sum(V)[1]
 
         return PM, DM
-
-    def weighted_average_operators(self):
-        """Weight averaging over the duals by their barycentric coordinates
-
-        Using mean coordinates for now, since they are simple to implement
-
-        Divide by distance to dual vertex to make all other zero when approaching vertex
-        Divide by distance to dual edge to make all other zero when approaching dual edge
-        Divide by distance to dual face to make all other zero when approaching dual face
-        and so on.
-
-        Base is surface area; circumferential surface area divided by all distances
-
-        References
-        ----------
-        http://vcg.isti.cnr.it/Publications/2004/HF04/coordinates_aicm04.pdf
-        https://www.researchgate.net/publication/2856409_Generalized_Barycentric_Coordinates_on_Irregular_Polygons
-
-        FIXME: only closed cases for now; need to add boundary handling
-        """
-        topology = self.topology
-        assert topology.is_oriented
-        assert self.topology.is_closed
-        assert self.is_well_centered
-
-        PP = self.primal_position
-        domains = self.topology.fundamental_domains()
-
-        domains = domains.reshape(-1, domains.shape[-1])
-        corners = np.concatenate([p[d][:, None, :] for p, d in zip(PP, domains.T)], axis=1)
-
-        unsigned = euclidian.unsigned_volume
-
-        # construct required distances; all edges lengths
-        def edge_length(a, b):
-            return unsigned(corners[:, [a, b]])
-        def edge_length_prod(n):
-            import functools
-            import operator
-            return functools.reduce(operator.mul, [edge_length(n, m + 1) for m in range(n, self.topology.n_dim)])
-
-        perimeter = [unsigned(corners[:, i+1:]) for i in range(self.topology.n_dim)]
-
-        W = [1] * (self.topology.n_dim + 1)
-        for i in range(self.topology.n_dim):
-            n = i + 1
-            c = self.topology.n_dim - n
-            W[n] = perimeter[c] / edge_length_prod(c)
-
-        res = [1]
-        for i, (w, a) in enumerate(zip(W[1:], self.topology.dual.averaging_operators_0()[1:])):
-
-            M = scipy.sparse.coo_matrix((
-                w,
-                (domains[:, -(i + 2)], domains[:, -1])),
-                shape=a.shape
-            )
-            q = a.multiply(M)
-            res.append(normalize_l1(q, axis=1))
-
-        return res
 
 
 class ComplexTriangular(ComplexSimplicial):
@@ -335,17 +274,18 @@ class ComplexTriangular(ComplexSimplicial):
         )
 
     def as_2(self):
-        return ComplexTriangularEuclidian2(vertices=self.vertices, topology=self.topology)
+        return ComplexTriangularEuclidian2(vertices=self.vertices, topology=self.topology, weights=self.weights)
 
     def as_3(self):
         return ComplexTriangularEuclidian3(vertices=self.vertices, topology=self.topology)
 
-    def plot_dual_0_form_interpolated(self, d0, weighted=True, **kwargs):
+    def plot_dual_0_form_interpolated(self, d0, weighted=False, **kwargs):
         if weighted:
             average = self.weighted_average_operators()
         else:
             average = self.topology.dual.averaging_operators_0
-        sub_form = np.concatenate([a * d0 for a in average[::-1]], axis=0)
+        S = self.topology.dual.selector
+        sub_form = np.concatenate([s * a * d0 for s, a in zip(S, average[::-1])], axis=0)
         sub = self.subdivide_fundamental()
         sub.plot_primal_0_form(sub_form, **kwargs)
 

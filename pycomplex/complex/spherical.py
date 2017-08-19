@@ -450,6 +450,8 @@ class ComplexSpherical(BaseComplexSpherical):
         topology = self.topology
         assert topology.is_oriented
         assert self.is_well_centered
+        assert self.topology.n_dim <= 2     # what to do in higher dims? numerical quadrature?
+
         PP = self.primal_position
         domains = self.topology.fundamental_domains()
 
@@ -484,74 +486,11 @@ class ComplexSpherical(BaseComplexSpherical):
             [m * (self.radius ** i) for i, m in enumerate(DM)]
         )
 
-    def weighted_average_operators(self):
-        """Weight averaging over the duals by their barycentric coordinates
-
-        Using mean coordinates for now, since they are simple to implement in a vectorized an nd-manner
-
-        General logic is pretty simple; take the perimeter of an n-element, and divide it by the distance to
-        all lower-order elements.
-
-        Divide by distance to dual vertex to make all other zero when approaching vertex
-        Divide by distance to dual edge to make all other zero when approaching dual edge
-        Divide by distance to dual face to make all other zero when approaching dual face
-        and so on.
-
-        References
-        ----------
-        http://vcg.isti.cnr.it/Publications/2004/HF04/coordinates_aicm04.pdf
-        https://www.researchgate.net/publication/2856409_Generalized_Barycentric_Coordinates_on_Irregular_Polygons
-
-        FIXME: only closed cases for now; need to add boundary handling
-
-        This also is pure duplication relative to simplicial case, except for choice of metric
-
-        """
-        topology = self.topology
-        assert topology.is_oriented
-        assert self.topology.is_closed  # is this really necessary? havnt really tested it
-        assert self.is_well_centered    # FIXME: should be able to relax this if we properly account for signs
-
-        PP = self.primal_position
-        domains = self.topology.fundamental_domains()
-
-        domains = domains.reshape(-1, domains.shape[-1])
-        corners = np.concatenate([p[d][:, None, :] for p, d in zip(PP, domains.T)], axis=1)
-
-        unsigned = spherical.unsigned_volume
-
-        # construct required distances; all edges lengths
-        def edge_length(a, b):
-            return unsigned(corners[:, [a, b]])
-        def edge_length_prod(n):
-            return functools.reduce(operator.mul, [edge_length(n, m + 1) for m in range(n, self.topology.n_dim)])
-
-        perimeter = [unsigned(corners[:, i+1:]) for i in range(self.topology.n_dim)]
-
-        W = [1] * (self.topology.n_dim + 1)
-        for i in range(self.topology.n_dim):
-            n = i + 1
-            c = self.topology.n_dim - n
-            W[n] = perimeter[c] / edge_length_prod(c)
-
-        res = [1]
-        for i, (w, a) in enumerate(zip(W[1:], self.topology.dual.averaging_operators_0[1:])):
-
-            M = scipy.sparse.coo_matrix((
-                w,
-                (domains[:, -(i + 2)], domains[:, -1])),
-                shape=a.shape
-            )
-            q = a.multiply(M)
-            res.append(normalize_l1(q, axis=1))
-
-        return res
-
     @cached_property
     def cached_averages(self):
         # note: weighted average is more correct, but the difference appears very minimal in practice
-        # return self.weighted_average_operators()
-        return self.topology.dual.averaging_operators_0
+        return self.weighted_average_operators()
+        # return self.topology.dual.averaging_operators_0
 
     def average_dual(self, d0):
         return [a * d0 for a in self.cached_averages]

@@ -53,3 +53,4 @@ def get_harmonics_2(complex2):
     w, v = scipy.sparse.linalg.eigsh(laplacian, M=scipy.sparse.diags(mass), which='SA', k=20)
     # print(w)
     return v
+
