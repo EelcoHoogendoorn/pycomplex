@@ -11,10 +11,11 @@ if False:
     quad = synthetic.n_cube(2)
     for i in range(5):
         quad = quad.subdivide()
+    quad = quad.as_22().as_regular()
 else:
     quad = synthetic.n_cube_grid((32, 32), False)
+    quad = quad.as_22().as_regular()
 
-quad = quad.as_22().as_regular()
 
 
 v = get_harmonics_0(quad)

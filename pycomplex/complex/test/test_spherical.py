@@ -92,7 +92,7 @@ def test_hexacosichoron():
 
     complex = synthetic.hexacosichoron()
 
-    deg = complex.topology.vertex_degree()
+    deg = complex.topology.degree[0]
     npt.assert_equal(deg, 20)
     assert complex.topology.is_oriented
     assert complex.topology.n_elements == [120, 720, 1200, 600]
@@ -106,6 +106,8 @@ def test_hexacosichoron():
     complex = complex.copy(vertices = np.dot(complex.vertices, linalg.orthonormalize(np.random.randn(n_dim, n_dim))))
     complex.plot(plot_dual=True, backface_culling=False)
 
+test_hexacosichoron()
+plt.show()
 
 def test_n_cube_dual():
     for n_dim in [2, 3, 4, 5]:

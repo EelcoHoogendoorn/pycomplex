@@ -247,3 +247,40 @@ def optimal_delaunay_sphere(n_points, n_dim, iterations=50, weights=True, push_i
                 break
 
     return complex
+
+
+def delaunay_cube(density=30, n_dim=2):
+    """Generate a delaunay simplex mesh on a cube"""
+    import scipy.spatial
+
+    idx = np.indices((density + 1,)*n_dim)
+    outer = np.where(np.any(np.logical_or(idx == 0, idx == density), axis=0))
+    outer = np.array(outer).T / density
+
+    def complex_from_points(points):
+        e = 0.5 / density
+        r = np.any(np.logical_or(points < (0 + e), points > (1 - e)), axis=1)
+        points = np.delete(points, np.flatnonzero(r), axis=0)
+
+        points = np.concatenate([outer, points], axis=0)
+        simplices = scipy.spatial.Delaunay(points).simplices
+        a, b = np.unique(simplices, return_inverse=True)
+        simplices = b.reshape(simplices.shape).astype(index_dtype)
+        points = points[a]
+        topology = TopologySimplicial.from_simplices(simplices.astype(index_dtype)).fix_orientation()
+        complex = ComplexSimplicial(points, topology=topology)
+        return complex
+
+    points = np.random.uniform(0, 1, (density ** 2, n_dim))
+    complex = complex_from_points(points)
+
+    for i in range(30):
+        cc = complex.primal_position[-1]
+        from pycomplex.geometry import euclidian
+        W = euclidian.unsigned_volume(complex.vertices[complex.topology.corners[-1]])[:, None]
+        A = complex.topology.averaging_operators_N[0]
+        # take the average at each dual vertex, of all incident n-simplices
+        points = (A * (cc * W)) / (A * W)
+        complex = complex_from_points(points)
+
+    return complex
