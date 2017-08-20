@@ -4,7 +4,7 @@ import itertools
 import numpy as np
 import scipy.spatial
 
-from pycomplex.complex.simplicial import ComplexSimplicial
+from pycomplex.complex.simplicial import ComplexSimplicialEuclidian
 from pycomplex.complex.cubical import ComplexCubical
 from pycomplex.complex.spherical import ComplexSpherical2, ComplexSpherical
 from pycomplex.topology import index_dtype
@@ -23,7 +23,7 @@ def n_simplex(n_dim, equilateral=True):
 
     Returns
     -------
-    ComplexSimplicial
+    ComplexSimplicialEuclidian
 
     """
     def simplex_vertices(n):
@@ -43,7 +43,7 @@ def n_simplex(n_dim, equilateral=True):
         vertices = np.eye(n_dim + 1)[:, 1:] # canonical simplex
 
     corners = np.arange(n_dim + 1, dtype=index_dtype)
-    return ComplexSimplicial(vertices=vertices, simplices=corners[None, :])
+    return ComplexSimplicialEuclidian(vertices=vertices, simplices=corners[None, :])
 
 
 def n_cube(n_dim, centering=False):
@@ -215,6 +215,7 @@ def optimal_delaunay_sphere(n_points, n_dim, iterations=50, weights=True, push_i
         return complex
 
     def push_points(points, r=5, magnitude=.1):
+        # FIXME: use connectivity for this instead of tree?
         r = r / np.power(n_points, 1 / (n_dim - 1))
         tree = scipy.spatial.cKDTree(points)
         s, e = tree.query_pairs(r=r, output_type='ndarray').T
@@ -268,7 +269,7 @@ def delaunay_cube(density=30, n_dim=2, iterations=30):
         simplices = b.reshape(simplices.shape).astype(index_dtype)
         points = points[a]
         topology = TopologySimplicial.from_simplices(simplices.astype(index_dtype)).fix_orientation()
-        complex = ComplexSimplicial(points, topology=topology)
+        complex = ComplexSimplicialEuclidian(points, topology=topology)
         return complex
 
     points = np.random.uniform(0, 1, (density ** 2, n_dim))

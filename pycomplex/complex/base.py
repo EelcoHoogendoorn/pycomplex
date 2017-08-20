@@ -511,6 +511,7 @@ class BaseComplex(object):
 
         # we bias the averaging operators with these weights
         res = [1]
+        # FIXME: a has bigger shape than w; this is the cause of divide by zero errors
         for i, (w, a) in enumerate(zip(W[1:], self.topology.dual.averaging_operators_0[1:])):
             M = scipy.sparse.coo_matrix((
                 w,
@@ -527,11 +528,15 @@ class BaseComplex(object):
         raise NotADirectoryError
 
 
-from pycomplex.geometry import euclidian
+
+class BaseComplexSimplicial(BaseComplex):
+    pass
+
 
 class BaseComplexEuclidian(BaseComplex):
 
     def unsigned_volume(self, pts):
+        from pycomplex.geometry import euclidian
         return euclidian.unsigned_volume(pts)
 
     @cached_property
@@ -542,6 +547,7 @@ class BaseComplexEuclidian(BaseComplex):
         -------
         pp : list of primal element positions, length n_dim
         """
+        from pycomplex.geometry import euclidian
         return [euclidian.circumcenter_barycentric(
                     self.vertices[c],
                     self.weights[c] if self.weights is not None else None)

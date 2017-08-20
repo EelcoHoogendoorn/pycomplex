@@ -154,38 +154,53 @@ class VorticityAdvector(Advector):
 
         velocity_d0 = self.dual_flux_to_dual_velocity(flux_d1)
 
+
         # advect the dual mesh
         advected_d0 = self.complex.dual_position[0] + velocity_d0 * dt
         if isinstance(self.complex, ComplexSpherical):
             advected_d0 = linalg.normalized(advected_d0)
 
+
+        if True:
+            # import matplotlib.pyplot as plt
+            # self.complex.plot(plot_dual=False)
+            # self.complex.copy(vertices=advected_p0).plot(plot_dual=False)
+            plt.figure()
+            plt.quiver(self.complex.primal_position[2][:, 0], self.complex.primal_position[2][:, 1], velocity_d0[:, 0], velocity_d0[:, 1])
+            plt.axis('equal')
+            plt.show()
+
+
         # sample at all advected dual vertices, average at the mid of dual edge, and dot with advected dual edge vector
+        # FIXME:
         velocity_sampled_d0 = self.complex.sample_dual_0(velocity_d0, advected_d0)
+        # FIXME: test if sampling with dt=0 gives us back our original velocity_d0
 
         # integrate the tangent flux of the advected mesh.
-        # FIXME: average_dual here is overkill, but want to reuse boundary sampling
-        velocity_sampled_d1 = self.complex.average_dual(velocity_sampled_d0)[1]
-        # velocity_sampled_d1 = self.complex.cached_averages[1] * velocity_sampled_d0
+        velocity_sampled_d1 = self.complex.weighted_average_operators[1] * (velocity_sampled_d0)
         advected_edge = self.complex.topology.dual.matrices[0].T * advected_d0
+        # taking dot is euclidian integral
         flux_d1_advected = linalg.dot(velocity_sampled_d1, advected_edge)        # this does not include flux around boundary edges; but currently all zero anyway
-        # drop
+        # drop boundary terms
         flux_d1_advected = self.complex.topology.dual.selector[1] * flux_d1_advected
 
         if force is not None:
             # add force impulse, if given
             flux_d1_advected += force * dt
 
-        if self.complex.boundary:
+        if self.complex.boundary is not None:
             return self.complex.topology.dual.selector[1].T * self.constrain_divergence_boundary(flux_d1_advected)
         else:
-            # on boundary-free domains, using pressure projection is simpler, since it does not
+            # on boundary-free domains, using pressure projection is simpler, since it does not require seperate treatnent of harmonic component
             return self.complex.topology.dual.selector[1].T * self.pressure_projection(flux_d1_advected)
 
 
 if __name__ == "__main__":
     dt = .1
 
-    complex_type = 'sphere'
+    np.seterr(all='raise')
+    # complex_type = 'sphere'
+    complex_type = 'simplex_grid'
 
     if complex_type == 'sphere':
         complex = synthetic.icosphere(refinement=5)
@@ -207,6 +222,30 @@ if __name__ == "__main__":
         complex = complex.as_22().as_regular()
         complex.topology.check_chain()
         tris = complex.subdivide_simplicial()
+    if complex_type == 'simplex_grid':
+        # the only difference between this and 'simplicial fluids', should be the dual interpolation
+        while True:
+            complex = synthetic.delaunay_cube(30, 2, iterations=50)
+
+            # smooth while holding boundary constant
+            # FIXME: need more utility functions for this; too much boilerplate for such a simple pattern
+            chain_0 = complex.topology.chain(0, fill=0)
+            chain_0[complex.boundary.topology.parent_idx[0]] = 1
+            chain_1 = complex.topology.chain(1, fill=0)
+            chain_1[complex.boundary.topology.parent_idx[1]] = 1
+            creases = {0: chain_0, 1: chain_1}
+            for i in range(0):
+                complex = complex.as_2().subdivide(smooth=True, creases=creases)
+                for d, c in creases.items():
+                    creases[d] = complex.topology.transfer_matrices[d] * c
+
+            complex = complex.optimize_weights_metric()
+            print(complex.is_well_centered)
+            if complex.is_well_centered:
+                break
+        # complex.plot()
+        # plt.show()
+
 
 
     T01, T12 = complex.topology.matrices
@@ -220,12 +259,8 @@ if __name__ == "__main__":
     if False:
         # generate a smooth incompressible flow field using harmonics
 
-        # H = get_harmonics_0(complex)
-        H_d0 = get_harmonics_2(complex)[:, 2]
+        H_p0 = get_harmonics_0(complex, zero_boundary=True)[:, 2]
 
-        A = complex.topology.dual.averaging_operators_0()
-        H_p0 = complex.hodge_PD[0] * (A[2] * H_d0)
-        H_p0[complex.boundary.topology.parent_idx[0]] = 0
 
         if False:
             form = tris.topology.transfer_operators[0] * H_p0
@@ -241,7 +276,7 @@ if __name__ == "__main__":
 
     else:
         # use perlin noise for more chaotic flow pattern
-        H = get_harmonics_0(complex)[:, 2]
+        H = get_harmonics_0(complex, zero_boundary=True)[:, 2]
         from examples.diffusion.perlin_noise import perlin_noise
         H = perlin_noise(
             complex,
@@ -252,7 +287,7 @@ if __name__ == "__main__":
                 (.4, .4),
                 (.8, .8),
             ]
-        ) / 100 + H * 0
+        ) / 300 * 0 + H * 1
 
         flux_p1 = curl * H
         flux_d1 = complex.hodge_DP[1] * flux_p1
@@ -263,12 +298,14 @@ if __name__ == "__main__":
     # set up vorticity advector
     advector = VorticityAdvector(complex)
     # test that integrating over zero time does almost nothing
+    flux_d1 = advector.advect_vorticity(flux_d1, dt=0)
     advected_0 = advector.advect_vorticity(flux_d1, dt=0)
-    print(np.abs(advected_0 - flux_d1).max())
-    print(np.abs(flux_d1).max())
+    # print(np.abs(advected_0 - flux_d1).max())
+    # print(np.abs(flux_d1).max())
+    # FIXME: conservation is still far from achieved
     # assert np.allclose(advected_0, flux_d1, atol=1e-6)
 
-    path = r'c:\development\examples\euler_44'
+    path = r'c:\development\examples\euler_45'
     # path = None
     def advect(flux_d1, dt):
         return advector.advect_vorticity(flux_d1, dt)
@@ -277,8 +314,8 @@ if __name__ == "__main__":
 
     for i in save_animation(path, frames=200, overwrite=True):
         for r in range(4):
-            flux_d1 = BFECC(advect, flux_d1, dt=1)
-            # flux_d1 = advect(flux_d1, dt=2)
+            # flux_d1 = BFECC(advect, flux_d1, dt=1)
+            flux_d1 = advect(flux_d1, dt=1)
 
         vorticity_p0 = complex.hodge_PD[0] * (D2D1 * flux_d1)
         if complex.boundary is not None:
@@ -287,11 +324,10 @@ if __name__ == "__main__":
         if complex_type == 'sphere':
             complex.as_euclidian().as_3().plot_primal_0_form(
                 vorticity_p0, plot_contour=False, cmap='bwr', shading='gouraud', vmin=-2e-1, vmax=+2e-1)
-        if complex_type == 'grid':
+        if complex_type == 'simplex_grid':
             if True:
-                form = tris.topology.transfer_operators[0] * vorticity_p0
-                tris.as_2().plot_primal_0_form(
-                    form, plot_contour=False, cmap='bwr', shading='gouraud', vmin=-2e-1, vmax=+2e-1)
+                complex.as_2().as_2().plot_primal_0_form(
+                    vorticity_p0, plot_contour=False, cmap='bwr', shading='gouraud', vmin=-2e-1, vmax=+2e-1)
             else:
                 phi_0 = advector.constrain_divergence_boundary(complex.topology.dual.selector[1] * flux_d1, return_phi=True)
                 form = tris.topology.transfer_operators[0] * phi_0

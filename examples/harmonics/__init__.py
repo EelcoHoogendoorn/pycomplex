@@ -5,20 +5,39 @@
 import numpy as np
 import scipy.sparse
 
+#
+# def get_harmonics_0(complex2):
+#     # grab all the operators we will be needing
+#     T01 = complex2.topology.matrix(0, 1).T
+#     grad = T01
+#     div = T01.T
+#     mass = complex2.hodge_DP[0]
+#
+#     # construct our laplacian
+#     laplacian = div * scipy.sparse.diags(complex2.hodge_DP[1]) * grad
+#     # solve for some eigenvectors
+#     w, v = scipy.sparse.linalg.eigsh(laplacian, M=scipy.sparse.diags(mass), which='SA', k=20)
+#     # print(w)
+#     return v
 
-def get_harmonics_0(complex2):
+
+def get_harmonics_0(complex2, zero_boundary=False):
+    """primal 0-form harmonics with zero boundary"""
     # grab all the operators we will be needing
+    S = complex2.topology.selector[0]
+    if zero_boundary is False:
+        S = scipy.sparse.eye(complex2.topology.n_elements[0])
     T01 = complex2.topology.matrix(0, 1).T
     grad = T01
     div = T01.T
-    mass = complex2.hodge_DP[0]
+    mass = S * complex2.hodge_DP[0]
 
     # construct our laplacian
-    laplacian = div * scipy.sparse.diags(complex2.hodge_DP[1]) * grad
+    laplacian = S * div * scipy.sparse.diags(complex2.hodge_DP[1]) * grad * S.T
     # solve for some eigenvectors
     w, v = scipy.sparse.linalg.eigsh(laplacian, M=scipy.sparse.diags(mass), which='SA', k=20)
     # print(w)
-    return v
+    return S.T * v
 
 
 def get_harmonics_1(complex2):
@@ -40,12 +59,13 @@ def get_harmonics_1(complex2):
 
 
 def get_harmonics_2(complex2):
+    """Solve for dual-0-form harmonics. boundary implicitly zero for now"""
     # grab all the operators we will be needing
     T12 = complex2.topology.matrix(1, 2).T
     grad = T12.T
     div = T12
     n = complex2.topology.n_dim
-    mass = complex2.hodge_DP[n]
+    mass = complex2.hodge_PD[n]
 
     # construct our laplacian
     laplacian = div * scipy.sparse.diags(complex2.hodge_PD[n-1]) * grad

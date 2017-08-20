@@ -323,3 +323,19 @@ def triangle_angles(vertices):
     edges = np.roll(vertices, -1, axis=-2) - np.roll(vertices, +1, axis=-2)
     edges = linalg.normalized(edges, ignore_zeros=True)
     return np.arccos(-linalg.dot(np.roll(edges, -1, axis=-2), np.roll(edges, +1, axis=-2)))
+
+
+def simplex_normals(corners):
+    corners = np.asarray(corners)
+    barycenter = corners.mean(axis=-2, keepdims=True)
+    gradients = linalg.pinv(corners - barycenter)
+    gradients = np.swapaxes(gradients, -2, -1)
+    return linalg.normalized(gradients)
+
+
+def simplex_gradients(corners):
+    corners = np.asarray(corners)
+    gradients = simplex_normals(corners)
+    for i in range(corners.shape[-2]):
+        gradients[..., i, :] *= unsigned_volume(np.roll(corners, -i, axis=-2)[..., 1:, :])[..., None]
+    return gradients

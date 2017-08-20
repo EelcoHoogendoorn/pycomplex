@@ -129,7 +129,8 @@ class Dual(BaseTopology):
 
     @cached_property
     def selector(self):
-        """Operators to select primal form from dual form; or to strip boundary elements
+        """Operators to select interior elements; or to strip boundary elements,
+        or those that do not have a corresponding primal element
 
         Returns
         -------
@@ -207,11 +208,11 @@ class Dual(BaseTopology):
         we make them easily accessible"""
         return self.matrices[item]
 
-    def form(self, n):
-        """allocate a dual n-form. This is a block-vector"""
-        bn = self.boundary.n_elements
-        i = self.primal.n_elements[n]
-        i = i - p
-        d = 0
-        # FIXME
-        return
+    # def form(self, n):
+    #     """allocate a dual n-form. This is a block-vector"""
+    #     bn = self.boundary.n_elements
+    #     i = self.primal.n_elements[n]
+    #     i = i - p
+    #     d = 0
+    #     # FIXME
+    #     return

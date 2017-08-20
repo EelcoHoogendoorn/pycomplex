@@ -19,7 +19,7 @@ from pycomplex.sparse import normalize_l1
 from pycomplex.math import linalg
 
 
-class ComplexSimplicial(BaseComplexEuclidian):
+class ComplexSimplicialEuclidian(BaseComplexEuclidian):
 
     def __init__(self, vertices, simplices=None, topology=None, weights=None):
         self.vertices = np.asarray(vertices)
@@ -90,7 +90,7 @@ class ComplexSimplicial(BaseComplexEuclidian):
         return ComplexSpherical(vertices=self.vertices, topology=self.topology)
 
     def as_2(self):
-        return ComplexTriangular(vertices=self.vertices, topology=self.topology.as_2(), weights=self.weights)
+        return ComplexTriangularEuclidian(vertices=self.vertices, topology=self.topology.as_2(), weights=self.weights)
 
     def subdivide_fundamental(self, oriented=True):
         return type(self)(
@@ -353,7 +353,7 @@ class ComplexSimplicial(BaseComplexEuclidian):
         return (p0[vertex_idx] * bary).sum(axis=1)
 
 
-class ComplexTriangular(ComplexSimplicial):
+class ComplexTriangularEuclidian(ComplexSimplicialEuclidian):
     """Triangular simplicial complex"""
 
     def __init__(self, vertices, triangles=None, topology=None, weights=None):
@@ -477,7 +477,7 @@ class ComplexTriangular(ComplexSimplicial):
         sub.plot_primal_0_form(sub_form, **kwargs)
 
 
-class ComplexTriangularEuclidian2(ComplexTriangular):
+class ComplexTriangularEuclidian2(ComplexTriangularEuclidian):
     """Triangular topology embedded in euclidian 2-space"""
 
     def plot_primal_0_form(self, c0, plot_contour=True, cmap='viridis', **kwargs):
@@ -526,7 +526,7 @@ class ComplexTriangularEuclidian2(ComplexTriangular):
         plt.axis('equal')
 
 
-class ComplexTriangularEuclidian3(ComplexTriangular):
+class ComplexTriangularEuclidian3(ComplexTriangularEuclidian):
     """Triangular topology embedded in euclidian 3-space"""
 
     def triangle_normals(self):
@@ -711,4 +711,4 @@ class ComplexTriangularEuclidian3(ComplexTriangular):
         plt.axis('equal')
 
     def as_spherical(self):
-        return ComplexTriangular(vertices=self.vertices, topology=self.topology)
+        return ComplexTriangularEuclidian(vertices=self.vertices, topology=self.topology)

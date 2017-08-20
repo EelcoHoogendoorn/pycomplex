@@ -107,8 +107,8 @@ class ComplexCubical(BaseComplexCubical):
         return operator
 
     def subdivide_fundamental_simplicial(self):
-        from pycomplex.complex.simplicial import ComplexSimplicial
-        return ComplexSimplicial(
+        from pycomplex.complex.simplicial import ComplexSimplicialEuclidian
+        return ComplexSimplicialEuclidian(
             vertices=np.concatenate(self.primal_position, axis=0),
             topology=self.topology.subdivide_fundamental_simplicial()
         )
@@ -228,8 +228,8 @@ class ComplexCubical2(ComplexCubical):
     def subdivide_simplicial(self):
         """Convert the cubical complex into a simplicial complex,
         by forming 4 tris from each quad and its dual position"""
-        from pycomplex.complex.simplicial import ComplexTriangular  # Triangular and Quadrilateral or Simplical2 and Cubical2; pick one...
-        return ComplexTriangular(
+        from pycomplex.complex.simplicial import ComplexTriangularEuclidian  # Triangular and Quadrilateral or Simplical2 and Cubical2; pick one...
+        return ComplexTriangularEuclidian(
             vertices=np.concatenate(self.primal_position[::2], axis=0),
             topology=self.topology.as_2().subdivide_simplicial()
         )

@@ -98,8 +98,8 @@ class ComplexSpherical(BaseComplexSpherical):
         return ComplexSpherical2(vertices=self.vertices, topology=self.topology.as_2())
 
     def as_euclidian(self):
-        from pycomplex.complex.simplicial import ComplexSimplicial
-        return ComplexSimplicial(vertices=self.vertices, topology=self.topology)
+        from pycomplex.complex.simplicial import ComplexSimplicialEuclidian
+        return ComplexSimplicialEuclidian(vertices=self.vertices, topology=self.topology)
 
     @cached_property
     def pick_precompute(self):
@@ -491,18 +491,18 @@ class ComplexSpherical(BaseComplexSpherical):
 
         Parameters
         ----------
-        d0 : ndarray, [topology.dual.n_elements[0]], float
+        d0 : ndarray, [topology.dual.n_elements[0], ...], float
         points : ndarray, [n_points, self.n_dim], float
 
         Returns
         -------
-        ndarray, [n_points], float
+        ndarray, [n_points, ...], float
         """
         # extend dual 0 form to all other dual elements by averaging
         dual_forms = [a * d0 for a in self.weighted_average_operators]
         domain, bary = self.pick_fundamental(points)
         # do interpolation over fundamental domain
-        return sum([dual_forms[i][domain[:, i]] * bary[:, [i]]
+        return sum([(dual_forms[i][domain[:, i]].T * bary[:, i]).T
                     for i in range(self.topology.n_dim + 1)])
 
     def sample_primal_0(self, p0, points):

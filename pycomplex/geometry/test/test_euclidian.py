@@ -145,3 +145,28 @@ def test_triangle_angles():
     tri = np.random.randn(3, 3)
     angles = euclidian.triangle_angles(tri)
     print(angles)
+
+
+def test_normals():
+    corners = [[0], [1]]
+    g = euclidian.simplex_normals(corners)
+    print(g)
+
+    corners = [[0, 0], [0, 3], [4, 0]]
+    g = euclidian.simplex_normals(corners)
+
+    print(g)
+
+
+def test_gradients():
+    corners = [[0], [1]]
+    g = euclidian.simplex_gradients(corners)
+    print(g)
+
+    corners = [[0, 0], [0, 3], [4, 0]]
+    g = euclidian.simplex_gradients(corners)
+
+    print(g)
+
+
+test_gradients()
