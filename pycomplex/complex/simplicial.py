@@ -188,7 +188,7 @@ class ComplexSimplicialEuclidian(BaseComplexEuclidian):
         L = T.T * T
         rhs = T.T * q
         rhs = rhs - rhs.mean()  # this might aid numerical stability of minres
-        weight = scipy.sparse.linalg.minres(L, rhs, tol=1e-16)[0]
+        weight = scipy.sparse.linalg.minres(L, rhs, tol=1e-12)[0]
 
         offset = self.weights_to_offsets(weight)
         augmented = np.concatenate([dual_vertex, offset[:, None]], axis=1)

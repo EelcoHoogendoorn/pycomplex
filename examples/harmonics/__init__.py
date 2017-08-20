@@ -1,24 +1,9 @@
 """Generate harmonic functions"""
 
-# FIXME: generate this to full nd
+# FIXME: generalize this to full nd
 
 import numpy as np
 import scipy.sparse
-
-#
-# def get_harmonics_0(complex2):
-#     # grab all the operators we will be needing
-#     T01 = complex2.topology.matrix(0, 1).T
-#     grad = T01
-#     div = T01.T
-#     mass = complex2.hodge_DP[0]
-#
-#     # construct our laplacian
-#     laplacian = div * scipy.sparse.diags(complex2.hodge_DP[1]) * grad
-#     # solve for some eigenvectors
-#     w, v = scipy.sparse.linalg.eigsh(laplacian, M=scipy.sparse.diags(mass), which='SA', k=20)
-#     # print(w)
-#     return v
 
 
 def get_harmonics_0(complex2, zero_boundary=False):
@@ -35,7 +20,8 @@ def get_harmonics_0(complex2, zero_boundary=False):
     # construct our laplacian
     laplacian = S * div * scipy.sparse.diags(complex2.hodge_DP[1]) * grad * S.T
     # solve for some eigenvectors
-    w, v = scipy.sparse.linalg.eigsh(laplacian, M=scipy.sparse.diags(mass), which='SA', k=20)
+    w, v = scipy.sparse.linalg.eigsh(
+        laplacian.tocsc(), M=scipy.sparse.diags(mass).tocsc(), which='SA', k=20)
     # print(w)
     return S.T * v
 
