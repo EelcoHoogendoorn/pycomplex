@@ -92,10 +92,10 @@ class ComplexSimplicial(BaseComplexEuclidian):
     def as_2(self):
         return ComplexTriangular(vertices=self.vertices, topology=self.topology.as_2(), weights=self.weights)
 
-    def subdivide_fundamental(self):
+    def subdivide_fundamental(self, oriented=True):
         return type(self)(
             vertices=np.concatenate(self.primal_position, axis=0),
-            topology=self.topology.subdivide_fundamental()
+            topology=self.topology.subdivide_fundamental(oriented)
         )
 
     def subdivide_fundamental_transfer(self):
@@ -180,13 +180,13 @@ class ComplexSimplicial(BaseComplexEuclidian):
         dual_vertex = np.einsum('...cn,...c->...n', corners, self.primal_barycentric[-1])
 
         # sum these around each n-1-simplex, or bounding face, to get n-1-form
-        q = self.remap_boundary_N(ee, oriented=True)
-        S = self.topology.selector[-2]
+        S = self.topology.selector[-2]  # only consider interior simplex boundaries
+        q = S * self.remap_boundary_N(ee, oriented=True)
         T = S * self.topology.matrices[-1]
         # solve T * w = q; that is,
         # difference in desired weights on simplices over faces equals difference in squared distance over boundary between simplices
         L = T.T * T
-        rhs = T.T * S * q
+        rhs = T.T * q
         rhs = rhs - rhs.mean()  # this might aid numerical stability of minres
         weight = scipy.sparse.linalg.minres(L, rhs, tol=1e-16)[0]
 
@@ -274,8 +274,9 @@ class ComplexSimplicial(BaseComplexEuclidian):
     @cached_property
     def pick_fundamental_precomp(self):
         # this may be a bit expensive; but hey it is cached; and it sure is elegant
-        fundamental = self.subdivide_fundamental().optimize_weights_fundamental()
-        domains = self.topology.fundamental_domains().reshape(-1, self.topology.n_dim + 1)
+        fundamental = self.subdivide_fundamental(oriented=True).optimize_weights_fundamental()
+        domains = self.topology.fundamental_domains()
+        domains = domains.reshape(-1, self.topology.n_dim + 1)
         return fundamental, domains
 
     def pick_fundamental(self, points, domain_idx=None):
@@ -290,12 +291,12 @@ class ComplexSimplicial(BaseComplexEuclidian):
 
         Returns
         -------
-        domains : ndarray, [n_points, n_dim], index_dtype
-            n-th column corresponds to indices of n-element
-        baries: ndarray, [n_points, n_dim] float
-            barycentric weights corresponding to the domain indices
         domain_idx : ndarray, [n_points], index_dtype, optional
             returned if domain_idx input is not None
+        baries: ndarray, [n_points, n_dim] float
+            barycentric weights corresponding to the domain indices
+        domains : ndarray, [n_points, n_dim], index_dtype
+            n-th column corresponds to indices of n-element
 
         """
         assert self.is_pairwise_delaunay
@@ -315,13 +316,22 @@ class ComplexSimplicial(BaseComplexEuclidian):
         Returns
         -------
         ndarray, [n_points], float
+            dual 0-form sampled at the given points
         """
         # extend dual 0 form to all other dual elements by averaging
         dual_forms = [a * d0 for a in self.weighted_average_operators][::-1]
 
+        # pick fundamental domains
         domain_idx, bary, domain = self.pick_fundamental(points)
+
+        # reverse flips made for orientation preservation
+        flip = np.bitwise_and(domain_idx, 1) == 0
+        temp = bary[flip, -2]
+        bary[flip, -2] = bary[flip, -1]
+        bary[flip, -1] = temp
+
         # do interpolation over fundamental domain
-        i = [dual_forms[i][domain[:, i]] * bary[:, i]
+        i = [(dual_forms[i][domain[:, i]].T * bary[:, i].T).T
             for i in range(self.topology.n_dim + 1)]
         return sum(i)
 

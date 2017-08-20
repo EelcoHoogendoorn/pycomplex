@@ -9,7 +9,7 @@ from pycomplex import synthetic
 from examples.harmonics import *
 
 while True:
-    quad = synthetic.delaunay_cube(8, 2, iterations=30)
+    quad = synthetic.delaunay_cube(20, 2, iterations=30)
     quad = quad.optimize_weights_metric()
     if quad.is_well_centered:
         break
@@ -24,7 +24,7 @@ f0 = v[:, 8]
 vmin, vmax = f0.min(), f0.max()
 
 # pick a rectangular grid of values
-N = 128
+N = 1024
 points = np.moveaxis(np.indices((N, N)), 0, -1) / (N - 1)
 
 if False:
@@ -57,7 +57,7 @@ if True:
     d0 = np.concatenate([d0, db[quad.topology.boundary.parent_idx[1]]])
 
 
-    # quad.plot_dual_0_form_interpolated(d0, weighted=True, plot_contour=False, shading='gouraud', vmin=vmin, vmax=vmax)
+    quad.plot_dual_0_form_interpolated(d0, weighted=True, plot_contour=False, shading='gouraud', vmin=vmin, vmax=vmax)
     # quad.plot_dual_0_form_interpolated(d0, weighted=False, plot_contour=False, shading='gouraud', vmin=vmin, vmax=vmax)
     # quad.plot()#ax=plt.gca())
 

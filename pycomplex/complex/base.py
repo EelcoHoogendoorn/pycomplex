@@ -367,9 +367,11 @@ class BaseComplex(object):
         weights = self.topology.form(0)
 
         # calculate average length of edge connecting to vertex-vertex
-        edge_length = self.primal_metric[1] ** 2
+        edge_length = self.unsigned_volume(self.vertices[self.topology.elements[1]])
+        # edge_length = self.primal_metric[1]
+
         A = self.topology.averaging_operators_0[1].T
-        scale = (A * edge_length) / (A * np.ones_like(edge_length))
+        scale = (A * edge_length ** 2) / (A * np.ones_like(edge_length))
 
         # best to only push away along primal edges, since dual edge lengths are much more variable
         weights[:parent.n_elements[0]] = scale[:parent.n_elements[0]] / 4

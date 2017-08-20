@@ -226,13 +226,14 @@ class TopologySimplicial(PrimalTopology):
 
         return domains
 
-    def subdivide_fundamental(self):
+    def subdivide_fundamental(self, oriented=True):
         """Perform a subdivision into fundamental domains"""
         offset = np.cumsum([0] + self.n_elements)[:-1]
         # subdivision is essentially just remapping fundamental-domain n-simplex indices to 0-simplex indices
         simplices = self.fundamental_domains() + offset
         # flip the mirrored side to preserve orientation;
-        simplices[..., 0, [0, -1]] = simplices[..., 0, [-1, 0]]
+        if oriented:
+            simplices[..., 0, [-2, -1]] = simplices[..., 0, [-1, -2]]
         sub = type(self).from_simplices(simplices.reshape(-1, self.n_dim + 1))
         sub.parent = self
         return sub
