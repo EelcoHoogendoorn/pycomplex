@@ -21,7 +21,7 @@ while True:
         complex = complex.as_2().subdivide(smooth=True, creases=creases)
         for d, c in creases.items():
             creases[d] = complex.topology.transfer_matrices[d] * c
-        complex = complex.optimize_weights_metric()
+        complex = complex.optimize_weights()
 
 
     # complex = complex.optimize_weights_metric()

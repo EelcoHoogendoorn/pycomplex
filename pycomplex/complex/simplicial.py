@@ -305,7 +305,7 @@ class ComplexSimplicialEuclidian(BaseComplexEuclidian):
         domain_idx, bary = fundamental.pick_primal(points, simplex_idx=domain_idx)
         return domain_idx, bary, domains[domain_idx]
 
-    def sample_dual_0(self, d0, points):
+    def sample_dual_0(self, d0, points, weighted=True):
         """Sample a dual 0-form at the given points, using linear interpolation over fundamental domains
 
         Parameters
@@ -318,8 +318,12 @@ class ComplexSimplicialEuclidian(BaseComplexEuclidian):
         ndarray, [n_points], float
             dual 0-form sampled at the given points
         """
+        if weighted:
+            A = self.weighted_average_operators
+        else:
+            A = self.topology.dual.averaging_operators_0
         # extend dual 0 form to all other dual elements by averaging
-        dual_forms = [a * d0 for a in self.weighted_average_operators][::-1]
+        dual_forms = [a * d0 for a in A][::-1]
 
         # pick fundamental domains
         domain_idx, bary, domain = self.pick_fundamental(points)

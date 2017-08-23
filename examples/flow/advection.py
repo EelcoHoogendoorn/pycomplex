@@ -69,7 +69,7 @@ class Advector(object):
             #     velocity_d0 = velocity_d0 - dual_vertex * (velocity_d0 * dual_vertex).sum(axis=1, keepdims=True)
 
             rec_flux = np.einsum('...j,...ij->...i', velocity_d0, gradients)
-            assert np.allclose(rec_flux, normal_flux, atol=1e-6)
+            # assert np.allclose(rec_flux, normal_flux, atol=1e-6)
             # cast away dual boundary flux, then pad velocity with zeros... not quite right, should use the boundary information
             velocity_d0 = self.complex.topology.dual.selector[-1].T * velocity_d0
 
