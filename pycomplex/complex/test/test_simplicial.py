@@ -17,6 +17,17 @@ def test_subdivide_cubical():
     plt.show()
 
 
+def test_subdivide_simplicial():
+    for n in [2, 3, 4]:
+        simplex = synthetic.n_simplex(n)
+        simplex = simplex.copy(vertices=np.dot(simplex.vertices, linalg.orthonormalize(np.random.randn(n, n))))
+
+        simplices = simplex.subdivide_simplicial()
+        assert simplices.topology.is_oriented
+        simplices.plot(plot_dual=False)
+        plt.show()
+
+
 def test_subdivide_cubical_many():
     # sphere = synthetic.hexacosichoron().as_euclidian()
     sphere = synthetic.n_cube_dual(4).as_euclidian()
@@ -100,8 +111,8 @@ def test_power_dual():
     fundamental.plot()
     plt.show()
 
-test_power_dual()
-quit()
+# test_power_dual()
+# quit()
 
 def test_delaunay():
     """Triangulate a quad """

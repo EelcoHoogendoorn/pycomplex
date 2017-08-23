@@ -101,6 +101,13 @@ class ComplexSimplicialEuclidian(BaseComplexEuclidian):
     def subdivide_fundamental_transfer(self):
         return
 
+    def subdivide_simplicial(self):
+        PP = self.primal_position
+        return type(self)(
+            vertices=np.concatenate([PP[0], PP[-1]], axis=0),
+            topology=self.topology.subdivide_simplicial()
+        )
+
     def subdivide_cubical(self):
         """Subdivide the simplicial complex into a cubical complex"""
         from pycomplex.complex.cubical import ComplexCubical

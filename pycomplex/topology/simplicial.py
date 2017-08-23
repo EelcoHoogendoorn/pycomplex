@@ -309,6 +309,17 @@ class TopologySimplicial(PrimalTopology):
         from pycomplex.topology.cubical import TopologyCubical
         return TopologyCubical.from_cubes(cubes.reshape((-1,) + cube_shape))
 
+    def subdivide_simplicial(self):
+        """Subdivide by inserting a new vertex on each simplex
+
+        Not very useful for computational meshes, since it steadily degrades the hodge quality,
+        but it may be useful in a subdivision context
+        """
+        boundary = generate_simplex_boundary(self.elements[-1])
+        tips = np.repeat(self.range(-1)[:, None, None], self.n_dim + 1, axis=1) + self.n_elements[0]
+        simplices = np.concatenate([boundary, tips], axis=2)
+        return TopologySimplicial.from_simplices(simplices.reshape(-1, self.n_dim + 1))
+
 
 class TopologyTriangular(TopologySimplicial):
 
