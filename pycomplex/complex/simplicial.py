@@ -90,7 +90,8 @@ class ComplexSimplicialEuclidian(BaseComplexEuclidian):
         return ComplexSpherical(vertices=self.vertices, topology=self.topology)
 
     def as_2(self):
-        return ComplexTriangularEuclidian(vertices=self.vertices, topology=self.topology.as_2(), weights=self.weights)
+        return ComplexTriangularEuclidian(
+            vertices=self.vertices, topology=self.topology.as_2(), weights=self.weights)
 
     def subdivide_fundamental(self, oriented=True):
         return type(self)(

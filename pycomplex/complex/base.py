@@ -528,11 +528,6 @@ class BaseComplex(object):
         raise NotADirectoryError
 
 
-
-class BaseComplexSimplicial(BaseComplex):
-    pass
-
-
 class BaseComplexEuclidian(BaseComplex):
 
     def unsigned_volume(self, pts):

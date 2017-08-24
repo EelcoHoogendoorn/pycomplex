@@ -94,12 +94,103 @@ class ComplexSpherical(BaseComplexSpherical):
 
         plt.axis('equal')
 
+    def subdivide_fundamental(self, oriented=True):
+        return type(self)(
+            vertices=np.concatenate(self.primal_position, axis=0),
+            topology=self.topology.subdivide_fundamental(oriented)
+        )
+
     def as_2(self):
-        return ComplexSpherical2(vertices=self.vertices, topology=self.topology.as_2())
+        return ComplexSpherical2(
+            vertices=self.vertices, topology=self.topology.as_2(), weights=self.weights)
 
     def as_euclidian(self):
         from pycomplex.complex.simplicial import ComplexSimplicialEuclidian
         return ComplexSimplicialEuclidian(vertices=self.vertices, topology=self.topology)
+
+    def pick_primal_brute(self, points):
+        """Added for debugging purposes"""
+        _, basis = self.pick_precompute
+        baries = np.einsum('bcv,pc->bpv', basis, points)
+        quality = (baries * (baries < 0)).sum(axis=-1)
+        simplex_index = np.argmax(quality, axis=0)
+        return simplex_index
+
+    @cached_property
+    def pick_primal_precomp(self):
+        """Precomputations for primal picking
+
+        Notes
+        -----
+        Requires pairwise delaunay complex
+        """
+        assert self.is_pairwise_delaunay    # if centroids cross eachother, this method fails
+        ee = self.dual_edge_excess(signed=False)
+
+        corners = self.vertices[self.topology.elements[-1]]
+        dual_vertex = np.einsum('...cn,...c->...n', corners, self.primal_barycentric[-1])
+
+        # sum these around each n-1-simplex, or bounding face, to get n-1-form
+        S = self.topology.selector[-2]  # only consider interior simplex boundaries
+        q = S * self.remap_boundary_N(ee, oriented=True)
+        T = S * self.topology.matrices[-1]
+        # solve T * w = q; that is,
+        # difference in desired weights on simplices over faces equals difference in squared distance over boundary between simplices
+        L = T.T * T
+        rhs = T.T * q
+        rhs = rhs - rhs.mean()  # this might aid numerical stability of minres
+        weight = scipy.sparse.linalg.minres(L, rhs, tol=1e-12)[0]
+
+        offset = self.weights_to_offsets(weight)
+        augmented = np.concatenate([dual_vertex, offset[:, None]], axis=1)
+        tree = scipy.spatial.cKDTree(augmented)
+
+        homogeneous = np.concatenate([corners], axis=-1)    # no extra coord here
+        basis = np.linalg.inv(homogeneous)
+
+        return tree, basis
+
+    def pick_primal(self, points, simplex_idx=None):
+        """Picking of primal simplex by means of a point query wrt its dual vertex
+
+        Parameters
+        ----------
+        points : ndarray, [n_points, n_dim], float
+        simplex_idx : ndarray, [n_points], index_dtype
+            initial guess
+
+        Returns
+        -------
+        simplex_idx : ndarray, [n_points], index_dtype
+        bary : ndarray, [n_points, topology.n_dim + 1], float
+            barycentric coordinates
+
+        """
+        assert self.is_pairwise_delaunay
+        tree, basis = self.pick_primal_precomp
+
+        def query(points):
+            augmented = np.concatenate([points, np.zeros_like(points[:, :1])], axis=1)
+            dist, idx = tree.query(augmented)
+            homogeneous = np.concatenate([points], axis=1)
+            baries = np.einsum('tcv,tc->tv', basis[idx], homogeneous)
+            return idx, baries
+
+        if simplex_idx is None:
+            simplex_idx, baries = query(points)
+        else:
+            homogeneous = np.concatenate([points, np.ones_like(points[:, :1])], axis=1)
+            baries = np.einsum('tcv,tc->tv', basis[simplex_idx], homogeneous)
+            update = np.any(baries < 0, axis=1)
+            if np.any(update):
+                simplex_idx = simplex_idx.copy()
+                s, b = query(points[update])
+                simplex_idx[update] = s
+                baries[update] = b
+
+        baries /= baries.sum(axis=1, keepdims=True)
+
+        return simplex_idx, baries
 
     @cached_property
     def pick_precompute(self):
@@ -112,261 +203,6 @@ class ComplexSpherical(BaseComplexSpherical):
         tree = scipy.spatial.cKDTree(c)
         basis = np.linalg.inv(self.vertices[self.topology.elements[-1]])
         return tree, basis
-
-    def pick_primal_brute(self, points):
-        """Added for debugging purposes"""
-        _, basis = self.pick_precompute
-        baries = np.einsum('bcv,pc->bpv', basis, points)
-        quality = (baries * (baries < 0)).sum(axis=-1)
-        simplex_index = np.argmax(quality, axis=0)
-        return simplex_index
-
-    def pick_primal(self, points, simplex_idx=None):
-        """Pick triangles and their barycentric coordinates on the sphere
-
-        Parameters
-        ----------
-        points : ndarray, [n_points, n_dim], float
-            points on the sphere to pick
-        simplex_idx : ndarray, [n_points], index_dtype, optional
-            guesses as to the simplex that contains the point;
-            can be used to exploit temporal coherence
-
-        Returns
-        -------
-        simplex_idx : ndarray, [n_points], index_dtype
-        bary : ndarray, [n_points, n_dim], float
-
-        Notes
-        -----
-        Probably not super efficient, but it is fully vectorized, and fully n-dim
-
-        """
-        assert self.is_well_centered    # this is needed such that the ring of triangles logic works
-        tree, basis = self.pick_precompute
-
-        def query(points):
-            vertex_index = self.pick_dual(points)
-            # construct all point-simplex combinations we need to test for;
-            # matrix is compressed-row so row indexing should be efficient
-            T = self.topology.matrix(self.topology.n_dim, 0)[vertex_index].tocoo()
-            point_idx, simplex_index = T.row, T.col
-            baries = np.einsum('tcv,tc->tv', basis[simplex_index], points[point_idx])
-            # pick the one with the least-negative coordinates
-            quality = (baries * (baries < 0)).sum(axis=1)
-            _, best = npi.group_by(point_idx).argmax(quality)   # point_idx already sorted; can we make an optimized index for that?
-            simplex_index, baries = simplex_index[best], baries[best]
-            return simplex_index, baries
-
-        if simplex_idx is None:
-            simplex_idx, baries = query(points)
-        else:
-            baries = np.einsum('tcv,tc->tv', basis[simplex_idx], points)
-            update = np.any(baries < 0, axis=1)
-            if np.any(update):
-                simplex_idx = simplex_idx.copy()
-                s, b = query(points[update])
-                simplex_idx[update] = s
-                baries[update] = b
-
-        baries /= baries.sum(axis=1, keepdims=True)
-        return simplex_idx, baries
-
-    def subdivide_fundamental(self):
-        """Perform fundamental-domain subdivision"""
-        return type(self)(
-            vertices=np.concatenate(self.primal_position, axis=0),
-            topology=self.topology.subdivide_fundamental()
-        )
-
-    def subdivide_cubical(self):
-        """Subdivide the spherical simplical complex into a cubical complex"""
-        from pycomplex.complex.cubical import ComplexCubical
-        return ComplexCubical(
-            vertices=np.concatenate(self.primal_position, axis=0),
-            topology=self.topology.subdivide_cubical()
-        )
-
-    @cached_property
-    def pick_fundamental_precomp(self):
-        domains = self.topology.fundamental_domains()
-        PP = self.primal_position
-        p = np.empty(domains.shape + (self.n_dim,))
-        for i in range(self.topology.n_dim + 1):
-            p[..., i, :] = PP[i][domains[..., i]]
-
-        domains_index = npi.as_index(domains.reshape(-1, domains.shape[-1]))
-
-        return domains, np.linalg.inv(p).astype(np.float32), domains_index
-
-    def pick_fundamental(self, points, domain_idx=None):
-        """Pick the fundamental domain
-
-        Parameters
-        ----------
-        points : ndarray, [n_points, n_dim], float
-            points to pick
-        domain_idx : ndarray, [n_points], index_dtype, optional
-            feed previous returned idx in to exploit temporal coherence in queries
-            if True, idx are returned despite not being given
-
-        Returns
-        -------
-        domains : ndarray, [n_points, n_dim], index_dtype
-            n-th column corresponds to indices of n-element
-        baries: ndarray, [n_points, n_dim] float
-            barycentric weights corresponding to the domain indices
-        domain_idx : ndarray, [n_points], index_dtype, optional
-            returned if domain_idx input is not None
-
-        Notes
-        -----
-        Using a weighted fundamental subdivision, directly picking the right domain should in fact be possible
-        Certainly in a euclidian space; need to think about the spherical case a little more
-        """
-        assert self.positive_dual_metric
-        domains, basis, domains_index = self.pick_fundamental_precomp
-
-        def query(points):
-            n_points, n_dim = points.shape
-            # FiXME: can be unified with its own tree; midpoint between primals and duals
-            if False:
-                primal, bary = self.pick_primal_alt(points) # FIXME: still have failures for 4-spheres sometimes. would picking primal/dual together fix this?
-            else:
-                primal, bary = self.pick_primal(points)
-            dual = self.pick_dual(points)
-
-            # get all fundamental domains that match both primal and dual, and brute-force versus their precomputed inverses
-            d = domains[primal].reshape(n_points, -1, n_dim)
-            b = basis  [primal].reshape(n_points, -1, n_dim, n_dim)
-            s = np.where(d[:, :, 0] == dual[:, None])
-            d = d[s].reshape(n_points, -1, n_dim)
-            b = b[s].reshape(n_points, -1, n_dim, n_dim)
-
-            # now get the best fitting domain from the selected set
-            # FIXME: how to handle inverted domains?
-            baries = np.einsum('tpcv,tc->tpv', b, points)
-            quality = (baries * (baries < 0)).sum(axis=2)
-            best = np.argmax(quality, axis=1)
-            r = np.arange(len(points), dtype=index_dtype)
-            d = d[r, best]
-            baries = baries[r, best]
-            return d, baries
-
-        if domain_idx is None:
-            domain, baries = query(points)
-            baries /= baries.sum(axis=1, keepdims=True)
-            return domain, baries
-        elif domain_idx is True:
-            domain, baries = query(points)
-            baries /= baries.sum(axis=1, keepdims=True)
-            domain_idx = npi.indices(domains_index, domain)
-            return domain, baries, domain_idx
-        else:
-            baries = np.einsum('tcv,tc->tv', basis.reshape((-1, ) + basis.shape[-2:])[domain_idx], points)
-            domain = domains.reshape(-1, domains.shape[-1])[domain_idx]
-            update = np.any(baries < 0, axis=1)
-            if np.any(update):
-                domain_idx = domain_idx.copy()
-                d, b = query(points[update])
-                domain_idx[update] = npi.indices(domains_index, d)
-                baries[update] = b
-                domain[update] = d
-                baries /= baries.sum(axis=1, keepdims=True)
-            return domain, baries, domain_idx
-
-    @cached_property
-    def pick_primal_alt_precomp(self):
-        """Can we find a power/weight for each dual such that nearest weighted dual vertex gives us the primal element?
-        think so! for each element, compute the distance to all its bounding elements.
-        the diff of that distance is the required diff in weight over a dual edge.
-        to find weights satisfying that diff, is essentially the dual of streamfunction;
-        we have a dual 1-form that is closed wrt dual 2-form by construction
-
-        how to handle boundary? just discard negative baries?
-
-        can we generalize this to any element? query nearest edges, f.i?
-        edge query seems hard. we can split our simplex however, by inserting a vert in the middle only
-        that should give a new mesh that we can apply the same primal-picking logic to
-        that then gives face and edge in one swoop. tri would have angle >> 90 degree typically though,
-        so does not work great with this picking strategy
-
-        Notes
-        -----
-        As it turned out, the logic for optimizing the primal vertex weights is eerily similar;
-        not sure I fully grasp all the implications thereof.
-        """
-        assert self.topology.is_closed
-        euc = self.as_euclidian().copy(weights=self.weights)
-        assert self.is_pairwise_delaunay    # if centroids cross eachother, this method fails
-        # FIXME as euclidian appears to do the trick; does lead to cracks tho, but more understabale. think about this aspect more!
-        # worst case, crack can be solved by considering opposing simplex in case of negative bary
-        # edge excess is the squared distance of each N-dual to its bounding n-1 duals; shape [n_N-simplices, N+1]
-        ee = euc.dual_edge_excess(signed=False)
-        # this is like primal position, but without the normalization. otherwise, our dual edge excess should also be in spherical coordinates
-        corners = self.vertices[self.topology.elements[-1]]
-        dual_vertex = np.einsum('...cn,...c->...n', corners, euc.primal_barycentric[-1])
-
-        # sum these around each n-1-simplex, or bounding face, to get n-1-form
-        q = self.remap_boundary_N(ee, oriented=True)
-        T = self.topology.matrices[-1]
-        # solve T * w = q; that is,
-        # difference in desired weights on simplices over faces equals difference in squared distance over boundary
-        L = T.T * T
-        rhs = T.T * q
-        # rhs = rhs - rhs.mean()
-        weight = scipy.sparse.linalg.minres(L, rhs, tol=1e-16)[0]
-        # print(weight.min(), weight.max())
-        offset = self.weights_to_offsets(weight)
-
-        # PP = self.primal_position
-        augmented = np.concatenate([dual_vertex, offset[:, None]], axis=1)
-        tree = scipy.spatial.cKDTree(augmented)
-
-        basis = np.linalg.inv(corners)
-
-        return tree, basis
-
-    def pick_primal_alt(self, points, simplex=None):
-        """Picking of primal simplex by means of a point query wrt its dual vertex
-
-        Parameters
-        ----------
-        points
-        simplex
-
-        Returns
-        -------
-
-        Notes
-        -----
-        Seems to work fine; except when it does not.
-        This strikes me as a numerical stability issue rather than an error in the logic here
-        """
-        assert self.is_pairwise_delaunay
-        tree, basis = self.pick_primal_alt_precomp
-
-        def query(points):
-            augmented = np.concatenate([points, np.zeros_like(points[:, :1])], axis=1)
-            dist, idx = tree.query(augmented)
-            baries = np.einsum('tcv,tc->tv', basis[idx], points)
-            return idx, baries
-
-        if simplex is None:
-            simplex, baries = query(points)
-        else:
-            baries = np.einsum('tcv,tc->tv', basis[simplex], points)
-            update = np.any(baries < 0, axis=1)
-            # print('misses: ', update.mean())
-            if np.any(update):
-                simplex = simplex.copy()
-                s, b = query(points[update])
-                simplex[update] = s
-                baries[update] = b
-
-        baries /= baries.sum(axis=1, keepdims=True)
-
-        return simplex, baries
 
     def pick_dual(self, points):
         """Pick the dual elements. By definition of the voronoi dual,
@@ -387,52 +223,89 @@ class ComplexSpherical(BaseComplexSpherical):
         return dual_element_index
 
     @cached_property
-    def pick_cube_precompute(self):
-        """Pick the `cube` of a set of points
+    def pick_fundamental_precomp(self):
+        # this may be a bit expensive; but hey it is cached; and it sure is elegant
+        fundamental = self.subdivide_fundamental(oriented=True).optimize_weights_fundamental()
+        domains = self.topology.fundamental_domains()
+        domains = domains.reshape(-1, self.topology.n_dim + 1)
+        return fundamental, domains
 
-        A cube here is defined as the intersection between a primal and dual element.
-        For a simplex, this always forms a cubical region
+    def pick_fundamental(self, points, domain_idx=None):
+        """Pick the fundamental domain
 
-        A cube is indicated
+        Parameters
+        ----------
+        points : ndarray, [n_points, n_dim], float
+            points to pick
+        domain_idx : ndarray, [n_points], index_dtype, optional
+            feed previous returned idx in to exploit temporal coherence in queries
+
+        Returns
+        -------
+        domain_idx : ndarray, [n_points], index_dtype, optional
+            returned if domain_idx input is not None
+        baries: ndarray, [n_points, n_dim] float
+            barycentric weights corresponding to the domain indices
+        domains : ndarray, [n_points, n_dim], index_dtype
+            n-th column corresponds to indices of n-element
+
         """
-        assert self.topology.is_closed
-        # assert self.positive_dual_metric  # implement spherical metric in higher dimensions so we can enable this
+        assert self.is_pairwise_delaunay
+        fundamental, domains = self.pick_fundamental_precomp
 
-        q = self.remap_boundary_N(self.dual_edge_excess())
+        domain_idx, bary = fundamental.pick_primal(points, simplex_idx=domain_idx)
+        return domain_idx, bary, domains[domain_idx]
 
-        T = self.topology.matrices[-1]
-        L = T.T * T
-        rhs = T.T * q
+    def sample_dual_0(self, d0, points, weighted=True):
+        """Sample a dual 0-form at the given points, using linear interpolation over fundamental domains
 
-        weight = scipy.sparse.linalg.minres(L, rhs, tol=1e-16)[0]
+        Parameters
+        ----------
+        d0 : ndarray, [topology.dual.n_elements[0]], float
+        points : ndarray, [n_points, self.n_dim], float
 
-        # offset = self.weights_to_offsets(weight) / 8 * 7
-        offset = self.weights_to_offsets(weight) / 2
+        Returns
+        -------
+        ndarray, [n_points], float
+            dual 0-form sampled at the given points
+        """
+        if weighted:
+            A = self.weighted_average_operators
+        else:
+            A = self.topology.dual.averaging_operators_0
+        # extend dual 0 form to all other dual elements by averaging
+        dual_forms = [a * d0 for a in A][::-1]
 
-        # PP = self.primal_position
-        PP = [(np.einsum('...cn,...c->...n', self.vertices[c], b))
-                for c, b in zip(self.topology.corners, self.primal_barycentric)]
+        # pick fundamental domains
+        domain_idx, bary, domain = self.pick_fundamental(points)
 
-        IN0 = self.topology.elements[-1]
-        n_corners = IN0.shape[-1]
-        P_idx = np.arange(IN0.size) // n_corners
-        D_idx = IN0.flatten()
-        # FIXME: how to locate the sampling points? midpoints of unweighted centroids?
-        mid = linalg.normalized(PP[0][D_idx] + PP[-1][P_idx] * 1)
+        # reverse flips made for orientation preservation
+        flip = np.bitwise_and(domain_idx, 1) == 0
+        temp = bary[flip, -2]
+        bary[flip, -2] = bary[flip, -1]
+        bary[flip, -1] = temp
 
-        # FIXME: can we construct some type of basis that will inform us of fundamental domain we are in, in a single call?
-        # all fundamental domains meet at both primal and dual vertex. lines seperating them must be linear equations
-        augmented = np.concatenate([mid, np.repeat(offset[:, None], n_corners, axis=1).reshape(-1, 1)], axis=1)
-        tree = scipy.spatial.cKDTree(augmented)
-        return tree, P_idx, D_idx
+        # do interpolation over fundamental domain
+        i = [(dual_forms[i][domain[:, i]].T * bary[:, i].T).T
+            for i in range(self.topology.n_dim + 1)]
+        return sum(i)
 
-    def pick_cube(self, points):
-        points = np.concatenate([points, np.zeros_like(points[:, :1])], axis=1)
+    def sample_primal_0(self, p0, points):
+        """Sample a primal 0-form at the given points, using linear interpolation over n-simplices
 
-        tree, P_idx, D_idx = self.pick_cube_precompute
-        _, idx = tree.query(points)
+        Parameters
+        ----------
+        p0 : ndarray, [topology.n_elements[0]], float
+        points : ndarray, [n_points, self.n_dim], float
 
-        return idx
+        Returns
+        -------
+        ndarray, [n_points], float
+        """
+        simplex_idx, bary = self.pick_primal(points)
+        simplices = self.topology.elements[-1]
+        vertex_idx = simplices[simplex_idx]
+        return (p0[vertex_idx] * bary).sum(axis=1)
 
     @cached_property
     def metric(self):
@@ -486,41 +359,41 @@ class ComplexSpherical(BaseComplexSpherical):
             [m * (self.radius ** i) for i, m in enumerate(DM)]
         )
 
-    def sample_dual_0(self, d0, points):
-        """Sample a dual 0-form at the given points, using linear interpolation over fundamental domains
-
-        Parameters
-        ----------
-        d0 : ndarray, [topology.dual.n_elements[0], ...], float
-        points : ndarray, [n_points, self.n_dim], float
-
-        Returns
-        -------
-        ndarray, [n_points, ...], float
-        """
-        # extend dual 0 form to all other dual elements by averaging
-        dual_forms = [a * d0 for a in self.weighted_average_operators]
-        domain, bary = self.pick_fundamental(points)
-        # do interpolation over fundamental domain
-        return sum([(dual_forms[i][domain[:, i]].T * bary[:, i]).T
-                    for i in range(self.topology.n_dim + 1)])
-
-    def sample_primal_0(self, p0, points):
-        """Sample a primal 0-form at the given points, using linear interpolation over n-simplices
-
-        Parameters
-        ----------
-        p0 : ndarray, [topology.n_elements[0]], float
-        points : ndarray, [n_points, self.n_dim], float
-
-        Returns
-        -------
-        ndarray, [n_points], float
-        """
-        element, bary = self.pick_primal(points)
-        IN0 = self.topology.incidence[-1, 0]
-        verts = IN0[element]
-        return (p0[verts] * bary).sum(axis=1)
+    # def sample_dual_0(self, d0, points):
+    #     """Sample a dual 0-form at the given points, using linear interpolation over fundamental domains
+    #
+    #     Parameters
+    #     ----------
+    #     d0 : ndarray, [topology.dual.n_elements[0], ...], float
+    #     points : ndarray, [n_points, self.n_dim], float
+    #
+    #     Returns
+    #     -------
+    #     ndarray, [n_points, ...], float
+    #     """
+    #     # extend dual 0 form to all other dual elements by averaging
+    #     dual_forms = [a * d0 for a in self.weighted_average_operators]
+    #     domain, bary = self.pick_fundamental(points)
+    #     # do interpolation over fundamental domain
+    #     return sum([(dual_forms[i][domain[:, i]].T * bary[:, i]).T
+    #                 for i in range(self.topology.n_dim + 1)])
+    #
+    # def sample_primal_0(self, p0, points):
+    #     """Sample a primal 0-form at the given points, using linear interpolation over n-simplices
+    #
+    #     Parameters
+    #     ----------
+    #     p0 : ndarray, [topology.n_elements[0]], float
+    #     points : ndarray, [n_points, self.n_dim], float
+    #
+    #     Returns
+    #     -------
+    #     ndarray, [n_points], float
+    #     """
+    #     element, bary = self.pick_primal(points)
+    #     IN0 = self.topology.incidence[-1, 0]
+    #     verts = IN0[element]
+    #     return (p0[verts] * bary).sum(axis=1)
 
 
 class ComplexCircular(ComplexSpherical):
@@ -544,7 +417,7 @@ class ComplexSpherical2(ComplexSpherical):
             topology = TopologyTriangular.from_simplices(simplices)
         else:
             try:
-                topology = topology.as_2()
+                topology = topology
             except:
                 pass
 

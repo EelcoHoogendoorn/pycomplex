@@ -205,9 +205,6 @@ class TopologySimplicial(PrimalTopology):
             n-th entry of last index refers to n-element indices
             0 and n entry are kinda trivial
 
-        Notes
-        -----
-        Should implement this for cubes too
         """
         dim = list(range(2, self.n_dim + 2))[::-1]
 
