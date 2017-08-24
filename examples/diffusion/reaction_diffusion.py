@@ -116,7 +116,7 @@ if __name__ == '__main__':
             surface = synthetic.n_cube(2)
             surface = surface.copy(vertices=surface.vertices * 128)
             for i in range(1):
-                surface = surface.subdivide()
+                surface = surface.subdivide_cubical()
         surface = surface.as_22().as_regular()
         tris = surface.subdivide_simplicial()
 

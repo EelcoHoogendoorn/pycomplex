@@ -104,7 +104,7 @@ def test_hole():
 
     # subdivide
     for i in range(2):
-        mesh = mesh.subdivide()
+        mesh = mesh.subdivide_cubical()
 
     bt = mesh.boundary.topology
     assert not bt.is_connected
@@ -119,16 +119,16 @@ def test_hole():
 def test_fundamental_domains():
     for n in [2, 3, 4, 5]:
         cube = synthetic.n_cube(n)
-        domains = cube.topology.fundamental_domains()
+        domains = cube.topology.cubical_domains()
 
 
 def test_true_fundamental_domains():
     for n in [1, 2, 3, 4]:
         cube = synthetic.n_cube(n+1).boundary
-        domains = cube.topology.true_fundamental_domains()
+        domains = cube.topology.fundamental_domains()
         print(domains.shape)
         print(npi.all_unique(domains.reshape(-1, n+1)))
 
-        simplices = cube.topology.subdivide_fundamental_simplicial()
+        simplices = cube.topology.subdivide_fundamental()
         print(simplices.is_oriented)
 test_true_fundamental_domains()

@@ -1,6 +1,4 @@
 
-import functools
-import operator
 from cached_property import cached_property
 
 import numpy as np
@@ -11,8 +9,6 @@ from pycomplex.complex.base import BaseComplexSpherical
 from pycomplex.geometry import spherical
 from pycomplex.math import linalg
 from pycomplex.topology.simplicial import TopologyTriangular, TopologySimplicial
-from pycomplex.topology import index_dtype
-from pycomplex.sparse import normalize_l1
 
 
 class ComplexSpherical(BaseComplexSpherical):
@@ -179,7 +175,7 @@ class ComplexSpherical(BaseComplexSpherical):
         if simplex_idx is None:
             simplex_idx, baries = query(points)
         else:
-            homogeneous = np.concatenate([points, np.ones_like(points[:, :1])], axis=1)
+            homogeneous = np.concatenate([points], axis=1)
             baries = np.einsum('tcv,tc->tv', basis[simplex_idx], homogeneous)
             update = np.any(baries < 0, axis=1)
             if np.any(update):
@@ -359,42 +355,6 @@ class ComplexSpherical(BaseComplexSpherical):
             [m * (self.radius ** i) for i, m in enumerate(DM)]
         )
 
-    # def sample_dual_0(self, d0, points):
-    #     """Sample a dual 0-form at the given points, using linear interpolation over fundamental domains
-    #
-    #     Parameters
-    #     ----------
-    #     d0 : ndarray, [topology.dual.n_elements[0], ...], float
-    #     points : ndarray, [n_points, self.n_dim], float
-    #
-    #     Returns
-    #     -------
-    #     ndarray, [n_points, ...], float
-    #     """
-    #     # extend dual 0 form to all other dual elements by averaging
-    #     dual_forms = [a * d0 for a in self.weighted_average_operators]
-    #     domain, bary = self.pick_fundamental(points)
-    #     # do interpolation over fundamental domain
-    #     return sum([(dual_forms[i][domain[:, i]].T * bary[:, i]).T
-    #                 for i in range(self.topology.n_dim + 1)])
-    #
-    # def sample_primal_0(self, p0, points):
-    #     """Sample a primal 0-form at the given points, using linear interpolation over n-simplices
-    #
-    #     Parameters
-    #     ----------
-    #     p0 : ndarray, [topology.n_elements[0]], float
-    #     points : ndarray, [n_points, self.n_dim], float
-    #
-    #     Returns
-    #     -------
-    #     ndarray, [n_points], float
-    #     """
-    #     element, bary = self.pick_primal(points)
-    #     IN0 = self.topology.incidence[-1, 0]
-    #     verts = IN0[element]
-    #     return (p0[verts] * bary).sum(axis=1)
-
 
 class ComplexCircular(ComplexSpherical):
     """Simplicial complex on the surface of a 1-sphere
@@ -403,6 +363,7 @@ class ComplexCircular(ComplexSpherical):
     """
 
     def subdivide(self):
+        """1d simplicial has a natural correspondence to fundamental subdivision"""
         return self.subdivide_fundamental()
 
 

@@ -30,7 +30,7 @@ class Hierarchy(object):
         levels = [topology]
         transfer = []
         for i in range(n_levels):
-            l, t = topology[-1].subdivide()
+            l, t = topology[-1].subdivide_cubical()
             topology.append(l)
         return Hierarchy(levels, transfer)
 

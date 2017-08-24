@@ -31,7 +31,7 @@ class ComplexCubical(BaseComplexCubical):
         if cubes is None:
             self.topology = topology
 
-    def subdivide(coarse, creases=None, smooth=False):
+    def subdivide_cubical(coarse, creases=None, smooth=False):
         """Catmull–Clark subdivision; n-d case
         Each n-cube leads to a new vertex on the subdivided grid
 
@@ -46,7 +46,7 @@ class ComplexCubical(BaseComplexCubical):
 
         fine = type(coarse)(
             vertices=np.concatenate(coarse.primal_position, axis=0),    # every n-element spawns a new vertex
-            topology=coarse.topology.subdivide()
+            topology=coarse.topology.subdivide_cubical()
         )
 
         # propagate creases to lower level
@@ -92,7 +92,7 @@ class ComplexCubical(BaseComplexCubical):
         coarse_averaging = scipy.sparse.vstack(coarse.topology.averaging_operators_0)
 
         if smooth:
-            fine = coarse.subdivide()
+            fine = coarse.subdivide_cubical()
 
             # propagate creases to lower level
             if creases is not None:
@@ -110,7 +110,7 @@ class ComplexCubical(BaseComplexCubical):
         from pycomplex.complex.simplicial import ComplexSimplicialEuclidian
         return ComplexSimplicialEuclidian(
             vertices=np.concatenate(self.primal_position, axis=0),
-            topology=self.topology.subdivide_fundamental_simplicial()
+            topology=self.topology.subdivide_fundamental()
         )
 
     def product(self, other):

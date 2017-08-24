@@ -28,7 +28,7 @@ def make_mesh():
     mesh = synthetic.n_cube(2, centering=True).as_22().as_regular()
     # subdivide
     for i in range(6):
-        mesh = mesh.subdivide()
+        mesh = mesh.subdivide_cubical()
 
     return mesh
 

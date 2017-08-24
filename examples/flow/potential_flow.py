@@ -90,7 +90,7 @@ def concave():
 
     # subdivide
     for i in range(4):
-        mesh = mesh.subdivide()
+        mesh = mesh.subdivide_cubical()
 
     # identify boundaries
     edge_position = mesh.boundary.primal_position[1]

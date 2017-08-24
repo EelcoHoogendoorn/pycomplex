@@ -80,7 +80,7 @@ class PrimalTopology(BaseTopology):
     def from_elements(cls, elements):
         raise NotImplementedError
 
-    def __init__(self, elements, boundary, orientation, element_labels=None, strict=False):
+    def __init__(self, elements, boundary, orientation, strict=False):
         """
 
         Parameters
@@ -97,7 +97,6 @@ class PrimalTopology(BaseTopology):
             list of orientation sign information
             n-th entry describes n+1-elements in terms of the relative orientation of its n-element boundary
             elements of the list are of type sign_dtype
-        element_labels : labels associated with each topological element
         strict : bool, optional
             if True, strict checking for manifoldness is performed
         """
@@ -268,13 +267,6 @@ class PrimalTopology(BaseTopology):
 
         # construct boundary
         boundary_elements = self.elements[-2][b_idx]
-
-        # # flip the elements around depending on the sign of the boundary chain
-        # # not sure if this is desirable, but results in an oriented boundary
-        # orientation = chain_n[b_idx]
-        # shape = np.asarray(elements.shape)
-        # shape[1:] = 1
-        # elements = np.where(orientation.reshape(shape) == 1, elements, elements[:, ::-1])
 
         # mapping is a list of parent vertex indices, for each boundary vertex
         mapping, inverse = np.unique(boundary_elements.flatten(), return_inverse=True)

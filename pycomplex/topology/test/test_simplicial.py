@@ -90,7 +90,6 @@ def test_fundamental_domains():
         simplex = synthetic.n_simplex(n)
         simplex = simplex.copy(vertices = np.dot(simplex.vertices, linalg.orthonormalize(np.random.randn(n, n))))
 
-        domains = simplex.topology.fundamental_domains()
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots(1,1)
         simplex.plot_domains(ax)
@@ -100,6 +99,5 @@ def test_fundamental_domains():
 def test_subdivide_fundamental():
     for n in [2, 3, 4, 5]:
         sphere = synthetic.n_cube_dual(4).as_euclidian()
-        domains = sphere.topology.fundamental_domains()
         sub = sphere.topology.subdivide_fundamental()
         print(sub.is_oriented)

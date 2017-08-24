@@ -106,8 +106,6 @@ def test_hexacosichoron():
     complex = complex.copy(vertices = np.dot(complex.vertices, linalg.orthonormalize(np.random.randn(n_dim, n_dim))))
     complex.plot(plot_dual=True, backface_culling=False)
 
-test_hexacosichoron()
-plt.show()
 
 def test_n_cube_dual():
     for n_dim in [2, 3, 4, 5]:
@@ -146,11 +144,11 @@ def test_picking_alt():
 
 def test_picking_alt_visual():
     for n_dim in [3]:
-        sphere = synthetic.optimal_delaunay_sphere(100, n_dim, iterations=1, push_iterations=5, condition=None)
+        sphere = synthetic.optimal_delaunay_sphere(100, n_dim, iterations=20, push_iterations=20, condition=None)
         assert sphere.topology.is_oriented
         # sphere = sphere.copy(weights = np.random.uniform(0, 0.05, 400))
         # sphere = sphere.optimize_weights()
-        sphere = sphere.copy(weights=None).optimize_weights()
+        sphere = sphere.copy(weights=None).optimize_weights_metric()
         print(sphere.is_well_centered)
         print(sphere.is_pairwise_delaunay)
 
@@ -162,10 +160,7 @@ def test_picking_alt_visual():
 
         points = np.array([x, y, z]).T
         if True:
-            # alt primal picking
-            domain, bary = sphere.pick_primal_alt(points.reshape(-1, 3))
-            # domain, bary = sphere.pick_primal(points.reshape(-1, 3))
-            # domain = sphere.pick_primal_brute(points.reshape(-1, 3))
+            domain, bary = sphere.pick_primal(points.reshape(-1, 3))
 
             print(bary.min(), bary.max())
             # bary = np.clip(bary, 0, 1)
@@ -173,12 +168,6 @@ def test_picking_alt_visual():
             # p = np.random.permutation(sphere.topology.n_elements[-1])
             # color = p[color]
             color = bary.reshape(len(p), len(p), 3)
-        elif True:
-            # cube picking
-            cube_idx = sphere.pick_cube(points.reshape(-1, 3))
-            cube_idx = cube_idx.reshape(len(p), len(p))
-            p = np.random.permutation(sphere.topology.n_elements[-1] * 6)
-            color = p[cube_idx]
 
         import matplotlib.pyplot as plt
         plt.imshow(np.swapaxes(color, 0, 1)[::-1], cmap='jet')
@@ -187,16 +176,7 @@ def test_picking_alt_visual():
         plt.show()
 
 
-test_picking_alt_visual()
-quit()
-
 def test_picking_fundamental_visual():
-    # subs=3
-    # sphere = synthetic.icosphere(subs)
-    # sphere = sphere.copy(
-    #     # weights=np.random.uniform(0, 0.2 / (2**subs), sphere.topology.n_elements[0]),
-    #     vertices=np.dot(sphere.vertices, linalg.orthonormalize(np.random.randn(3, 3))),
-    # )
     sphere = synthetic.optimal_delaunay_sphere(300, 3, iterations=5, weights=False, condition=None)
 
     print(sphere.is_well_centered)
@@ -205,7 +185,7 @@ def test_picking_fundamental_visual():
     sphere.plot(backface_culling=True)
     plt.autoscale(tight=True)
 
-    sphere = sphere.optimize_weights_metric()
+    sphere = sphere.optimize_weights()
 
     sphere.plot(backface_culling=True)
     plt.autoscale(tight=True)
@@ -216,25 +196,16 @@ def test_picking_fundamental_visual():
     r2 = x**2 + y**2
     mask = r2 < 1
 
-
     z = np.sqrt(1 - np.clip(r2, 0, 1))
 
     points = np.array([x, y, z]).T
-    domain, bary, idx = sphere.pick_fundamental(points.reshape(-1, 3), domain_idx=True)
-    D, B, index = sphere.pick_fundamental_precomp
-    # import numpy_indexed as npi
-    # idx = npi.indices(D.reshape(-1, 3), domain)
-    B = B.reshape(-1, 3, 3)[idx]
-    color = np.linalg.det(B.astype(np.float32))
-    color = np.sign(color)
-    color = color.reshape(len(p), len(p))
+    idx, bary, domain = sphere.pick_fundamental(points.reshape(-1, 3))
+    color = bary.reshape(len(p), len(p), 3)
     color[np.logical_not(mask)] = 0
 
     plt.figure()
-    plt.imshow(color.T[::-1, ::+1], cmap='bwr')
+    plt.imshow(np.swapaxes(color, 0, 1)[::-1], cmap='jet')
     plt.show()
-
-test_picking_fundamental_visual()
 
 
 def test_fundamental_subdivide():
@@ -249,6 +220,3 @@ def test_fundamental_subdivide():
     sphere = sphere.subdivide_fundamental().optimize_weights()
     sphere.plot(backface_culling=True, plot_vertices=False)
     plt.show()
-
-
-# test_fundamental_subdivide()

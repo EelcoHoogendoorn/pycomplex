@@ -247,7 +247,7 @@ if __name__ == "__main__":
     if complex_type == 'grid':
         complex = synthetic.n_cube_grid((2, 1), False)
         for i in range(6):
-            complex = complex.subdivide()
+            complex = complex.subdivide_cubical()
 
         complex = complex.as_22().as_regular()
         complex.topology.check_chain()

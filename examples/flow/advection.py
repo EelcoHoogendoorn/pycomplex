@@ -68,7 +68,7 @@ class Advector(object):
             # if isinstance(self.complex, ComplexSpherical):
             #     velocity_d0 = velocity_d0 - dual_vertex * (velocity_d0 * dual_vertex).sum(axis=1, keepdims=True)
 
-            rec_flux = np.einsum('...j,...ij->...i', velocity_d0, gradients)
+            rec_flux = np.einsum('...ij,...j->...i', gradients, velocity_d0)
             # assert np.allclose(rec_flux, normal_flux, atol=1e-6)
             # cast away dual boundary flux, then pad velocity with zeros... not quite right, should use the boundary information
             velocity_d0 = self.complex.topology.dual.selector[-1].T * velocity_d0
@@ -135,7 +135,7 @@ if __name__ == "__main__":
     if complex_type == 'grid':
         complex = synthetic.n_cube_grid((1, 1), False)
         for i in range(5):
-            complex = complex.subdivide()
+            complex = complex.subdivide_cubical()
 
         complex = complex.as_22().as_regular()
         complex.topology.check_chain()

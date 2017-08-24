@@ -13,7 +13,7 @@ def test_cube():
 
 def test_cube_subdivide():
     for n_dim in [1, 2, 3]:
-        cube = synthetic.n_cube(n_dim).subdivide()
+        cube = synthetic.n_cube(n_dim).subdivide_cubical()
         primal = cube.topology
         primal.check_chain()
         dual = primal.dual

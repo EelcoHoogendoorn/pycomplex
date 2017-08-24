@@ -18,7 +18,7 @@ from examples.util import save_animation
 # set up grid
 grid = synthetic.n_cube_grid((4, 1), False)
 for i in range(6):
-    grid = grid.subdivide()
+    grid = grid.subdivide_cubical()
 
 grid = grid.as_22().as_regular()
 grid.topology.check_chain()

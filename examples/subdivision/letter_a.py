@@ -89,7 +89,7 @@ def create_letter_3d(quads, subdivisions=2):
         operator = grid.subdivide_operator(smooth=True, creases={0:c0, 1:c1})
         total_operator = operator * total_operator
 
-        grid = grid.subdivide(smooth=True, creases={0:c0, 1:c1})
+        grid = grid.subdivide_cubical(smooth=True, creases={0:c0, 1:c1})
         c1 = grid.topology.transfer_matrices[1] * c1
         c0 = grid.topology.transfer_matrices[0] * c0
 
@@ -124,7 +124,7 @@ if __name__ == '__main__':
     letter.plot(plot_dual=False, plot_vertices=False)
 
     # turns out fundamental-simplicial subdivision is the surest method for getting positive duals
-    letter = letter.subdivide_fundamental_simplicial()#.smooth()#.smooth()
+    letter = letter.subdivide_fundamental()#.smooth()#.smooth()
 
     # letter = letter.optimize_weights_metric()
     # letter = letter.as_3().optimize_weights()

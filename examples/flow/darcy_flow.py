@@ -47,7 +47,7 @@ def concave():
     mesh = mesh.select_subset([1, 1, 1, 0])
 
     for i in range(6):  # if you change this, change scaling below accordingly, to keep RD happy
-        mesh = mesh.subdivide()
+        mesh = mesh.subdivide_cubical()
     mesh = mesh.copy(vertices=mesh.vertices * 64)
 
     edge_position = mesh.boundary.primal_position[1]

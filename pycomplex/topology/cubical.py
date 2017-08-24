@@ -246,7 +246,7 @@ class TopologyCubical(PrimalTopology):
 
         return cls(elements=E, boundary=B, orientation=O)
 
-    def subdivide(self):
+    def subdivide_cubical(self):
         """Cubical topology subdivision; general n-d case
 
         Returns
@@ -259,7 +259,7 @@ class TopologyCubical(PrimalTopology):
         currently, the transfer operators are set as a side effect of calling this function; not super happy with that
         """
         offset = np.cumsum([0] + self.n_elements)
-        new_cubes = self.fundamental_domains().copy()
+        new_cubes = self.cubical_domains().copy()
 
         # subdivision is essentially just remapping fundamental-domain n-cube indices to 0-cube indices
         for c in self.cube_corners:
@@ -276,14 +276,14 @@ class TopologyCubical(PrimalTopology):
 
         sub = type(self).from_cubes(new_cubes)
 
-        sub.transfers = self.subdivide_transfers(sub, offset)
+        sub.transfers = self.subdivide_cubical_transfers(sub, offset)
         sub.transfer_matrices = [transfer_matrix(*t, shape=(sub.n_elements[n], self.n_elements[n]))
                                  for n, t in enumerate(sub.transfers)]
         sub.parent = self
 
         return sub
 
-    def subdivide_transfers(coarse, fine, O):
+    def subdivide_cubical_transfers(coarse, fine, O):
         """build up transfer operators
 
         Returns
@@ -315,10 +315,10 @@ class TopologyCubical(PrimalTopology):
         assert self.is_closed
         raise NotImplementedError
 
-    def subdivide_fundamental_simplicial(self):
+    def subdivide_fundamental(self):
         offset = np.cumsum([0] + self.n_elements)[:-1]
         # subdivision is essentially just remapping fundamental-domain n-simplex indices to 0-simplex indices
-        simplices = self.true_fundamental_domains() + offset
+        simplices = self.fundamental_domains() + offset
         # flip the mirrored side to preserve orientation;
         simplices[..., 0, [0, -1]] = simplices[..., 0, [-1, 0]]
         from pycomplex.topology.simplicial import TopologySimplicial
@@ -326,10 +326,15 @@ class TopologyCubical(PrimalTopology):
         sub.parent = self
         return sub
 
-    def true_fundamental_domains(self):
+    def fundamental_domains(self):
         """Form fundamental domain simplices by connecting corners of all degrees
 
         This is very similar to simplex fundamental domain subdivision logic
+
+        Returns
+        -------
+        ndarray, [n_cubes, 2*n ... 2, n_dim + 1], index_dtype
+            all fundamental domain simplices
         """
         n_simplex_corners = self.n_dim + 1
         dim = ((np.arange(1, n_simplex_corners)) * 2)[::-1]
@@ -352,23 +357,20 @@ class TopologyCubical(PrimalTopology):
 
         return domains
 
-    def fundamental_domains(self):
-        """Generate fundamental domains
+    def cubical_domains(self):
+        """Generate cubical fundamental domains
 
         Returns
         -------
         domains : ndarray, [n_cubes + cube_shape + cube_shape], index_dtype
-            each cube generates a cube of fundamental domains,
+            each cube generates a cube of fundamental domain cubes,
             each consisting of a cube of cube indices
 
         Notes
         -----
-        These are cubical fundamental domains, not true fundamental domains also reflecting the diagonal symmetry
-        Do a bit of claenup to clarify these naming differences
+        These are cubical fundamental domains, not true fundamental domains
+        that is, these subdomains do not reflect the diagonal symmetry of the cube
         """
-        # FIXME: fundamental domain isnt really the right word for what we are doing here;
-        # that would be the direct analogue of the simplex case
-
         shape = np.asarray((self.n_elements[-1],) + self.cube_shape + self.cube_shape)
 
         domains = -np.ones(shape, dtype=index_dtype)

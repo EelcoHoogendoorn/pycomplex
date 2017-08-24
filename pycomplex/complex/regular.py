@@ -97,7 +97,7 @@ class ComplexRegularMixin(object):
             this allows for efficient computation of barycentric coordinates within the cube
         """
 
-        domains = self.topology.fundamental_domains()
+        domains = self.topology.cubical_domains()
         PP = self.primal_position
 
         cubes = np.ones(domains.shape + (self.n_dim,))
@@ -253,7 +253,7 @@ class ComplexRegularMixin(object):
         return total
 
     def fundamental_domain_postions(self):
-        domains = self.topology.fundamental_domains()
+        domains = self.topology.cubical_domains()
         PP = self.primal_position
 
         cubes = np.ones(domains.shape + (self.n_dim,))
@@ -272,7 +272,7 @@ class ComplexRegularMixin(object):
         topology = self.topology
         assert topology.is_oriented
 
-        domains = self.topology.fundamental_domains().reshape((-1, ) + self.topology.cube_shape)
+        domains = self.topology.cubical_domains().reshape((-1,) + self.topology.cube_shape)
         corners = self.topology.cube_corners
 
         # assemble subdomain cube vertices

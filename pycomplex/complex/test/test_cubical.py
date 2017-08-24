@@ -40,7 +40,7 @@ def test_2cube_3space():
     """Test the surface of a cube embedded in 3-space"""
     quads = n_cube(3, centering=True).boundary.as_23()
     for i in range(3):
-        quads = quads.subdivide(smooth=True)
+        quads = quads.subdivide_cubical(smooth=True)
 
     quads = quads.copy(vertices=np.dot(quads.vertices, linalg.orthonormalize(np.random.randn(3, 3))))
     quads.plot()
@@ -56,7 +56,7 @@ def test_cube():
 
     cube.plot()
     for i in range(2):
-        cube = cube.subdivide()
+        cube = cube.subdivide_cubical()
     cube.boundary().plot(plot_dual=True)
 
 
@@ -67,13 +67,13 @@ def test_triangulated_cube():
     surface = cube.boundary.as_23()
     # surface = surface.subdivide(smooth=True)
     surface = surface.subdivide_simplicial().smooth()
-    surface = surface.subdivide(smooth=True)
+    surface = surface.subdivide_cubical(smooth=True)
     # surface.plot_3d(backface_culling=True)
 
     # map back to quads again
     surface = surface.subdivide_cubical().smooth()
 
-    surface = surface.subdivide().smooth()
+    surface = surface.subdivide_cubical().smooth()
     # surface = surface.subdivide()
 
     assert surface.topology.is_oriented
@@ -116,7 +116,7 @@ def test_product_2_1():
 
 def test_n_cube():
     for n_dim in [2, 3, 4, 5, 6]:
-        cube = n_cube(n_dim).subdivide()
+        cube = n_cube(n_dim).subdivide_cubical()
 
         assert cube.topology.is_oriented
         assert cube.topology.is_connected
@@ -128,5 +128,6 @@ def test_n_cube():
         np.random.seed(1)
         cube = cube.copy(vertices = np.dot(cube.vertices, linalg.orthonormalize(np.random.randn(n_dim, n_dim))))
         cube.plot(plot_dual=True)
+        plt.show()
 
 test_n_cube()

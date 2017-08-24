@@ -25,7 +25,7 @@ def make_mesh():
     mesh = synthetic.n_cube(2).as_22().as_regular()
     # subdivide
     for i in range(5):
-        mesh = mesh.subdivide()
+        mesh = mesh.subdivide_cubical()
 
     # identify boundaries
     edge_position = mesh.boundary.primal_position[1]

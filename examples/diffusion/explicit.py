@@ -111,7 +111,7 @@ if __name__ == '__main__':
         from pycomplex import synthetic
         complex = synthetic.n_cube_grid((32, 32)).as_22().as_regular()
         for i in range(2):
-            complex = complex.subdivide()
+            complex = complex.subdivide_cubical()
     if kind == 'letter':
         from examples.subdivision import letter_a
         complex = letter_a.create_letter(4).subdivide_simplicial().as_3()

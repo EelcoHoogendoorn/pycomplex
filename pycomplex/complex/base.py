@@ -36,8 +36,13 @@ class BaseComplex(object):
         ])
 
     @abstractmethod
-    def subdivide(self):
-        """Return a complex of the same type, with one level of subdivision applied"""
+    def subdivide_cubical(self):
+        """Returns a cubical complex"""
+        raise NotImplementedError
+
+    @abstractmethod
+    def subdivide_fundamental(self):
+        """Returns a simplicial complex"""
         raise NotImplementedError
 
     def select_subset(self, n_chain):
@@ -348,6 +353,7 @@ class BaseComplex(object):
             weights = (rhs - laplacian * weights + diag * weights) / diag
         return self.copy(weights=weights)
 
+    # FIXME: move to simplicial base class
     def optimize_weights_fundamental(self):
         """Optimize the weights of a complex derived from fundamental domain subdivision,
         such that the resulting primal simplices become strictly well-centered,

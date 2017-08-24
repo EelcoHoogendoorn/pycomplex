@@ -60,7 +60,7 @@ def test_sphere():
     sphere = sphere.copy(vertices = np.dot(sphere.vertices, linalg.orthonormalize(np.random.randn(3, 3))))
 
     for i in range(3):
-        sphere = sphere.subdivide(smooth=True)
+        sphere = sphere.subdivide_cubical(smooth=True)
 
     sphere.plot_3d(backface_culling=True)
 
@@ -84,13 +84,13 @@ def test_n_simplex():
 def test_subdivided_triangle():
     tri = synthetic.n_simplex(2).as_2().as_2()
     for i in range(5):
-        tri = tri.subdivide()
+        tri = tri.subdivide_cubical()
 
 
 def test_power_dual():
     tri = synthetic.n_simplex(2).as_2().as_2()
     for i in range(2):
-        tri = tri.subdivide()
+        tri = tri.subdivide_cubical()
     tri = tri.copy(
         vertices = tri.vertices + np.random.normal(0, 0.06, size=tri.vertices.shape),
         # weights = np.random.uniform(0, tri.primal_metric[1].mean()**2/1, tri.topology.n_elements[0])
@@ -119,7 +119,7 @@ def test_delaunay():
     import scipy.spatial
     boundary = synthetic.n_cube(2).boundary
     for i in range(3):
-        boundary = boundary.subdivide()
+        boundary = boundary.subdivide_cubical()
 
     points = np.concatenate([
         boundary.vertices,

@@ -57,7 +57,7 @@ def concave():
     mesh = mesh.select_subset([1, 1, 1, 0])
 
     for i in range(4):  # subdiv 5 is already pushing our solvers...
-        mesh = mesh.subdivide()
+        mesh = mesh.subdivide_cubical()
         # left = mesh.topology.transfer_matrices[1] * left
         # right = mesh.topology.transfer_matrices[1] * right
 
