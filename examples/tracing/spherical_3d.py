@@ -43,8 +43,8 @@ def render_frame(p, x, y, z, plot_primal=False):
 
     # all rays start from p
     ray = p
-    simplex = None
-    domain_idx = True
+    simplex_idx = None
+    domain_idx = None
 
     # accumulate what simplex we hit, and how far away
     pick = -np.ones(resolution, np.int16)
@@ -58,19 +58,19 @@ def render_frame(p, x, y, z, plot_primal=False):
         ray = np.einsum('...ij,...j->...i', ray_step, ray)
         if plot_primal:
             # visualize primal edges
-            simplex, bary = space.pick_primal_alt(ray.reshape(-1, 4), simplex=simplex)  # caching simplex makes a huge speed difference!
+            simplex_idx, bary = space.pick_primal(ray.reshape(-1, 4), simplex_idx=simplex_idx)  # caching simplex makes a huge speed difference!
             bary = bary.reshape(resolution + (4,))
             # try and see if we hit an edge
             edge_hit = (bary < 0.01).sum(axis=-1) >= 2
         else:
             # visualize dual edges instead
-            domains, bary, domain_idx = space.pick_fundamental(ray.reshape(-1, 4), domain_idx=domain_idx)
-            simplex = domains[:, -1]
+            domain_idx, bary, domains = space.pick_fundamental(ray.reshape(-1, 4), domain_idx=domain_idx)
+            simplex_idx = domains[:, -1]
             bary = bary.reshape(resolution + (4,))
             edge_hit = bary[..., :-2].sum(axis=-1) <= 0.03 # last two baries are dual cell center and its boundary
 
         draw = np.logical_and(edge_hit, pick==-1)
-        pick[draw] = simplex.reshape(resolution)[draw]
+        pick[draw] = simplex_idx.reshape(resolution)[draw]
         depth[draw] = distance
     print(time.clock() - t)
 
@@ -112,7 +112,7 @@ if __name__ == '__main__':
         plt.show()
         quit()
 
-    elif True:
+    elif False:
         path = r'c:\development\examples\random_sphere_5'
         space = synthetic.optimal_delaunay_sphere(n_dim=4, n_points=300, iterations=50)
         space = space.optimize_weights()
@@ -138,10 +138,9 @@ if __name__ == '__main__':
         stepsize = .2  # ray step size in degrees
         max_distance = 180  # trace rays half around the universe
         fov = 1  # higher values give a wider field of view
-        resolution = (512, 512)  # in pixels
+        resolution = (256, 256)  # in pixels
 
-        path = r'c:\development\examples\hexacosichoron_13'
-        path = r'c:\development\examples\random_sphere_0'
+        path = r'/Users/eelco/development/examples/hexacosichoron_15'
 
         # generate a random starting position and orientation
         coordinate = linalg.orthonormalize(np.random.randn(4, 4))

@@ -37,7 +37,7 @@ z = np.sqrt(np.clip(1 - linalg.dot(points, points), 0, 1))
 points = np.concatenate([points, z[..., None]], axis=-1)
 
 
-if True:
+if False:
     # primal pick compared to primal plot
     sphere.as_euclidian().plot_primal_0_form(p0, plot_contour=False, shading='gouraud', vmin=vmin, vmax=vmax)
     sphere.plot(ax=plt.gca())
@@ -57,8 +57,8 @@ if True:
 
 
 if True:
-    # # interpolate primal 0 form to test dual 0-form plotting; easier than implementing harmonics with BCs's
-    d0 = sphere.averaging_operators_0[2] * p0
+    # # interpolate primal 0 form to test dual 0-form plotting
+    d0 = sphere.sample_primal_0(p0, sphere.dual_position[0])
     # sphere.as_euclidian().plot_primal_2_form(d0)
     # plt.show()
 

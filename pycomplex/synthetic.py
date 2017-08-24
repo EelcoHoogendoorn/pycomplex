@@ -134,7 +134,7 @@ def icosahedron():
     corners = vertices[triangles]
     centers = corners.mean(axis=1, keepdims=True)
     d = np.linalg.norm(corners - centers, axis=-1).sum(axis=1)
-    triangles = triangles[d < 4]
+    triangles = triangles[d < 4].astype(index_dtype)
 
     return ComplexSpherical2(
         vertices=linalg.normalized(vertices),

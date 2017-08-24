@@ -17,7 +17,7 @@ while True:
     chain_1 = complex.topology.chain(1, fill=0)
     chain_1[complex.boundary.topology.parent_idx[1]] = 1
     creases = {0: chain_0, 1: chain_1}
-    for i in range(4):
+    for i in range(2):
         complex = complex.as_2().subdivide(smooth=True, creases=creases)
         for d, c in creases.items():
             creases[d] = complex.topology.transfer_matrices[d] * c
@@ -36,8 +36,8 @@ print(complex.is_pairwise_delaunay)
 
 # generate some interesting pattern
 v = get_harmonics_0(complex)
-f0 = v[:, 8]
-vmin, vmax = f0.min(), f0.max()
+p0 = v[:, 8]
+vmin, vmax = p0.min(), p0.max()
 print('computed harmonic')
 
 # pick a rectangular grid of values
@@ -62,7 +62,7 @@ if True:
     plt.imshow(tri_idx.reshape(N, N))
 
     plt.figure()
-    img = complex.sample_primal_0(f0, points.reshape(-1, 2)).reshape(N, N)
+    img = complex.sample_primal_0(p0, points.reshape(-1, 2)).reshape(N, N)
     plt.imshow(img.T[::-1])
 
 
@@ -70,12 +70,8 @@ if True:
 
 
 if True:
-    # interpolate primal 0 form to test dual 0-form plotting; easier than implementing harmonics with BCs's
-    d0 = complex.topology.averaging_operators_0[2] * f0
-    # quad.plot_primal_2_form(d0)
-    # plt.show()
-    db = complex.topology.averaging_operators_0[1] * f0
-    d0 = np.concatenate([d0, db[complex.topology.boundary.parent_idx[1]]])
+    # interpolate primal 0 form to test dual 0-form plotting
+    d0 = complex.sample_primal_0(p0, complex.dual_position[0])
 
 
     complex.plot_dual_0_form_interpolated(d0, weighted=True, plot_contour=False, shading='gouraud', vmin=vmin, vmax=vmax)
