@@ -369,5 +369,3 @@ if __name__ == "__main__":
                 vorticity_p0, plot_contour=False, cmap='bwr', shading='gouraud', vmin=-2e-1, vmax=+2e-1)
 
         plt.axis('off')
-
-
