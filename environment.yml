@@ -3,7 +3,8 @@ channels:
   - anaconda
   - conda-forge
 dependencies:
-  - python =3.6
+  - python
+  - python.app
   - numpy
   - scipy
   - numpy-indexed

@@ -225,7 +225,7 @@ class TopologySimplicial(PrimalTopology):
 
     def subdivide_fundamental(self, oriented=True):
         """Perform a subdivision into fundamental domains"""
-        offset = np.cumsum([0] + self.n_elements)[:-1]
+        offset = np.cumsum([0] + self.n_elements, dtype=index_dtype)[:-1]
         # subdivision is essentially just remapping fundamental-domain n-simplex indices to 0-simplex indices
         simplices = self.fundamental_domains() + offset
         # flip the mirrored side to preserve orientation;
