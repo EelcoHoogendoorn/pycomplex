@@ -1,3 +1,6 @@
+
+# -*- coding: utf-8 -*-
+
 """Transverse electric electromagnetics
 
 E is a primal 1-form

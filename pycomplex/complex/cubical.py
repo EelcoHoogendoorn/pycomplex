@@ -106,7 +106,7 @@ class ComplexCubical(BaseComplexCubical):
 
         return operator
 
-    def subdivide_fundamental_simplicial(self):
+    def subdivide_fundamental(self):
         from pycomplex.complex.simplicial import ComplexSimplicialEuclidian
         return ComplexSimplicialEuclidian(
             vertices=np.concatenate(self.primal_position, axis=0),
@@ -173,7 +173,7 @@ class ComplexCubical(BaseComplexCubical):
             raise TypeError('invalid cast')
         return ComplexCubical4Euclidian4(vertices=self.vertices, topology=self.topology)
 
-    def plot(self, plot_dual=True, plot_vertices=False):
+    def plot(self, plot_dual=True, plot_vertices=False, ax=None, primal_color='b', dual_color='r'):
         """Generic 2d projected plotting of primal and dual lines and edges"""
         import matplotlib.pyplot as plt
         import matplotlib.collections
@@ -181,11 +181,13 @@ class ComplexCubical(BaseComplexCubical):
         edges = self.topology.elements[1]
         e = self.vertices[edges]
 
-        fig, ax = plt.subplots(1,1)
-        lc = matplotlib.collections.LineCollection(e[..., :2], color='b', alpha=0.5)
+        if ax is None:
+            fig, ax = plt.subplots(1, 1)
+
+        lc = matplotlib.collections.LineCollection(e[..., :2], color=primal_color, alpha=0.5)
         ax.add_collection(lc)
         if plot_vertices:
-            ax.scatter(*self.vertices.T[:2], color='b')
+            ax.scatter(*self.vertices.T[:2], color=primal_color)
 
         # plot dual cells
         if plot_dual:
@@ -197,14 +199,14 @@ class ComplexCubical(BaseComplexCubical):
             de = dual_vertices[de]
             s, e = de[:,0], de[:,1]
             s = np.moveaxis(np.array([dual_edges, s]), 0, 1)
-            lc = matplotlib.collections.LineCollection(s[...,:2], color='r', alpha=0.5)
+            lc = matplotlib.collections.LineCollection(s[...,:2], color=dual_color, alpha=0.5)
             ax.add_collection(lc)
             e = np.moveaxis(np.array([dual_edges, e]), 0, 1)
-            lc = matplotlib.collections.LineCollection(e[...,:2], color='r', alpha=0.5)
+            lc = matplotlib.collections.LineCollection(e[...,:2], color=dual_color, alpha=0.5)
             ax.add_collection(lc)
 
             if plot_vertices:
-                ax.scatter(*dual_vertices.T[:2], color='r')
+                ax.scatter(*dual_vertices.T[:2], color=dual_color)
 
         plt.axis('equal')
 

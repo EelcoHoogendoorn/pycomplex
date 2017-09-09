@@ -216,6 +216,8 @@ def optimal_delaunay_sphere(n_points, n_dim, iterations=50, weights=True, push_i
 
     def push_points(points, r=5, magnitude=.1):
         # FIXME: use connectivity for this instead of tree?
+        # FIXME: ohrased differently; use laplacian smoothing step instead. can do implicit solve to make larger steps?
+        # FIXME: or use it as descent direction, and do line search with some criterium; same applies to loyds iteration
         r = r / np.power(n_points, 1 / (n_dim - 1))
         tree = scipy.spatial.cKDTree(points)
         s, e = tree.query_pairs(r=r, output_type='ndarray').T
@@ -232,6 +234,7 @@ def optimal_delaunay_sphere(n_points, n_dim, iterations=50, weights=True, push_i
         for i in range(push_iterations):
             points = push_points(points)
         complex = complex_from_points(points)
+        # FIXME: this is essentially Lioyds algorithm; that is, insofar area weighted method produces true centroid; which i am not sure it does
         cc = complex.dual_position[0]
         from pycomplex.geometry import euclidian
         W = euclidian.unsigned_volume(complex.vertices[complex.topology.corners[-1]])[:, None]

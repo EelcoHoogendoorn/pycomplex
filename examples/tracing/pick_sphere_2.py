@@ -9,7 +9,7 @@ from pycomplex.math import linalg
 
 
 # sphere = synthetic.optimal_delaunay_sphere(100, 3, weights=False)
-sphere = synthetic.icosphere(refinement=4).copy(radius=30)
+sphere = synthetic.icosphere(refinement=2).copy(radius=30)
 sphere = sphere.optimize_weights_metric()
 
 print(sphere.is_well_centered)

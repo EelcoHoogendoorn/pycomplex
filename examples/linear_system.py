@@ -3,6 +3,7 @@ import numpy as np
 import scipy.sparse
 from pycomplex.topology import sign_dtype, index_dtype
 
+
 def sparse_diag(diag):
     s = len(diag)
     i = np.arange(s, dtype=index_dtype)

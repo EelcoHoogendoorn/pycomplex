@@ -1,3 +1,6 @@
+
+# -*- coding: utf-8 -*-
+
 """
 stokes lid driven cavity
 

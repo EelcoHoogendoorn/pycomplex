@@ -1,3 +1,6 @@
+
+# -*- coding: utf-8 -*-
+
 """
 Euler equations:
     Dω / dt = 0     (material derivative of vorticity is zero; or constant along streamlines)

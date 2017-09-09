@@ -7,7 +7,7 @@ source:
 
 package:
   name: pycomplex
-  version: 0.0.1
+  version: 0.0.2
 requirements:
   build:
   - python
@@ -26,10 +26,10 @@ build:
   script: python setup.py install
   noarch: python
 
-#test:
+test:
 #  commands:
 #  - py.test --pyargs pycomplex
-#  imports:
-#  - pycomplex
+  imports:
+  - pycomplex
 #  requires:
 #  - pytest

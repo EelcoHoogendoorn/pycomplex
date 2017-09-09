@@ -50,7 +50,6 @@ Todo
     - Add hierarchy class, to manage all transfers across levels
     - Black box multigrid (at least for 0-forms)
     - Multigrid eigen solver
-- Implement picking on euclidian simplicial complexes (requires dealing with non-acute simplices)
 - Implement geometric elasticity (http://imechanica.org/files/Geometry_Elasticity.pdf)
 - Clean up boundary condition handling in examples
 - Replace ugly casting system with some more automagic dynamic dispatch

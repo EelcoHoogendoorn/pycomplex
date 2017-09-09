@@ -119,7 +119,7 @@ if __name__ == '__main__':
 
     # add random rotation
     np.random.seed(6)
-    letter = letter.copy(vertices=np.dot(letter.vertices, linalg.orthonormalize(np.random.randn(3, 3))))
+    letter = letter.transform(linalg.orthonormalize(np.random.randn(3, 3)))
 
     letter.plot(plot_dual=False, plot_vertices=False)
 

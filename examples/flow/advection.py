@@ -1,3 +1,6 @@
+
+# -*- coding: utf-8 -*-
+
 """Advection equations are a good illustration of the mesh picking functionality"""
 
 # FIXME: remove any dependencies on 2d complexes

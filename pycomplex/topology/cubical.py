@@ -219,7 +219,7 @@ class TopologyCubical(PrimalTopology):
 
             return En0.astype(index_dtype), EnN.astype(index_dtype), parity_to_orientation(parity)
 
-        EN0 = np.asarray(cubes)
+        EN0 = np.asarray(cubes, dtype=index_dtype)
         n_dim = EN0.ndim - 1
         if not EN0.shape[1:] == (2,) * n_dim:
             raise ValueError
@@ -316,7 +316,7 @@ class TopologyCubical(PrimalTopology):
         raise NotImplementedError
 
     def subdivide_fundamental(self):
-        offset = np.cumsum([0] + self.n_elements)[:-1]
+        offset = np.cumsum([0] + self.n_elements, dtype=index_dtype)[:-1]
         # subdivision is essentially just remapping fundamental-domain n-simplex indices to 0-simplex indices
         simplices = self.fundamental_domains() + offset
         # flip the mirrored side to preserve orientation;
@@ -422,7 +422,7 @@ class TopologyCubical(PrimalTopology):
         Returns
         -------
         oriented : TopologyCubical
-            same topology but with oriented simplices
+            same topology but with oriented cubes
 
         Raises
         ------
@@ -451,7 +451,7 @@ class TopologyCubical2(TopologyCubical):
 
         Notes
         -----
-        There does not appear to be a way to generelize this to nd
+        There does not appear to be a way to generalize this to nd
 
         """
         Q20 = self.elements[2]

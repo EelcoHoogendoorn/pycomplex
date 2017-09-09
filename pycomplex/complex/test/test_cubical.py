@@ -42,27 +42,29 @@ def test_2cube_3space():
     for i in range(3):
         quads = quads.subdivide_cubical(smooth=True)
 
-    quads = quads.copy(vertices=np.dot(quads.vertices, linalg.orthonormalize(np.random.randn(3, 3))))
+    quads = quads.transform(linalg.orthonormalize(np.random.randn(3, 3)))
     quads.plot()
 
     quads.subdivide_simplicial().as_3().plot_3d(plot_vertices=False, backface_culling=True, plot_dual=False)
+    plt.show()
 
 
 def test_cube():
     """Test 3d cube embedded in 3-space"""
     cube = n_cube(3)
     # random rotation
-    cube = cube.copy(vertices = np.dot(cube.vertices, linalg.orthonormalize(np.random.randn(3, 3))))
+    cube = cube.transform(linalg.orthonormalize(np.random.randn(3, 3)))
 
     cube.plot()
     for i in range(2):
         cube = cube.subdivide_cubical()
     cube.boundary().plot(plot_dual=True)
+    plt.show()
 
 
 def test_triangulated_cube():
     cube = n_cube(3)
-    # cube = cube.copy(vertices = np.dot(cube.vertices, linalg.orthonormalize(np.random.randn(3, 3))))
+    # cube = cube.transform(linalg.orthonormalize(np.random.randn(3, 3)))
 
     surface = cube.boundary.as_23()
     # surface = surface.subdivide(smooth=True)
@@ -88,7 +90,7 @@ def test_cube_grid_2():
 
 def test_cube_grid_3():
     grid = n_cube_grid((1, 2, 3))
-    grid = grid.copy(vertices = np.dot(grid.vertices, linalg.orthonormalize(np.random.randn(3, 3))))
+    grid = grid.transform(linalg.orthonormalize(np.random.randn(3, 3)))
     grid.plot(plot_dual=True)
     assert grid.topology.is_oriented
 
@@ -110,8 +112,9 @@ def test_product_2_1():
     assert grid.topology.is_oriented
     assert grid.boundary.topology.is_oriented
 
-    grid = grid.copy(vertices = np.dot(grid.vertices, linalg.orthonormalize(np.random.randn(3, 3))))
+    grid = grid.transform(linalg.orthonormalize(np.random.randn(3, 3)))
     grid.plot()
+    plt.show()
 
 
 def test_n_cube():
@@ -126,8 +129,6 @@ def test_n_cube():
         assert cube.topology.boundary.is_closed
 
         np.random.seed(1)
-        cube = cube.copy(vertices = np.dot(cube.vertices, linalg.orthonormalize(np.random.randn(n_dim, n_dim))))
+        cube = cube.transform(linalg.orthonormalize(np.random.randn(n_dim, n_dim)))
         cube.plot(plot_dual=True)
         plt.show()
-
-test_n_cube()

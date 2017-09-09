@@ -28,7 +28,7 @@ class ComplexSimplicialEuclidian(BaseComplexEuclidian):
             topology = TopologySimplicial.from_simplices(simplices)
         self.topology = topology
 
-    def plot(self, ax=None, plot_dual=True, plot_vertices=True, plot_lines=True):
+    def plot(self, ax=None, plot_dual=True, plot_vertices=True, plot_lines=True, primal_color='b', dual_color='r'):
         """Plot projection on plane"""
         import matplotlib.pyplot as plt
         import matplotlib.collections
@@ -38,10 +38,10 @@ class ComplexSimplicialEuclidian(BaseComplexEuclidian):
         if ax is None:
             fig, ax = plt.subplots(1, 1)
         if plot_lines:
-            lc = matplotlib.collections.LineCollection(e[..., :2], color='b', alpha=0.5)
+            lc = matplotlib.collections.LineCollection(e[..., :2], color=primal_color, alpha=0.5)
             ax.add_collection(lc)
         if plot_vertices:
-            ax.scatter(*self.vertices.T[:2], color='b')
+            ax.scatter(*self.vertices.T[:2], color=primal_color)
 
         if plot_dual:
             dual_vertices, dual_edges = self.dual_position[0:2]
@@ -53,14 +53,14 @@ class ComplexSimplicialEuclidian(BaseComplexEuclidian):
                 de = dual_vertices[de]
                 s, e = de[:, 0], de[:, 1]
                 s = np.moveaxis(np.array([dual_edges, s]), 0, 1)
-                lc = matplotlib.collections.LineCollection(s[..., :2], color='r', alpha=0.5)
+                lc = matplotlib.collections.LineCollection(s[..., :2], color=dual_color, alpha=0.5)
                 ax.add_collection(lc)
                 e = np.moveaxis(np.array([dual_edges, e]), 0, 1)
-                lc = matplotlib.collections.LineCollection(e[..., :2], color='r', alpha=0.5)
+                lc = matplotlib.collections.LineCollection(e[..., :2], color=dual_color, alpha=0.5)
                 ax.add_collection(lc)
 
             if plot_vertices:
-                ax.scatter(*dual_vertices.T[:2], color='r')
+                ax.scatter(*dual_vertices.T[:2], color=dual_color)
         plt.axis('equal')
 
     def plot_domains(self, ax):

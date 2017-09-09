@@ -10,7 +10,7 @@ from pycomplex.math import linalg
 
 def test_subdivide_cubical():
     simplex = synthetic.n_simplex(3)
-    simplex = simplex.copy(vertices=np.dot(simplex.vertices, linalg.orthonormalize(np.random.randn(3, 3))))
+    simplex = simplex.transform( linalg.orthonormalize(np.random.randn(3, 3)))
 
     cubes = simplex.subdivide_cubical()
     cubes.plot(plot_dual=False)
@@ -20,7 +20,7 @@ def test_subdivide_cubical():
 def test_subdivide_simplicial():
     for n in [2, 3, 4]:
         simplex = synthetic.n_simplex(n)
-        simplex = simplex.copy(vertices=np.dot(simplex.vertices, linalg.orthonormalize(np.random.randn(n, n))))
+        simplex = simplex.transform(linalg.orthonormalize(np.random.randn(n, n)))
 
         simplices = simplex.subdivide_simplicial()
         assert simplices.topology.is_oriented
@@ -31,7 +31,7 @@ def test_subdivide_simplicial():
 def test_subdivide_cubical_many():
     # sphere = synthetic.hexacosichoron().as_euclidian()
     sphere = synthetic.n_cube_dual(4).as_euclidian()
-    sphere = sphere.copy(vertices=np.dot(sphere.vertices, linalg.orthonormalize(np.random.randn(4, 4))))
+    sphere = sphere.transform(linalg.orthonormalize(np.random.randn(4, 4)))
 
     cubes = sphere.subdivide_cubical().smooth()#.subdivide().smooth()
     cubes.plot(plot_dual=False)
@@ -57,7 +57,7 @@ def test_triangular():
 
 def test_sphere():
     sphere = synthetic.icosahedron().as_euclidian()
-    sphere = sphere.copy(vertices = np.dot(sphere.vertices, linalg.orthonormalize(np.random.randn(3, 3))))
+    sphere = sphere.transform(linalg.orthonormalize(np.random.randn(3, 3)))
 
     for i in range(3):
         sphere = sphere.subdivide_cubical(smooth=True)
@@ -68,7 +68,7 @@ def test_sphere():
 def test_n_simplex():
     for n_dim in [2, 3, 4, 5, 6, 7]:
         simplex = synthetic.n_simplex(n_dim)
-        simplex = simplex.copy(vertices = np.dot(simplex.vertices, linalg.orthonormalize(np.random.randn(n_dim, n_dim))))
+        simplex = simplex.transform(linalg.orthonormalize(np.random.randn(n_dim, n_dim)))
 
         assert simplex.topology.is_oriented
         assert simplex.topology.is_connected
@@ -92,8 +92,8 @@ def test_power_dual():
     for i in range(2):
         tri = tri.subdivide_cubical()
     tri = tri.copy(
-        vertices = tri.vertices + np.random.normal(0, 0.06, size=tri.vertices.shape),
-        # weights = np.random.uniform(0, tri.primal_metric[1].mean()**2/1, tri.topology.n_elements[0])
+        vertices=tri.vertices + np.random.normal(0, 0.06, size=tri.vertices.shape),
+        # weights=np.random.uniform(0, tri.primal_metric[1].mean()**2/1, tri.topology.n_elements[0])
     )
     print(tri.is_pairwise_delaunay)
     print(tri.is_well_centered)

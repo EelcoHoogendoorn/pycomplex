@@ -1,3 +1,6 @@
+
+# -*- coding: utf-8 -*-
+
 """Model a permanent magnet
 
 Physics:
