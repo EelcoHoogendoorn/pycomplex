@@ -325,6 +325,33 @@ def triangle_angles(vertices):
     return np.arccos(-linalg.dot(np.roll(edges, -1, axis=-2), np.roll(edges, +1, axis=-2)))
 
 
+def segment_normals(corners):
+    """Calculate the normals of a segment (an n-1-simplex in n-space)
+
+    Parameters
+    ----------
+    corners : ndarray, [..., n_dim, n_dim], float
+        set of simplices described by the coordinates of its vertices in euclidian space
+
+    Returns
+    -------
+    normals : ndarray, [..., n_dim], float
+        normals of the segments (not actually normalized)
+    """
+    corners = np.asarray(corners)
+    n_corners, n_dim = corners.shape[-2:]
+    assert n_corners == n_dim
+    normals = np.empty_like(corners[..., 0])
+
+    corners = corners[..., 1:, :] - corners[..., 0, :]
+
+    sign = 1
+    for c in range(n_corners):
+        normals[..., c] = np.linalg.det(np.delete(corners, c, axis=-1)) * sign
+        sign = -sign
+    return normals
+
+
 def simplex_normals(corners):
     corners = np.asarray(corners)
     barycenter = corners.mean(axis=-2, keepdims=True)
