@@ -153,11 +153,11 @@ class TopologyCubical(PrimalTopology):
         return np.indices(self.cube_shape).reshape(self.n_dim, -1).T.astype(sign_dtype)
 
     @classmethod
-    def from_elements(cls, elements):
-        return cls.from_cubes(cubes=elements)
+    def from_elements(cls, elements, mirror=True):
+        return cls.from_cubes(cubes=elements, mirror=mirror)
 
     @classmethod
-    def from_cubes(cls, cubes):
+    def from_cubes(cls, cubes, mirror=True):
         """
 
         Parameters
@@ -189,7 +189,7 @@ class TopologyCubical(PrimalTopology):
                 return En0.astype(index_dtype), EnN.astype(index_dtype), parity_to_orientation(parity)
 
             # generate boundary elements
-            En0_all = generate_cube_boundary(EN0, degree=1)
+            En0_all = generate_cube_boundary(EN0, degree=1, mirror=mirror)
             En0_all = En0_all.reshape((-1,) + b_shape)
 
             # get mapping to unique set of boundary elements, by considering sorted corners

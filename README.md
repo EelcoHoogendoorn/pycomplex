@@ -59,3 +59,9 @@ Speculative todo
 - Cylindrical coordinates and corresponding metric calculations
 - Hybrid triangle-quad meshes
 - Some basic support for FEM
+
+Notes
+-----
+To build on macosx, run:
+    export LC_ALL=en_US.UTF-8
+    export LANG=en_US.UTF-8

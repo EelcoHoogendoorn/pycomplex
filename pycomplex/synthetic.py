@@ -9,6 +9,7 @@ from pycomplex.complex.cubical import ComplexCubical
 from pycomplex.complex.spherical import ComplexSpherical2, ComplexSpherical
 from pycomplex.topology import index_dtype
 from pycomplex.topology.simplicial import TopologyTriangular, TopologySimplicial
+from pycomplex.topology.cubical import TopologyCubical
 from pycomplex.math import linalg
 
 
@@ -46,7 +47,7 @@ def n_simplex(n_dim, equilateral=True):
     return ComplexSimplicialEuclidian(vertices=vertices, simplices=corners[None, :])
 
 
-def n_cube(n_dim, centering=False):
+def n_cube(n_dim, centering=False, mirror=True):
     """Generate a single n-cube in euclidian n-space
 
     Parameters
@@ -58,10 +59,10 @@ def n_cube(n_dim, centering=False):
     -------
     ComplexCubical
     """
-    return n_cube_grid((1,) * n_dim, centering=centering)
+    return n_cube_grid((1,) * n_dim, centering=centering, mirror=mirror)
 
 
-def n_cube_grid(shape, centering=True):
+def n_cube_grid(shape, centering=True, mirror=True):
     """Generate a regular grid of n-cubes in euclidian n-space
 
     Parameters
@@ -90,7 +91,10 @@ def n_cube_grid(shape, centering=True):
     )
     return ComplexCubical(
         vertices=vertices,
-        cubes=cubes.reshape((-1,) + cube_shape)
+        topology=TopologyCubical.from_cubes(
+            cubes.reshape((-1,) + cube_shape),
+            mirror=mirror
+        ),
     )
 
 

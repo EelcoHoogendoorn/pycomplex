@@ -343,7 +343,7 @@ def segment_normals(corners):
     assert n_corners == n_dim
     normals = np.empty_like(corners[..., 0])
 
-    corners = corners[..., 1:, :] - corners[..., 0, :]
+    corners = corners[..., 1:, :] - corners[..., 0:1, :]
 
     sign = 1
     for c in range(n_corners):
