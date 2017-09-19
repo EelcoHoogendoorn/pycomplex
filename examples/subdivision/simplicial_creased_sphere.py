@@ -17,7 +17,7 @@ crease1 = sphere.topology.range(1) % 3 == 0
 crease0 = np.abs(sphere.topology.matrix(0, 1) * crease1) == 1
 
 for i in range(3):
-    sphere = sphere.subdivide(smooth=True, creases={0: crease0, 1: crease1})
+    sphere = sphere.subdivide_loop(smooth=True, creases={0: crease0, 1: crease1})
     crease1 = sphere.topology.transfer_matrices[1] * crease1
     crease0 = sphere.topology.transfer_matrices[0] * crease0
 

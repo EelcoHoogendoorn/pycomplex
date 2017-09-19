@@ -386,7 +386,7 @@ class ComplexSpherical2(ComplexSpherical):
         self.topology = topology
         self.radius = radius
 
-    def subdivide(self):
+    def subdivide_loop(self):
         """Subdivide the complex, returning a refined complex where each edge inserts a vertex
 
         This is a loop-like subdivision
@@ -394,7 +394,7 @@ class ComplexSpherical2(ComplexSpherical):
         """
         return ComplexSpherical2(
             vertices=np.concatenate(self.primal_position[:2], axis=0),
-            topology=self.topology.subdivide()
+            topology=self.topology.subdivide_loop()
         )
 
     def as_euclidian(self):

@@ -445,7 +445,7 @@ class ComplexTriangularEuclidian(ComplexSimplicialEuclidian):
     # def hodge_PD(self):
     #     return [1 / h for h in self.hodge_DP]
 
-    def subdivide(coarse, smooth=False, creases=None):
+    def subdivide_loop(coarse, smooth=False, creases=None):
         """Loop subdivision
 
         """
