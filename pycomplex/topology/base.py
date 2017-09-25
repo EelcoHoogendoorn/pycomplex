@@ -137,7 +137,6 @@ class BaseTopology(object):
         c.fill(fill)
         return c
 
-
     def relative_orientation(self):
         """Try to find the relative orientation of all n-elements
 
@@ -244,9 +243,17 @@ class BaseTopology(object):
 
     @cached_property
     def degree(self):
-        """Compute the degree of each n-element; or the number of adjecent N-elements"""
+        """Compute the degree of each n-element; or the number of adjecent N-elements
+
+        Returns
+        -------
+        list of ndarray, length n_dim + 1
+            n-th element of the list is an n-chain denoting the number of incident
+            N-elements for each n-element
+        """
         A = self.accumulated_operators_N()
         N_elements = self.chain(-1, fill=1)
+        # ones_like constructs a summing operator
         return [sparse.ones_like(a.T) * N_elements for a in A]
 
 

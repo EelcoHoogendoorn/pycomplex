@@ -9,7 +9,7 @@ from pycomplex import synthetic
 from examples.harmonics import *
 
 while True:
-    complex = synthetic.delaunay_cube(8, 2, iterations=30)
+    complex = synthetic.delaunay_cube(4, 2, iterations=30)
     # smooth while holding boundary constant
     # FIXME: need more utility functions for this; too much boilerplate for such a simple pattern
     chain_0 = complex.topology.chain(0, fill=0)
@@ -46,9 +46,9 @@ points = np.moveaxis(np.indices((N, N)), 0, -1) / (N - 1)
 
 if True:
     # primal pick compared to primal plot
-    # complex.plot_primal_0_form(f0, plot_contour=False, shading='gouraud', vmin=vmin, vmax=vmax)
-    # complex.plot(ax=plt.gca())
-    # plt.show()
+    complex.plot_primal_0_form(p0, plot_contour=False, shading='gouraud', vmin=vmin, vmax=vmax)
+    complex.plot(ax=plt.gca())
+    plt.show()
 
 
     tri_idx, bary = complex.pick_primal(points.reshape(-1, 2))

@@ -251,7 +251,7 @@ class ComplexSimplicialEuclidian(BaseComplexEuclidian):
 
     @cached_property
     def pick_precompute(self):
-        """Cached precomputations for spherical picking operations"""
+        """Cached precomputations for simplicial picking operations"""
         c = self.primal_position[0]
         if self.weights is not None:
             # NOTE: if using this for primal simplex picking, we could omit the weights
@@ -391,6 +391,8 @@ class ComplexTriangularEuclidian(ComplexSimplicialEuclidian):
     def compute_vertex_areas(self):
         # FIXME: this corresponds to barycentric dual, not circumcentric!
         # this may be a feature rather than a bug, however
+        # FIXME: the below would work, if it were a summing rather than averaging operator. can be constructed by replacing data with zeros?
+        # vertex_areas = self.topology.averaging_operators_N[0] * self.compute_triangle_areas
         _, vertex_areas = npi.group_by(self.topology.triangles.flatten()).sum(np.repeat(self.compute_triangle_areas, 3))
         return vertex_areas / 3
 
