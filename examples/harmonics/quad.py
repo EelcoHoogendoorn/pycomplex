@@ -30,7 +30,7 @@ f2 = v[:, 12]
 # do plotting via mapping to simplicial complex
 tris = quad.subdivide_simplicial()
 f2 = tris.topology.transfer_operators[2] * f2
-tris.as_2().plot_dual_0_form_interpolated(f2, weighted=False, plot_contour=False, shading='gouraud')
+# tris.as_2().plot_dual_0_form_interpolated(f2, weighted=False, plot_contour=False, shading='gouraud')
 tris.as_2().plot_primal_2_form(f2)
 
 plt.show()

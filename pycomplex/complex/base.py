@@ -91,6 +91,9 @@ class BaseComplex(object):
         c.parent = self
         return c
 
+    def transform(self, transform):
+        return self.copy(vertices=self.vertices.dot(transform))
+
     @cached_property
     def dual_position(self):
         """Positions of all dual elements; primal elements with boundary elements appended where required

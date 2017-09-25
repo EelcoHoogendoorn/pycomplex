@@ -1,3 +1,6 @@
+
+# -*- coding: utf-8 -*-
+
 """Electrostatic equations
 
 Particularly interested here if we can see something about surface charge and its interactions,

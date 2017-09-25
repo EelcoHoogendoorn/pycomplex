@@ -169,4 +169,11 @@ def test_gradients():
     print(g)
 
 
-test_gradients()
+def test_segment_normals():
+    corners = [[0, 0], [1, 0]]
+    g = euclidian.segment_normals(corners)
+    print(g)
+
+    corners = [[0, 0, 0], [0, 3, 0], [4, 0, 0]]
+    g = euclidian.segment_normals(corners)
+    print(g)

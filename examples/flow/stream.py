@@ -1,3 +1,6 @@
+
+# -*- coding: utf-8 -*-
+
 """Streamfunction solver"""
 
 import scipy.sparse

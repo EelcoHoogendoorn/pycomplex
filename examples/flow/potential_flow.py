@@ -1,3 +1,6 @@
+
+# -*- coding: utf-8 -*-
+
 """
 potential flow:
     divergence free

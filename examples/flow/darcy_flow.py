@@ -1,3 +1,6 @@
+
+# -*- coding: utf-8 -*-
+
 """
 darcy flow:
     flow is divergence free

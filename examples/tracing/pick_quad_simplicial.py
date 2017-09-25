@@ -18,7 +18,7 @@ while True:
     chain_1[complex.boundary.topology.parent_idx[1]] = 1
     creases = {0: chain_0, 1: chain_1}
     for i in range(2):
-        complex = complex.as_2().subdivide(smooth=True, creases=creases)
+        complex = complex.as_2().subdivide_loop(smooth=True, creases=creases)
         for d, c in creases.items():
             creases[d] = complex.topology.transfer_matrices[d] * c
         complex = complex.optimize_weights()

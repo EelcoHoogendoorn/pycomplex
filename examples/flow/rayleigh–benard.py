@@ -1,3 +1,6 @@
+
+# -*- coding: utf-8 -*-
+
 """Example illustrating convection between plates with a temperature differential. or Rayleigh–Bénard convection
 
 Note that this example does not really introduce any new functionality; it merely add buoyancy forces to an euler flow

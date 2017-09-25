@@ -28,7 +28,7 @@ class ComplexSimplicialEuclidian(BaseComplexEuclidian):
             topology = TopologySimplicial.from_simplices(simplices)
         self.topology = topology
 
-    def plot(self, ax=None, plot_dual=True, plot_vertices=True, plot_lines=True):
+    def plot(self, ax=None, plot_dual=True, plot_vertices=True, plot_lines=True, primal_color='b', dual_color='r'):
         """Plot projection on plane"""
         import matplotlib.pyplot as plt
         import matplotlib.collections
@@ -38,10 +38,10 @@ class ComplexSimplicialEuclidian(BaseComplexEuclidian):
         if ax is None:
             fig, ax = plt.subplots(1, 1)
         if plot_lines:
-            lc = matplotlib.collections.LineCollection(e[..., :2], color='b', alpha=0.5)
+            lc = matplotlib.collections.LineCollection(e[..., :2], color=primal_color, alpha=0.5)
             ax.add_collection(lc)
         if plot_vertices:
-            ax.scatter(*self.vertices.T[:2], color='b')
+            ax.scatter(*self.vertices.T[:2], color=primal_color)
 
         if plot_dual:
             dual_vertices, dual_edges = self.dual_position[0:2]
@@ -53,14 +53,14 @@ class ComplexSimplicialEuclidian(BaseComplexEuclidian):
                 de = dual_vertices[de]
                 s, e = de[:, 0], de[:, 1]
                 s = np.moveaxis(np.array([dual_edges, s]), 0, 1)
-                lc = matplotlib.collections.LineCollection(s[..., :2], color='r', alpha=0.5)
+                lc = matplotlib.collections.LineCollection(s[..., :2], color=dual_color, alpha=0.5)
                 ax.add_collection(lc)
                 e = np.moveaxis(np.array([dual_edges, e]), 0, 1)
-                lc = matplotlib.collections.LineCollection(e[..., :2], color='r', alpha=0.5)
+                lc = matplotlib.collections.LineCollection(e[..., :2], color=dual_color, alpha=0.5)
                 ax.add_collection(lc)
 
             if plot_vertices:
-                ax.scatter(*dual_vertices.T[:2], color='r')
+                ax.scatter(*dual_vertices.T[:2], color=dual_color)
         plt.axis('equal')
 
     def plot_domains(self, ax):
@@ -447,7 +447,7 @@ class ComplexTriangularEuclidian(ComplexSimplicialEuclidian):
     # def hodge_PD(self):
     #     return [1 / h for h in self.hodge_DP]
 
-    def subdivide(coarse, smooth=False, creases=None):
+    def subdivide_loop(coarse, smooth=False, creases=None):
         """Loop subdivision
 
         """
@@ -616,7 +616,7 @@ class ComplexTriangularEuclidian3(ComplexTriangularEuclidian):
         normals = self.triangle_normals()
         return np.linalg.norm(normals, axis=1).sum() / 2
 
-    def plot_3d(self, backface_culling=True, plot_dual=True, plot_vertices=True):
+    def plot_3d(self, ax=None, plot_dual=True, plot_vertices=True, backface_culling=True, plot_lines=True, primal_color='b', dual_color='r'):
         import matplotlib.pyplot as plt
         import matplotlib.collections
 
@@ -630,19 +630,19 @@ class ComplexTriangularEuclidian3(ComplexTriangularEuclidian):
         edges = edges[visible]
         vertices = vertices[visible]
 
-
         edges = np.unique(edges)
         vertices = np.unique(vertices)
 
-        edge_positions = self.vertices[self.topology.edges[edges]]
+        if ax is None:
+            fig, ax = plt.subplots(1, 1)
 
-        fig, ax = plt.subplots(1, 1)
-        lc = matplotlib.collections.LineCollection(edge_positions[..., :2], color='b', alpha=0.5)
-        ax.add_collection(lc)
-
-        vertex_positions = self.vertices[vertices]
+        if plot_lines:
+            edge_positions = self.vertices[self.topology.edges[edges]]
+            lc = matplotlib.collections.LineCollection(edge_positions[..., :2], color=primal_color, alpha=0.5)
+            ax.add_collection(lc)
         if plot_vertices:
-            ax.scatter(*vertex_positions.T[:2], color='b')
+            vertex_positions = self.vertices[vertices]
+            ax.scatter(*vertex_positions.T[:2], color=primal_color)
 
         if plot_dual:
             dual_vertices, dual_edges = self.dual_position[0:2]
@@ -654,14 +654,15 @@ class ComplexTriangularEuclidian3(ComplexTriangularEuclidian):
             fe = fe[visible]
             dual_vertices = dual_vertices[visible]
 
-            # plot dual edges on a per-face basis; good for backface culling, not so much for boundaries
-            for c in fe.T:
-                e = np.concatenate([dual_vertices[:, None], dual_edges[c][:, None]], axis=1)
-                lc = matplotlib.collections.LineCollection(e[..., :2], color='r', alpha=0.5)
-                ax.add_collection(lc)
+            if plot_lines:
+                # plot dual edges on a per-face basis; good for backface culling, not so much for boundaries
+                for c in fe.T:
+                    e = np.concatenate([dual_vertices[:, None], dual_edges[c][:, None]], axis=1)
+                    lc = matplotlib.collections.LineCollection(e[..., :2], color=dual_color, alpha=0.5)
+                    ax.add_collection(lc)
 
             if plot_vertices:
-                ax.scatter(*dual_vertices.T[:2], color='r')
+                ax.scatter(*dual_vertices.T[:2], color=dual_color)
 
         plt.axis('equal')
 

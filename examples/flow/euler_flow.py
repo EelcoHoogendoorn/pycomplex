@@ -1,3 +1,6 @@
+
+# -*- coding: utf-8 -*-
+
 """
 Euler equations:
     Dω / dt = 0     (material derivative of vorticity is zero; or constant along streamlines)
@@ -265,7 +268,7 @@ if __name__ == "__main__":
             chain_1[complex.boundary.topology.parent_idx[1]] = 1
             creases = {0: chain_0, 1: chain_1}
             for i in range(0):
-                complex = complex.as_2().subdivide(smooth=True, creases=creases)
+                complex = complex.as_2().subdivide_loop(smooth=True, creases=creases)
                 for d, c in creases.items():
                     creases[d] = complex.topology.transfer_matrices[d] * c
 
@@ -279,7 +282,7 @@ if __name__ == "__main__":
     if complex_type == 'simplex':
         complex = synthetic.n_simplex(2).as_2().as_2()
         for i in range(6):
-            complex = complex.subdivide()
+            complex = complex.subdivide_loop()
         complex.plot()
         plt.show()
 
@@ -369,5 +372,3 @@ if __name__ == "__main__":
                 vorticity_p0, plot_contour=False, cmap='bwr', shading='gouraud', vmin=-2e-1, vmax=+2e-1)
 
         plt.axis('off')
-
-

@@ -2,31 +2,34 @@ about:
   home: https://github.com/EelcoHoogendoorn/pycomplex
   license: Freely Distributable
   summary: Library for working with simplicial and cubical complexes
-build:
-  noarch_python: true
-  number: 1
+source:
+  path: ..
+
 package:
   name: pycomplex
-  version: 0.0.1
+  version: 0.0.2
 requirements:
   build:
-  - python =3.6
-  - numpy
-  - scipy
-  - numpy-indexed
-  - cached-property
+  - python
+  - setuptools
   run:
-  - python =3.6
+  - python
   - numpy
   - scipy
   - numpy-indexed
   - matplotlib
   - pycosat
   - cached-property
+
+build:
+  number: 1
+  script: python setup.py install
+  noarch: python
+
 test:
-  commands:
-  - py.test --pyargs pycomplex
+#  commands:
+#  - py.test --pyargs pycomplex
   imports:
   - pycomplex
-  requires:
-  - pytest
+#  requires:
+#  - pytest

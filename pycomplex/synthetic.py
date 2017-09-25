@@ -6,9 +6,10 @@ import scipy.spatial
 
 from pycomplex.complex.simplicial import ComplexSimplicialEuclidian
 from pycomplex.complex.cubical import ComplexCubical
-from pycomplex.complex.spherical import ComplexSpherical2, ComplexSpherical
+from pycomplex.complex.spherical import ComplexSpherical, ComplexSpherical2, ComplexSpherical3
 from pycomplex.topology import index_dtype
 from pycomplex.topology.simplicial import TopologyTriangular, TopologySimplicial
+from pycomplex.topology.cubical import TopologyCubical
 from pycomplex.math import linalg
 
 
@@ -46,28 +47,38 @@ def n_simplex(n_dim, equilateral=True):
     return ComplexSimplicialEuclidian(vertices=vertices, simplices=corners[None, :])
 
 
-def n_cube(n_dim, centering=False):
+def n_cube(n_dim, centering=False, mirror=True):
     """Generate a single n-cube in euclidian n-space
 
     Parameters
     ----------
     n_dim : int
         dimension of the cube to be generated
+    centering : bool
+        if True, cube has coords in range [-0.5, +0.5]
+        if False, cube has coords in range [0.0, 1.0]
+    mirror : bool
+        if False, a non-oriented cubical complex is generated
 
     Returns
     -------
     ComplexCubical
     """
-    return n_cube_grid((1,) * n_dim, centering=centering)
+    return n_cube_grid((1,) * n_dim, centering=centering, mirror=mirror)
 
 
-def n_cube_grid(shape, centering=True):
+def n_cube_grid(shape, centering=True, mirror=True):
     """Generate a regular grid of n-cubes in euclidian n-space
 
     Parameters
     ----------
     shape : tuple of int
         shape of the grid to be generated, as the number of cubes in each dimension
+    centering : bool
+        if True, centroid of the complex is at the origin
+        if False, minimum of the complex is at the origin
+    mirror : bool
+        if False, a non-oriented cubical complex is generated
 
     Returns
     -------
@@ -90,12 +101,20 @@ def n_cube_grid(shape, centering=True):
     )
     return ComplexCubical(
         vertices=vertices,
-        cubes=cubes.reshape((-1,) + cube_shape)
+        topology=TopologyCubical.from_cubes(
+            cubes.reshape((-1,) + cube_shape),
+            mirror=mirror
+        ),
     )
 
 
 def n_cube_dual(n_dim):
     """Dual of n-cube boundary
+
+    Parameters
+    ----------
+    n_dim : int
+        dimensionality of the embedding space
 
     Returns
     -------
@@ -164,6 +183,10 @@ def hexacosichoron():
     """Biggest symmetry group on the 4-sphere, analogous to the icosahedron on the 3-sphere
 
     Its dual is a hyperdodecahedron, consisting of 120 dodecahedra
+
+    Returns
+    -------
+    ComplexSpherical3
     """
     phi = (1 + np.sqrt(5)) / 2
 
@@ -186,12 +209,16 @@ def hexacosichoron():
 
     tets = scipy.spatial.ConvexHull(vertices).simplices
     topology = TopologySimplicial.from_simplices(tets).fix_orientation()
-    return ComplexSpherical(vertices=vertices, topology=topology)
+    return ComplexSpherical3(vertices=vertices, topology=topology)
 
 
 def optimal_delaunay_sphere(n_points, n_dim, iterations=50, weights=True, push_iterations=10, condition='delaunay'):
     """Try and construct an optimal delaunay mesh on the sphere, in the sense described in [1],
     by repeated averaging over dual centroid positions
+
+    Returns
+    -------
+    ComplexSpherical
 
     References
     ----------
@@ -216,6 +243,8 @@ def optimal_delaunay_sphere(n_points, n_dim, iterations=50, weights=True, push_i
 
     def push_points(points, r=5, magnitude=.1):
         # FIXME: use connectivity for this instead of tree?
+        # FIXME: ohrased differently; use laplacian smoothing step instead. can do implicit solve to make larger steps?
+        # FIXME: or use it as descent direction, and do line search with some criterium; same applies to loyds iteration
         r = r / np.power(n_points, 1 / (n_dim - 1))
         tree = scipy.spatial.cKDTree(points)
         s, e = tree.query_pairs(r=r, output_type='ndarray').T
@@ -232,6 +261,7 @@ def optimal_delaunay_sphere(n_points, n_dim, iterations=50, weights=True, push_i
         for i in range(push_iterations):
             points = push_points(points)
         complex = complex_from_points(points)
+        # FIXME: this is essentially Lioyds algorithm; that is, insofar area weighted method produces true centroid; which i am not sure it does
         cc = complex.dual_position[0]
         from pycomplex.geometry import euclidian
         W = euclidian.unsigned_volume(complex.vertices[complex.topology.corners[-1]])[:, None]
@@ -251,7 +281,22 @@ def optimal_delaunay_sphere(n_points, n_dim, iterations=50, weights=True, push_i
 
 
 def delaunay_cube(density=30, n_dim=2, iterations=30):
-    """Generate a delaunay simplex mesh on a cube"""
+    """Generate a delaunay simplex mesh on a cube
+
+    Parameters
+    ----------
+    density : int
+        number of vertices along one axis of the cube
+    n_dim : int
+        dimensionality of the complex
+    iterations : int
+        number of aspect-ratio-optimization iterations
+
+    Returns
+    -------
+    ComplexSimplicialEuclidian
+
+    """
     import scipy.spatial
 
     idx = np.indices((density + 1,)*n_dim)

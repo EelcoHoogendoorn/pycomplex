@@ -59,15 +59,18 @@ def render_frame(p, x, y, z, plot_primal=False):
         if plot_primal:
             # visualize primal edges
             simplex_idx, bary = space.pick_primal(ray.reshape(-1, 4), simplex_idx=simplex_idx)  # caching simplex makes a huge speed difference!
+            max_idx = space.topology.n_elements[-1]
+
             bary = bary.reshape(resolution + (4,))
             # try and see if we hit an edge
             edge_hit = (bary < 0.01).sum(axis=-1) >= 2
         else:
             # visualize dual edges instead
             domain_idx, bary, domains = space.pick_fundamental(ray.reshape(-1, 4), domain_idx=domain_idx)
-            simplex_idx = domains[:, -1]
+            simplex_idx = domains[:, 0]
+            max_idx = space.topology.n_elements[0]
             bary = bary.reshape(resolution + (4,))
-            edge_hit = bary[..., :-2].sum(axis=-1) <= 0.03 # last two baries are dual cell center and its boundary
+            edge_hit = bary[..., :-2].sum(axis=-1) <= 0.04 # last two baries are dual cell center and its boundary
 
         draw = np.logical_and(edge_hit, pick==-1)
         pick[draw] = simplex_idx.reshape(resolution)[draw]
@@ -77,9 +80,9 @@ def render_frame(p, x, y, z, plot_primal=False):
     # plot the result
     fig, ax = plt.subplots(1, 1)
     cmap = plt.get_cmap('hsv')
-    colors = ScalarMappable(cmap=cmap).to_rgba(pick)
+    colors = ScalarMappable(cmap=cmap).to_rgba(pick / max_idx, norm=False)
     colors[pick==-1, :3] = 0
-    alpha = np.exp(-depth / 100)
+    alpha = np.exp(-depth / 150)
     colors[:, :, :3] *= alpha[:, :, None]
 
     fig.figimage(colors, origin='upper')
@@ -134,13 +137,17 @@ if __name__ == '__main__':
 
     else:
         space = synthetic.hexacosichoron()
+        space = space.copy(vertices=linalg.normalized(space.vertices + np.random.normal(scale=0.03, size=space.vertices.shape)))
+        space = space.optimize_weights()
+        assert space.is_well_centered
 
         stepsize = .2  # ray step size in degrees
-        max_distance = 180  # trace rays half around the universe
+        max_distance = 360  # trace rays half around the universe
         fov = 1  # higher values give a wider field of view
-        resolution = (256, 256)  # in pixels
+        resolution = (512, 512)  # in pixels
 
         path = r'/Users/eelco/development/examples/hexacosichoron_15'
+        path = r'c:\development\examples\hexacosichoron_18'
 
         # generate a random starting position and orientation
         coordinate = linalg.orthonormalize(np.random.randn(4, 4))
@@ -150,4 +157,4 @@ if __name__ == '__main__':
         for i in save_animation(path, frames=360):
             # make a step forward along the z axis
             coordinate = np.einsum('...ij,...j->...i', dz, coordinate)
-            render_frame(*coordinate)
+            render_frame(*coordinate, plot_primal=False)

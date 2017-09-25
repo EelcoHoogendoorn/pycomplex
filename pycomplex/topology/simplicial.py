@@ -320,7 +320,7 @@ class TopologySimplicial(PrimalTopology):
 
 class TopologyTriangular(TopologySimplicial):
 
-    def subdivide(coarse):
+    def subdivide_loop(coarse):
         """Loop subdivision on triangles
 
         Returns
@@ -349,12 +349,12 @@ class TopologyTriangular(TopologySimplicial):
 
         fine = type(coarse).from_simplices(I20s.reshape(-1, 3))
 
-        fine.transfer_matrices = coarse.subdivide_transfer(fine)
+        fine.transfer_matrices = coarse.subdivide_loop_transfer(fine)
         fine.parent = coarse
 
         return fine
 
-    def subdivide_transfer(coarse, fine):
+    def subdivide_loop_transfer(coarse, fine):
         # build up transfer operators; only edge-edge has some nontrivial logic
         I10f = np.sort(fine.corners[1], axis=1)
         # filter down edges for those having connection with original vertices
@@ -374,7 +374,7 @@ class TopologyTriangular(TopologySimplicial):
                                  for n, t in enumerate(transfers)]
         return transfer_matrices
 
-    def subdivide_direct(self):
+    def subdivide_loop_direct(self):
         """Subdivide triangular topology in a direct manner, without a call to from_simplices
 
         This allows us to impart a little more structure to the subdivision,
@@ -475,7 +475,7 @@ class TopologyTriangular(TopologySimplicial):
         return TopologyTriangular(elements=E, orientation=O)
 
     @staticmethod
-    def subdivide_direct_transfer(coarse, fine):
+    def subdivide_loop_direct_transfer(coarse, fine):
         """Transfer operators belonging to direct subdivision logic; note their simplicity"""
         transfers = [
             (fine.range(0)[:coarse.n_elements[0]],   coarse.range(0)),

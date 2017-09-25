@@ -12,7 +12,7 @@ total_operator = 1
 for i in range(5):
     operator = curve.subdivide_operator(smooth=True, creases={0: crease})
     total_operator = operator * total_operator
-    curve = curve.subdivide(smooth=True, creases={0: crease})
+    curve = curve.subdivide_cubical(smooth=True, creases={0: crease})
     crease = curve.topology.transfer_matrices[0] * crease
 
 

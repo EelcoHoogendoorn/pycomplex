@@ -11,11 +11,11 @@ from pycomplex.math import linalg
 def test_single():
     """Test a single spherical triangle"""
     sphere = ComplexSpherical2(vertices=np.eye(3), simplices=[[0, 1, 2]])
-    sphere = sphere.subdivide()
+    sphere = sphere.subdivide_loop()
     fig, ax = plt.subplots(1, 1)
     sphere.plot(ax=ax)
     for i in range(1):
-        sphere = sphere.subdivide()
+        sphere = sphere.subdivide_loop()
         sphere.plot(ax=ax, primal_color='c', dual_color='m')
     plt.show()
 
@@ -27,7 +27,7 @@ def test_icosahedron():
     fig, ax = plt.subplots(1, 1)
     sphere.plot(ax=ax, backface_culling=True)
     for i in range(1):
-        sphere = sphere.subdivide()
+        sphere = sphere.subdivide_loop()
         sphere.plot(ax=ax, primal_color='c', dual_color='m', backface_culling=True)
     plt.show()
 
@@ -37,12 +37,12 @@ def test_overlap():
     # sphere = synthetic.icosahedron().subdivide_fundamental()
     # sphere = sphere.select_subset(np.eye(20*6)[0])
     for i in range(2):
-        sphere = sphere.subdivide()
+        sphere = sphere.subdivide_loop()
 
     fig, ax = plt.subplots(1, 1)
     sphere = sphere.optimize_weights()
     # sphere = sphere.optimize_weights_metric()
-    subsphere = sphere.subdivide()
+    subsphere = sphere.subdivide_loop()
     sphere.plot(ax=ax)
     subsphere = subsphere.optimize_weights()
     subsphere.plot(ax=ax, primal_color='c', dual_color='m')
@@ -56,8 +56,8 @@ def test_icosahedron_subset():
     triangle_position = sphere.primal_position[2]
     selection = triangle_position[:, 2] != triangle_position[:,2].max()
     sphere = sphere.select_subset(selection)
-    sphere = sphere.subdivide()
-    sphere = sphere.subdivide()
+    sphere = sphere.subdivide_loop()
+    sphere = sphere.subdivide_loop()
 
     sphere.plot(plot_dual=True, backface_culling=True)
 
@@ -65,9 +65,9 @@ def test_icosahedron_subset():
 def test_subdivide():
     """Test if subdivision works well for big triangles up to 90deg angle too"""
     sphere = ComplexSpherical2(vertices=linalg.normalized(np.eye(3)), simplices=[[0, 1, 2]])
-    sphere = sphere.subdivide()
-    sphere = sphere.subdivide()
-    sphere = sphere.subdivide()
+    sphere = sphere.subdivide_loop()
+    sphere = sphere.subdivide_loop()
+    sphere = sphere.subdivide_loop()
     sphere.plot(plot_dual=True)
 
 
@@ -77,7 +77,7 @@ def test_tetrahedron():
     tet = tet.fix_orientation()
     tet = tet.copy(vertices = np.dot(tet.vertices, linalg.orthonormalize(np.random.randn(n_dim, n_dim))))
     for i in range(0):      # subdivision on a tet gives rather ugly tris
-        tet = tet.subdivide()
+        tet = tet.subdivide_loop()
     tet.plot(backface_culling=True, plot_dual=True)
 
 
