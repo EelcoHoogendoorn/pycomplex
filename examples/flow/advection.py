@@ -29,16 +29,16 @@ class Advector(object):
 
         from pycomplex.geometry import euclidian
         gradients = euclidian.simplex_gradients(self.complex.vertices[self.complex.topology.elements[-1]])
-        u, s, v = np.linalg.svd(gradients)
-        s = 1 / s
-        pinv = np.einsum('...ij,...j,...jk->...ki', u[..., :s.shape[-1]], s, v)
+        # u, s, v = np.linalg.svd(gradients)
+        # s = 1 / s
+        # pinv = np.einsum('...ij,...j,...jk->...ki', u[..., :s.shape[-1]], s, v)
         # # gradients.dot(velocity) = normal_flux
 
         # solve using normal equations instead?
         # grad.shape = 3, 2
-        # normal = np.einsum('...ji,...jk->...ik', gradients, gradients)
-        # inv = np.linalg.inv(normal)
-        # pinv = np.einsum('...ij,...kj->...ik', inv, gradients)
+        normal = np.einsum('...ji,...jk->...ik', gradients, gradients)
+        inv = np.linalg.inv(normal)
+        pinv = np.einsum('...ij,...kj->...ik', inv, gradients)
 
         # check = np.einsum('...ij,...jk->...ik', pinv, gradients)
 

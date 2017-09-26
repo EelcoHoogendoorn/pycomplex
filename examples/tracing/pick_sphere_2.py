@@ -74,12 +74,12 @@ if True:
 
     plt.figure()
     img = np.flip(np.moveaxis(bary.reshape(N, N, 3), 0, 1), axis=0)
-    img = (img * 255).astype(np.uint8)
+    # img = (img * 255).astype(np.uint8)
     plt.imshow(img)
 
     plt.figure()
     img = sphere.sample_dual_0(d0, points.reshape(-1, 3)).reshape(N, N).T[::-1]
-    img = (img * 255).astype(np.uint8)
+    # img = (img * 255).astype(np.uint8)
     plt.imshow(img)
 
 
