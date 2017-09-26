@@ -88,7 +88,7 @@ def test_from_cubical():
 def test_fundamental_domains():
     for n in [2, 3, 4]:
         simplex = synthetic.n_simplex(n)
-        simplex = simplex.copy(vertices = np.dot(simplex.vertices, linalg.orthonormalize(np.random.randn(n, n))))
+        simplex = simplex.transform(linalg.orthonormalize(np.random.randn(n, n)))
 
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots(1,1)

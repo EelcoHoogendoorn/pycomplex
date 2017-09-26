@@ -152,6 +152,7 @@ if True:
     if True:
         tris = mesh.subdivide_simplicial()
         tris.as_2().plot_primal_0_form(tris.topology.transfer_operators[0] * form, plot_contour=False, cmap='jet')
+        plt.show()
     mu = form[mesh.topology.elements[1]].mean(axis=1)   # map vertices to edges
     mu -= mu.min()
     mu /= mu.max()

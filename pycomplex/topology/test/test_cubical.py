@@ -131,4 +131,3 @@ def test_true_fundamental_domains():
 
         simplices = cube.topology.subdivide_fundamental()
         print(simplices.is_oriented)
-test_true_fundamental_domains()

@@ -32,8 +32,8 @@ class ComplexCubical(BaseComplexCubical):
             self.topology = topology
 
     def subdivide_cubical(coarse, creases=None, smooth=False):
-        """Catmull–Clark subdivision; n-d case
-        Each n-cube leads to a new vertex on the subdivided grid
+        """Cubical subdivision; n-d case
+        Each n-cube in the coarse complex leads to a new vertex in the refined complex
 
         Parameters
         ----------

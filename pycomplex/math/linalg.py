@@ -202,16 +202,23 @@ def inverse(A):
 
 
 def pinv(A, r=1e-9):
+    """Pseudoinverse of a (set of) small matrices
+
+    Parameters
+    ----------
+    A : ndarray, [..., n, n]
+        (array of) matrices
+    r : float, optional
+        tolerance parameter
+
+    Returns
+    -------
+    I : ndarray, [..., n, n]
+        pseudo inverses
+
+    """
     u, s, v = np.linalg.svd(A)
     inv = 1 / s
     inv[np.abs(s / s[..., :1]) < r] = 0
     # s[:, self.complex.topology.n_dim:] = 0
     return np.einsum('...ij,...j,...jk->...ki', u[..., :s.shape[-1]], inv, v)
-
-
-# def adjoint(A, r=1e-9):
-#     u, s, v = np.linalg.svd(A)
-#     inv = 1 / s
-#     inv[np.abs(s / s[..., :1]) < r] = 0
-#     print(s)
-#     return np.einsum('...ij,...j,...jk->...ki', u[..., :s.shape[-1]], inv, v) * np.prod(s, axis=-1)[..., None, None]

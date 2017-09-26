@@ -79,8 +79,8 @@ class BaseComplex(object):
         return self.copy(topology=self.topology.fix_orientation())
 
     def copy(self, **kwargs):
-        import inspect
-        args = inspect.signature(type(self)).parameters.keys()
+        import funcsigs
+        args = funcsigs.signature(type(self)).parameters.keys()
         nkwargs = {}
         for a in args:
             if hasattr(self, a):

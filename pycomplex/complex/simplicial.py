@@ -453,7 +453,7 @@ class ComplexTriangularEuclidian(ComplexSimplicialEuclidian):
         """
         fine = type(coarse)(
             vertices=np.concatenate(coarse.primal_position[:2], axis=0),
-            topology=coarse.topology.subdivide()
+            topology=coarse.topology.subdivide_loop()
         )
 
         # propagate creases to lower level

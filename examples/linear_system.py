@@ -82,12 +82,12 @@ class BlockSystem(object):
         splits = [0] + list(np.cumsum(self.cols if axis == 'cols' else self.rows))
         return [x[s:e] for s, e in zip(splits[:-1], splits[1:])]
 
-    def print(self):
+    def print_equations(self):
         for i in range(self.equations.shape[0]):
             for j in range(self.equations.shape[1]):
                 f = self.equations[i, j]
                 shape = getattr(f, 'shape', None)
-                print(shape, end='')
+                # print(shape, end='')
             print()
 
     def plot(self, dense=True):

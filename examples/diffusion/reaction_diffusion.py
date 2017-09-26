@@ -101,7 +101,7 @@ if __name__ == '__main__':
     kind = 'sphere'
     if kind == 'sphere':
         from pycomplex import synthetic
-        surface = synthetic.icosphere(refinement=6).copy(radius=50)
+        surface = synthetic.icosphere(refinement=5).copy(radius=50)
     if kind == 'letter':
         from examples.subdivision import letter_a
         surface = letter_a.create_letter(5).subdivide_simplicial().as_3()

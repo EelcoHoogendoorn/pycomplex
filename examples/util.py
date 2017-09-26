@@ -17,6 +17,6 @@ def save_animation(path, frames, overwrite=False):
     for i in range(frames):
         yield i
         if path is not None:
-            plt.savefig(os.path.join(path, f'frame_{i}.png'))
+            plt.savefig(os.path.join(path, 'frame_{i}.png'.format(i=i)))
             plt.close()
-            print(f'saved frame {i}')
+            print('saved frame {i}'.format(i=i))

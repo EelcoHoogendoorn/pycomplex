@@ -58,6 +58,7 @@ edges_d1 = grid.topology.dual.matrices_2[0].T * grid.dual_position[0]
 
 
 path = r'c:\development\examples\rayleigh–benard_22'
+path = r'/Users/eelco/development/examples/rayleigh_bernard_0'
 
 dt = 0.002
 gravity = [0, -4000]

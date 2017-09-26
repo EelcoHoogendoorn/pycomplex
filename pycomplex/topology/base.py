@@ -13,6 +13,21 @@ from pycomplex.topology import sign_dtype, index_dtype
 from pycomplex import sparse
 
 
+def accumulate(iterable, func=operator.add):
+    """Return running totals; backported for python 2 support"""
+    # accumulate([1,2,3,4,5]) --> 1 3 6 10 15
+    # accumulate([1,2,3,4,5], operator.mul) --> 1 2 6 24 120
+    it = iter(iterable)
+    try:
+        total = next(it)
+    except StopIteration:
+        return
+    yield total
+    for element in it:
+        total = func(total, element)
+        yield total
+
+
 class BaseTopology(object):
     """An n-dimensional topology is defined by a sequence of n (sparse) topology matrices, T(n)
     T(n) defines the n-elements in terms of an oriented closed boundary of n-1 elements
@@ -184,7 +199,7 @@ class BaseTopology(object):
         for i in range(self.n_dim - 2):
             a, b = self.matrices[i], self.matrices[i+1]
             if not (a * b).nnz == 0:
-                raise ValueError(f'chain [{i}, {i+1}] to [{i+1}, {i+2}] does not match')
+                raise ValueError('chain [{i}, {i+1}] to [{i+1}, {i+2}] does not match'.format(i=i))
 
     def accumulated_operators_0(self):
         """
@@ -199,7 +214,7 @@ class BaseTopology(object):
         Primal could override this implementation with a more efficient implementation based on elements/corners arrays
 
         """
-        A = list(itertools.accumulate([np.abs(m) for m in self.matrices], func=operator.mul))
+        A = list(accumulate([np.abs(m) for m in self.matrices], func=operator.mul))
         return [scipy.sparse.identity(A[0].shape[0], dtype=sign_dtype)] + A
 
     def accumulated_operators_N(self):
@@ -211,7 +226,7 @@ class BaseTopology(object):
             n-th element of the list maps n-elements to N-elements
 
         """
-        A = list(itertools.accumulate([np.abs(m.T) for m in self.matrices[::-1]], func=operator.mul))
+        A = list(accumulate([np.abs(m.T) for m in self.matrices[::-1]], func=operator.mul))
         A = [scipy.sparse.identity(A[0].shape[0], dtype=sign_dtype)] + A
         return A[::-1]
 

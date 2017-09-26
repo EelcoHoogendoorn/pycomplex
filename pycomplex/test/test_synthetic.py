@@ -14,10 +14,8 @@ def test_optimal_sphere():
     print(complex.is_pairwise_delaunay)
     print(complex.is_well_centered)
 
-    complex.plot(backface_culling=n_dim==3, plot_vertices=False)
-    plt.show()
-
-# test_optimal_sphere()
+    # complex.plot(backface_culling=n_dim==3, plot_vertices=False)
+    # plt.show()
 
 
 def test_delaunay_cube():
@@ -32,7 +30,5 @@ def test_delaunay_cube():
     print(complex.is_pairwise_delaunay)
     print(complex.is_well_centered)
 
-    complex.plot()
-    plt.show()
-
-test_delaunay_cube()
+    # complex.plot()
+    # plt.show()

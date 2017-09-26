@@ -10,7 +10,7 @@ from pycomplex.math import linalg
 
 def test_subdivide_cubical():
     simplex = synthetic.n_simplex(3)
-    simplex = simplex.transform( linalg.orthonormalize(np.random.randn(3, 3)))
+    simplex = simplex.transform(linalg.orthonormalize(np.random.randn(3, 3)))
 
     cubes = simplex.subdivide_cubical()
     cubes.plot(plot_dual=False)
@@ -30,7 +30,7 @@ def test_subdivide_simplicial():
 
 def test_subdivide_cubical_many():
     # sphere = synthetic.hexacosichoron().as_euclidian()
-    sphere = synthetic.n_cube_dual(4).as_euclidian()
+    sphere = synthetic.n_cube_dual(n_dim=4).as_euclidian()
     sphere = sphere.transform(linalg.orthonormalize(np.random.randn(4, 4)))
 
     cubes = sphere.subdivide_cubical().smooth()#.subdivide().smooth()
@@ -60,9 +60,10 @@ def test_sphere():
     sphere = sphere.transform(linalg.orthonormalize(np.random.randn(3, 3)))
 
     for i in range(3):
-        sphere = sphere.subdivide_cubical(smooth=True)
+        sphere = sphere.subdivide_loop(smooth=True)
 
     sphere.plot_3d(backface_culling=True)
+    plt.show()
 
 
 def test_n_simplex():
@@ -84,13 +85,13 @@ def test_n_simplex():
 def test_subdivided_triangle():
     tri = synthetic.n_simplex(2).as_2().as_2()
     for i in range(5):
-        tri = tri.subdivide_cubical()
+        tri = tri.subdivide_loop()
 
 
 def test_power_dual():
     tri = synthetic.n_simplex(2).as_2().as_2()
     for i in range(2):
-        tri = tri.subdivide_cubical()
+        tri = tri.subdivide_loop()
     tri = tri.copy(
         vertices=tri.vertices + np.random.normal(0, 0.06, size=tri.vertices.shape),
         # weights=np.random.uniform(0, tri.primal_metric[1].mean()**2/1, tri.topology.n_elements[0])
@@ -111,8 +112,6 @@ def test_power_dual():
     fundamental.plot()
     plt.show()
 
-# test_power_dual()
-# quit()
 
 def test_delaunay():
     """Triangulate a quad """
@@ -135,13 +134,14 @@ def test_delaunay():
     assert quad.topology.boundary.is_connected
     assert quad.topology.boundary.is_oriented
     quad.plot(plot_dual=False)
+    plt.show()
 
 
 def test_metric():
     sphere = synthetic.icosahedron()
 
     for i in range(2):
-        sphere = sphere.subdivide()
+        sphere = sphere.subdivide_loop()
 
     pm, dm = sphere.metric
     for i, m in enumerate(pm):
@@ -154,7 +154,7 @@ def test_metric():
     sphere = sphere.as_euclidian()
 
     print()
-    pm, dm = sphere.metric_experimental
+    pm, dm = sphere.metric
 
     for i, m in enumerate(pm):
         print(i)
@@ -166,9 +166,9 @@ def test_metric():
 
 def test_metric_2():
     sphere = synthetic.optimal_delaunay_sphere(200, 3).as_2().as_euclidian()
-    assert sphere.is_well_centered
+    # assert sphere.is_well_centered
 
-    pm, dm = sphere.metric_experimental
+    pm, dm = sphere.metric
     for i, m in enumerate(pm):
         print(i)
         print(m.min(), m.max())

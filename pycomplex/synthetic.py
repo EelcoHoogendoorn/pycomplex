@@ -175,7 +175,7 @@ def icosphere(refinement=0):
     """
     sphere = icosahedron()
     for _ in range(refinement):
-        sphere = sphere.subdivide()
+        sphere = sphere.subdivide_loop()
     return sphere
 
 

@@ -33,5 +33,3 @@ def test_manifold_touching():
 def test_manifold_sphere():
     sphere = synthetic.icosphere(refinement=0)
     print(sphere.topology.is_manifold)
-
-test_manifold_sphere()

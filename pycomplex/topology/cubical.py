@@ -1,4 +1,4 @@
-from functools import lru_cache
+from fastcache import clru_cache
 
 import numpy as np
 import numpy_indexed as npi
@@ -60,7 +60,7 @@ def generate_cube_boundary(cubes, degree=1, return_corners=False, mirror=True):
         return boundary
 
 
-@lru_cache()
+@clru_cache()
 def permutation_map(n_dim, rotations=True):
     """Generate cubical permutation map
 

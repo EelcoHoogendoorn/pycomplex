@@ -20,6 +20,7 @@ requirements:
   - matplotlib
   - pycosat
   - cached-property
+  - fastcache
 
 build:
   number: 1

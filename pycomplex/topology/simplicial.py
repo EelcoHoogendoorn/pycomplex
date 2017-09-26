@@ -1,12 +1,12 @@
 
-from functools import lru_cache
+from fastcache import clru_cache
 
 import numpy as np
 import numpy_indexed as npi
 from cached_property import cached_property
 
-from pycomplex.topology import topology_matrix, sign_dtype, index_dtype, transfer_matrix, generate_boundary_indices, sparse_to_elements
 from pycomplex.topology.primal import *
+from pycomplex.topology import topology_matrix, sign_dtype, index_dtype, transfer_matrix, generate_boundary_indices, sparse_to_elements
 
 
 def generate_simplex_boundary(simplices):
@@ -38,7 +38,7 @@ def generate_simplex_boundary(simplices):
     return b
 
 
-@lru_cache()
+@clru_cache()
 def permutation_map(n_dim):
     """Generate permutations map relative to a canonical n-simplex
 
@@ -104,7 +104,7 @@ class TopologySimplicial(PrimalTopology):
         -------
         TopologySimplicial
         """
-        EN0 = np.asarray(simplices)
+        EN0 = np.asarray(simplices, dtype=index_dtype)
 
         def construct_lower(EN0):
             n_simplices, n_corners = EN0.shape
