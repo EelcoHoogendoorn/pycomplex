@@ -5,15 +5,38 @@ import numpy as np
 import numpy_indexed as npi
 import scipy.spatial
 
-from pycomplex.geometry import spherical
 from pycomplex.math import linalg
-
 from pycomplex.complex.base import BaseComplex
 
 
 class BaseComplexSimplicial(BaseComplex):
     """Place things common to spherical and euclidian simplicial complexes here;
     scope of that duplicated code keeps growing"""
+
+
+    def subdivide_fundamental(self, oriented=True):
+        return type(self)(
+            vertices=np.concatenate(self.primal_position, axis=0),
+            topology=self.topology.subdivide_fundamental(oriented)
+        )
+
+    def subdivide_fundamental_transfer(self):
+        return
+
+    def subdivide_simplicial(self):
+        PP = self.primal_position
+        return type(self)(
+            vertices=np.concatenate([PP[0], PP[-1]], axis=0),
+            topology=self.topology.subdivide_simplicial()
+        )
+
+    def subdivide_cubical(self):
+        """Subdivide the simplicial complex into a cubical complex"""
+        from pycomplex.complex.cubical import ComplexCubical
+        return ComplexCubical(
+            vertices=np.concatenate(self.primal_position, axis=0),
+            topology=self.topology.subdivide_cubical()
+        )
 
     def dual_edge_excess(self, signed=True):
         """Compute the 'dual edge excess'
@@ -112,11 +135,10 @@ class BaseComplexSimplicial(BaseComplex):
         """
         assert self.weights is None # not sure this is required
 
-        # FIXME: spherical and simplicial should use the same code path; rethink class hierarchy
-        if isinstance(self, BaseComplexEuclidian):
-            euclidian = self
-        else:
+        try:
             euclidian = self.as_euclidian()
+        except:
+            euclidian = self
 
         T = self.topology.matrices[0]
         DnP1 = euclidian.hodge_DP[1]
@@ -161,11 +183,6 @@ class BaseComplexSimplicial(BaseComplex):
         This can be accomplished simply by bumping the weights of fundamental vertices
         corresponding to parent vertices a little
 
-        Notes
-        -----
-        Well-centeredness is not a necessity for picking; delaunay would be fine
-        a more intelligent algorithm here wouldnt hurt; this can fail for adversarial input
-
         Returns
         -------
         copy of self, with optimized weights such that the dual vertex is well-centered
@@ -188,6 +205,61 @@ class BaseComplexSimplicial(BaseComplex):
         # weights[parent.n_elements[0]:-parent.n_elements[-1]] = -scale / 2
 
         return self.copy(weights=weights)
+
+    def remap_boundary_N(self, field, oriented=True):
+        """Given a quantity computed on each n-simplex-boundary, combine the contributions of each incident n-simplex
+
+        Parameters
+        ----------
+        field : ndarray, [n_N-simplices, n_corners], float
+            a quantity defined on each boundary of all simplices
+
+        Returns
+        -------
+        field : ndarray, [n_n-simplices], float
+            quantity defined on all boundaries
+        """
+        INn = self.topology._boundary[-1]
+        if oriented:
+            ONn = self.topology._orientation[-1]
+            field = field * ONn
+        _, field = npi.group_by(INn.flatten()).sum((field).flatten())
+        return field
+
+    def remap_boundary_0(self, field):
+        """Given a quantity computed on each n-simplex-boundary,
+        Sum around the vertices surrounded by this boundary
+
+        Parameters
+        ----------
+        field : ndarray, [n_N-simplices, n_corners], float
+            a quantity defined on each boundary of all N-simplices
+
+        Returns
+        -------
+        field : ndarray, [n_0-simplices], float
+
+        """
+        IN0 = self.topology.elements[-1]
+        _, field = npi.group_by(IN0.flatten()).sum((field).flatten())
+        return field
+
+    def weights_to_offsets(self, weights):
+        """Convert power dual weights to offsets in an orthogonal coordinate
+
+        Parameters
+        ----------
+        weights : ndarray, [n_vertices], float
+            power dual weight in units of distance squared
+
+        Returns
+        -------
+        offset : ndarray, [n_vertices], float
+            distance away from the space of self.vertices in an orthogonal coordinate,
+            required to realize the implied shift of dual edges in the offset=0 plane
+            of the voronoi diagram
+        """
+        return np.sqrt(-weights + weights.max())
 
     def homogenize(self):
         raise NotImplementedError
@@ -389,56 +461,3 @@ class BaseComplexSimplicial(BaseComplex):
         simplices = self.topology.elements[-1]
         vertex_idx = simplices[simplex_idx]
         return (p0[vertex_idx] * bary).sum(axis=1)
-
-    @cached_property
-    def metric(self):
-        """Compute metrics from fundamental domain contributions
-
-        Notes
-        -----
-        There is a lot of duplication in metric calculation this way.
-        Would it pay to construct the fundamental topology first?
-
-        Only works up to ndim=2 for now. general spherical case seems hard
-        we might approximate by doing some additional subdivision steps using cubes, and approximating with euclidian measure
-        Or we could simply cast to euclidian, and return the metric of that
-        """
-        topology = self.topology
-        assert topology.is_oriented
-        assert self.is_well_centered
-        assert self.topology.n_dim <= 2     # what to do in higher dims? numerical quadrature?
-
-        PP = self.primal_position
-        domains = self.topology.cubical_domains()
-
-        domains = domains.reshape(-1, domains.shape[-1])
-        corners = np.concatenate([p[d][:, None, :] for p, d in zip(PP, domains.T)], axis=1)
-
-        PN = topology.n_elements
-        DN = PN[::-1]
-
-        # metrics
-        PM = [np.zeros(n) for n in PN]
-        PM[0][...] = 1
-        DM = [np.zeros(n) for n in DN]
-        DM[0][...] = 1
-
-        raise Exception
-        unsigned = spherical.unsigned_volume
-        from scipy.misc import factorial
-        groups = [npi.group_by(c) for c in domains.T]   # cache groupings since they may get reused
-
-        for i in range(1, self.topology.n_dim):
-            n = i + 1
-            d = self.topology.n_dim - i
-            PM[i] = groups[i].mean(unsigned(corners[:, :n]))[1] * factorial(n)
-            DM[i] = groups[d].sum (unsigned(corners[:, d:]))[1] / factorial(d+1)
-
-        V = spherical.unsigned_volume(corners)
-        PM[-1] = groups[-1].sum(V)[1]
-        DM[-1] = groups[+0].sum(V)[1]
-
-        return (
-            [m * (self.radius ** i) for i, m in enumerate(PM)],
-            [m * (self.radius ** i) for i, m in enumerate(DM)]
-        )

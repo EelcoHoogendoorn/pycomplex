@@ -65,7 +65,7 @@ if __name__ == '__main__':
     ]
     R = linalg.power(R, 1./30)
 
-    path = r'/Users/eelco/development/examples/planet_perlin_2'
+    path = r'../output/planet_perlin_2'
 
     for i in save_animation(path, frames=30*4, overwrite=True):
         sphere = sphere.copy(vertices=np.dot(sphere.vertices, R))

@@ -4,9 +4,9 @@ import itertools
 import numpy as np
 import scipy.spatial
 
-from pycomplex.complex.simplicial import ComplexSimplicialEuclidian
+from pycomplex.complex.simplicial.euclidian import ComplexSimplicialEuclidian
 from pycomplex.complex.cubical import ComplexCubical
-from pycomplex.complex.spherical import ComplexSpherical, ComplexSpherical2, ComplexSpherical3
+from pycomplex.complex.simplicial.spherical import ComplexSpherical, ComplexSpherical2, ComplexSpherical3
 from pycomplex.topology import index_dtype
 from pycomplex.topology.simplicial import TopologyTriangular, TopologySimplicial
 from pycomplex.topology.cubical import TopologyCubical

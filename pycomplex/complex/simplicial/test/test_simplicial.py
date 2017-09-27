@@ -4,7 +4,7 @@ import numpy.testing as npt
 import matplotlib.pyplot as plt
 
 from pycomplex import synthetic
-from pycomplex.complex.simplicial import ComplexTriangularEuclidian2
+from pycomplex.complex.simplicial.euclidian import ComplexTriangularEuclidian2
 from pycomplex.math import linalg
 
 

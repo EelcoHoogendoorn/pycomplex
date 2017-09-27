@@ -5,14 +5,14 @@ import numpy as np
 import numpy_indexed as npi
 import scipy.spatial
 
-from pycomplex.complex.stub_simplicial.base import BaseComplexSimplicial
+from pycomplex.complex.simplicial.base import BaseComplexSimplicial
 from pycomplex.geometry import spherical
 from pycomplex.math import linalg
 from pycomplex.topology.simplicial import TopologyTriangular, TopologySimplicial
 
 
 class ComplexSpherical(BaseComplexSimplicial):
-    """Complex on an n-sphere"""
+    """Simplicial complex on an n-sphere"""
 
     def __init__(self, vertices, simplices=None, topology=None, radius=1, weights=None):
         self.vertices = np.asarray(vertices)
@@ -90,19 +90,34 @@ class ComplexSpherical(BaseComplexSimplicial):
 
         plt.axis('equal')
 
-    def subdivide_fundamental(self, oriented=True):
-        return type(self)(
-            vertices=np.concatenate(self.primal_position, axis=0),
-            topology=self.topology.subdivide_fundamental(oriented)
-        )
+    def unsigned_volume(self, pts):
+        from pycomplex.geometry import spherical
+        return spherical.unsigned_volume(pts)
 
-    def as_2(self):
-        return ComplexSpherical2(
-            vertices=self.vertices, topology=self.topology.as_2(), weights=self.weights)
+    @cached_property
+    def primal_barycentric(self):
+        """barycentric positions of all primal elements
 
-    def as_euclidian(self):
-        from pycomplex.complex.simplicial import ComplexSimplicialEuclidian
-        return ComplexSimplicialEuclidian(vertices=self.vertices, topology=self.topology)
+        Returns
+        -------
+        pp : list of primal element positions, length n_dim
+        """
+        from pycomplex.geometry import euclidian
+        return [euclidian.circumcenter_barycentric(
+                    self.vertices[c],
+                    self.weights[c] if self.weights is not None else None)
+                for c in self.topology.corners]
+
+    @cached_property
+    def primal_position(self):
+        """positions of all primal elements
+
+        Returns
+        -------
+        pp : list of primal element positions, length n_dim
+        """
+        return [linalg.normalized(np.einsum('...cn,...c->...n', self.vertices[c], b))
+                for c, b in zip(self.topology.corners, self.primal_barycentric)]
 
     @cached_property
     def metric(self):
@@ -119,7 +134,7 @@ class ComplexSpherical(BaseComplexSimplicial):
         """
         topology = self.topology
         assert topology.is_oriented
-        assert self.is_well_centered
+        assert self.is_well_centered    # could be relaxed once signs are handled properly
         assert self.topology.n_dim <= 2     # what to do in higher dims? numerical quadrature?
 
         PP = self.primal_position
@@ -199,7 +214,7 @@ class ComplexSpherical2(ComplexSpherical):
         )
 
     def as_euclidian(self):
-        from pycomplex.complex.simplicial import ComplexTriangularEuclidian3
+        from pycomplex.complex.simplicial.euclidian import ComplexTriangularEuclidian3
         return ComplexTriangularEuclidian3(vertices=self.vertices, topology=self.topology)
 
     def multigrid_transfers(self):

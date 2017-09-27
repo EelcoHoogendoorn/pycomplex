@@ -10,7 +10,7 @@ import numpy_indexed as npi
 import scipy.sparse
 
 from pycomplex.math import linalg
-from pycomplex.complex.simplicial import ComplexTriangularEuclidian3
+from pycomplex.complex.simplicial.euclidian import ComplexTriangularEuclidian3
 
 
 class MyComplex(ComplexTriangularEuclidian3):

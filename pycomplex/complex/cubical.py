@@ -230,7 +230,7 @@ class ComplexCubical2(ComplexCubical):
     def subdivide_simplicial(self):
         """Convert the cubical complex into a simplicial complex,
         by forming 4 tris from each quad and its dual position"""
-        from pycomplex.complex.simplicial import ComplexTriangularEuclidian  # Triangular and Quadrilateral or Simplical2 and Cubical2; pick one...
+        from pycomplex.complex.simplicial.euclidian import ComplexTriangularEuclidian  # Triangular and Quadrilateral or Simplical2 and Cubical2; pick one...
         return ComplexTriangularEuclidian(
             vertices=np.concatenate(self.primal_position[::2], axis=0),
             topology=self.topology.as_2().subdivide_simplicial()
