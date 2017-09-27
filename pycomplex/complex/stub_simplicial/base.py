@@ -6,6 +6,7 @@ import numpy_indexed as npi
 import scipy.spatial
 
 from pycomplex.geometry import spherical
+from pycomplex.math import linalg
 
 from pycomplex.complex.base import BaseComplex
 
@@ -276,7 +277,7 @@ class BaseComplexSimplicial(BaseComplex):
 
     @cached_property
     def pick_precompute(self):
-        """Cached precomputations for spherical picking operations"""
+        """Cached precomputations for picking operations"""
         c = self.primal_position[0]
         if self.weights is not None:
             # NOTE: if using this for primal simplex picking, we could omit the weights
@@ -422,6 +423,7 @@ class BaseComplexSimplicial(BaseComplex):
         DM = [np.zeros(n) for n in DN]
         DM[0][...] = 1
 
+        raise Exception
         unsigned = spherical.unsigned_volume
         from scipy.misc import factorial
         groups = [npi.group_by(c) for c in domains.T]   # cache groupings since they may get reused
