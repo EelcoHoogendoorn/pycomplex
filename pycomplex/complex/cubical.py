@@ -107,7 +107,7 @@ class ComplexCubical(BaseComplexCubical):
         return operator
 
     def subdivide_fundamental(self):
-        from pycomplex.complex.simplicial import ComplexSimplicialEuclidian
+        from pycomplex.complex.simplicial.euclidian import ComplexSimplicialEuclidian
         return ComplexSimplicialEuclidian(
             vertices=np.concatenate(self.primal_position, axis=0),
             topology=self.topology.subdivide_fundamental()
@@ -217,7 +217,7 @@ class ComplexCubical1(ComplexCubical):
 
     def to_simplicial(self):
         """Convert the cubical complex into a simplicial complex; trivial"""
-        from pycomplex.complex.simplicial import ComplexSimplicial1
+        from pycomplex.complex.simplicial.euclidian import ComplexSimplicial1
         return ComplexSimplicial1(
             vertices=self.vertices,
             topology=self.topology.as_1().subdivide_simplicial()
