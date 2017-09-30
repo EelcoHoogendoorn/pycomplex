@@ -98,7 +98,7 @@ if __name__ == '__main__':
     from examples.util import save_animation
     import matplotlib.pyplot as plt
 
-    kind = 'sphere'
+    kind = 'regular'
     if kind == 'sphere':
         from pycomplex import synthetic
         surface = synthetic.icosphere(refinement=5).copy(radius=50)
@@ -126,7 +126,7 @@ if __name__ == '__main__':
     if False:
         surface.plot(plot_dual=False, plot_vertices=False)
 
-    path = r'c:\development\examples\reaction_diffusion_7'
+    path = r'../output/reaction_diffusion_7'
     rd = ReactionDiffusion(surface, key='swimming_medusae')
 
     for i in save_animation(path, frames=200, overwrite=True):

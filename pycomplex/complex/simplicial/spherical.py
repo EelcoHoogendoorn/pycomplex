@@ -23,6 +23,9 @@ class ComplexSpherical(BaseComplexSimplicial):
         self.topology = topology
         self.radius = radius
 
+    def homogenize(self, points):
+        return points
+
     def plot(self, plot_dual=True, backface_culling=False, plot_vertices=True, ax=None, primal_color='b', dual_color='r'):
         """Visualize a complex on a 2-sphere; a little more involved than the other 2d cases"""
         import matplotlib.pyplot as plt

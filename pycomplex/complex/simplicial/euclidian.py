@@ -20,6 +20,9 @@ class ComplexSimplicialEuclidian(BaseComplexSimplicial):
             topology = TopologySimplicial.from_simplices(simplices)
         self.topology = topology
 
+    def homogenize(self, points):
+        return np.concatenate([points, np.ones_like(points[..., 0:1])], axis=-1)
+
     def plot(self, ax=None, plot_dual=True, plot_vertices=True, plot_lines=True, primal_color='b', dual_color='r'):
         """Plot projection on plane"""
         import matplotlib.pyplot as plt

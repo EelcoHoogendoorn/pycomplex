@@ -12,7 +12,7 @@ from examples.harmonics import  *
 quad = synthetic.delaunay_cube(6, 2)
 quad = quad.optimize_weights()
 quad = quad.as_2().as_2()
-print(quad.is_well_centered)
+print(quad.is_pairwise_delaunay)
 
 
 v = get_harmonics_0(quad)

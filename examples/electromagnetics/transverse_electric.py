@@ -102,7 +102,7 @@ if __name__ == "__main__":
     # H_p0 = complex.vertices[:, 0]
 
 
-    path = r'c:\development\examples\transverse_electric_1'
+    path = r'../output/transverse_electric_1'
 
     for i in save_animation(path, frames=500, overwrite=True):
 

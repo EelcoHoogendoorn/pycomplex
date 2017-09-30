@@ -101,7 +101,7 @@ class Diffusor(object):
 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
-    kind = 'regular'
+    kind = 'sphere'
 
     if kind == 'sphere':
         from pycomplex import synthetic
@@ -113,6 +113,7 @@ if __name__ == '__main__':
         for i in range(2):
             complex = complex.subdivide_cubical()
     if kind == 'letter':
+        # note; known to be broken atm; AttributeError: 'TopologyTriangular' object has no attribute 'parent'
         from examples.subdivision import letter_a
         complex = letter_a.create_letter(4).subdivide_simplicial().as_3()
         complex = complex.copy(vertices=complex.vertices * 10)

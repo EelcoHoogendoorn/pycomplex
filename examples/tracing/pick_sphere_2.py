@@ -38,7 +38,7 @@ z = np.sqrt(np.clip(1 - linalg.dot(points, points), 0, 1))
 points = np.concatenate([points, z[..., None]], axis=-1)
 
 
-if False:
+if True:
     # primal pick compared to primal plot
 
     sphere.as_euclidian().plot_primal_0_form(p0, plot_contour=False, shading='gouraud', vmin=vmin, vmax=vmax)
@@ -63,14 +63,11 @@ if True:
     d0 = sphere.sample_primal_0(p0, sphere.dual_position[0])
 
     sphere.as_euclidian().plot_primal_2_form(d0)
-    plt.show()
 
     sphere.as_euclidian().plot_dual_0_form_interpolated(d0, weighted=True, plot_contour=False, shading='gouraud')#, vmin=vmin, vmax=vmax)
     # quad.plot()#ax=plt.gca())
 
     domain_idx, bary, domain = sphere.pick_fundamental(points.reshape(-1, 3))
-    plt.hist(bary.flatten(), bins=50)
-    plt.show()
 
     plt.figure()
     img = np.flip(np.moveaxis(bary.reshape(N, N, 3), 0, 1), axis=0)

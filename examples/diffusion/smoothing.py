@@ -21,7 +21,7 @@ from examples.util import save_animation
 surface = letter_a.create_letter(3).subdivide_simplicial().as_3()
 surface = surface.copy(vertices=surface.vertices * 30)
 surface = surface.transform(linalg.power(linalg.orthonormalize(np.random.randn(3, 3)), 0.2))
-surface = surface.optimize_weights()
+surface = surface.optimize_weights_fundamental()
 
 plt.hist(surface.dual_metric[1], bins=50)
 plt.show()

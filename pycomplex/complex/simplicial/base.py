@@ -10,8 +10,10 @@ from pycomplex.complex.base import BaseComplex
 
 
 class BaseComplexSimplicial(BaseComplex):
-    """Place things common to spherical and euclidian simplicial complexes here;
-    scope of that duplicated code keeps growing"""
+    """(weighted) simplicial complex
+
+    This is an abstract base class
+    """
 
 
     def subdivide_fundamental(self, oriented=True):
@@ -52,9 +54,8 @@ class BaseComplexSimplicial(BaseComplex):
 
         Notes
         -----
-        euclidian metric is used here; need to compensate for that in spherical applications
+        euclidian metric is used here; also usefull in spherical applications
         """
-        # raise Exception('these PP should also be euclidian in the spherical case!')
         PP = self.primal_position
         B = self.topology._boundary[-1]
         delta = PP[-1][:, None, :] - PP[-2][B]
@@ -136,6 +137,7 @@ class BaseComplexSimplicial(BaseComplex):
         assert self.weights is None # not sure this is required
 
         try:
+            # for spherical complexes, it suffices to simply view them as euclidian for the present purpose
             euclidian = self.as_euclidian()
         except:
             euclidian = self
@@ -173,7 +175,6 @@ class BaseComplexSimplicial(BaseComplex):
             weights = (rhs - laplacian * weights + diag * weights) / diag
         return self.copy(weights=weights)
 
-    # FIXME: move to simplicial base class
     def optimize_weights_fundamental(self):
         """Optimize the weights of a complex derived from fundamental domain subdivision,
         such that the resulting primal simplices become strictly well-centered,
@@ -261,8 +262,35 @@ class BaseComplexSimplicial(BaseComplex):
         """
         return np.sqrt(-weights + weights.max())
 
-    def homogenize(self):
+    def homogenize(self, points):
+        """Homogenize a set of points. In the euclidian case, this means adding a column of ones
+
+        Parameters
+        ----------
+        points : ndarray, [n_points, n_dim], float
+
+        Returns
+        -------
+        points : ndarray, [n_points, n_homogeneous_coordinates], float
+        """
         raise NotImplementedError
+
+    def augment(self, points, weights=None):
+        """Augment a set of points with a weight-based coordinate
+
+        Parameters
+        ----------
+        points : ndarray, [n_points, n_dim], float
+
+        Returns
+        -------
+        points : ndarray, [n_points, n_dim + 1], float
+        """
+        if weights is None:
+            offsets = np.zeros_like(points[..., 0])
+        else:
+            offsets = self.weights_to_offsets(weights)
+        return np.concatenate([points, offsets[..., None]], axis=-1)
 
     def pick_primal_brute(self, points):
         """Added for debugging purposes"""
@@ -273,8 +301,36 @@ class BaseComplexSimplicial(BaseComplex):
         return simplex_index
 
     @cached_property
+    def pick_precompute(self):
+        """Cached precomputations for picking operations
+
+        Returns
+        -------
+        tree : CKDTree
+            tree over augmented points
+        basis : ndarray, [n_n-elements, n_homogeneous_coordinates, n_homogeneous_coordinates]
+            pre-inverted basis of each n-element,
+            for fast barycentric calculation
+        """
+        points = self.primal_position[0]
+        if self.weights is not None:
+            points = self.augment(points, self.weights)
+        tree = scipy.spatial.cKDTree(points)
+        corners = self.vertices[self.topology.elements[-1]]
+        basis = np.linalg.inv(self.homogenize(corners))
+        return tree, basis
+
+    @cached_property
     def pick_primal_precomp(self):
         """Precomputations for primal picking
+
+        Returns
+        -------
+        tree : CKDTree
+            tree over augmented points
+        basis : ndarray, [n_n-elements, n_homogeneous_coordinates, n_homogeneous_coordinates]
+            pre-inverted basis of each n-element,
+            for fast barycentric calculation
 
         Notes
         -----
@@ -297,12 +353,8 @@ class BaseComplexSimplicial(BaseComplex):
         rhs = rhs - rhs.mean()  # this might aid numerical stability of minres
         weight = scipy.sparse.linalg.minres(L, rhs, tol=1e-12)[0]
 
-        offset = self.weights_to_offsets(weight)
-        augmented = np.concatenate([dual_vertex, offset[:, None]], axis=1)
-        tree = scipy.spatial.cKDTree(augmented)
-
+        tree = scipy.spatial.cKDTree(self.augment(dual_vertex, weight))
         basis = np.linalg.inv(self.homogenize(corners))
-
         return tree, basis
 
     def pick_primal(self, points, simplex_idx=None):
@@ -311,30 +363,30 @@ class BaseComplexSimplicial(BaseComplex):
         Parameters
         ----------
         points : ndarray, [n_points, n_dim], float
-        simplex_idx : ndarray, [n_points], index_dtype
-            initial guess
+        simplex_idx : ndarray, [n_points], index_dtype, optional
+            can be used to exploit temporal coherence in queries
 
         Returns
         -------
         simplex_idx : ndarray, [n_points], index_dtype
-        bary : ndarray, [n_points, topology.n_dim + 1], float
+            index of the primal simplex being picked
+        bary : ndarray, [n_points, n_dim], float
             barycentric coordinates
-
         """
         assert self.is_pairwise_delaunay
         tree, basis = self.pick_primal_precomp
 
         def query(points):
-            augmented = np.concatenate([points, np.zeros_like(points[:, :1])], axis=1)
+            augmented = self.augment(points)
             dist, idx = tree.query(augmented)
-            homogeneous = np.concatenate([points], axis=1)
+            homogeneous = self.homogenize(points)
             baries = np.einsum('tcv,tc->tv', basis[idx], homogeneous)
             return idx, baries
 
         if simplex_idx is None:
             simplex_idx, baries = query(points)
         else:
-            homogeneous = np.concatenate([points, np.ones_like(points[:, :1])], axis=1)
+            homogeneous = self.homogenize(points)
             baries = np.einsum('tcv,tc->tv', basis[simplex_idx], homogeneous)
             update = np.any(baries < 0, axis=1)
             if np.any(update):
@@ -347,43 +399,42 @@ class BaseComplexSimplicial(BaseComplex):
 
         return simplex_idx, baries
 
-    @cached_property
-    def pick_precompute(self):
-        """Cached precomputations for picking operations"""
-        c = self.primal_position[0]
-        if self.weights is not None:
-            # NOTE: if using this for primal simplex picking, we could omit the weights
-            offsets = self.weights_to_offsets(self.weights)
-            c = np.concatenate([c, offsets[:, None]], axis=1)
-        tree = scipy.spatial.cKDTree(c)
-        basis = np.linalg.inv(self.vertices[self.topology.elements[-1]])
-        return tree, basis
-
     def pick_dual(self, points):
         """Pick the dual elements. By definition of the voronoi dual,
         this lookup can be trivially implemented as a closest-point query
 
         Returns
         -------
-        ndarray, [self.topology.n_elements[0]], index_dtype
+        dual_element_idx : ndarray, [self.topology.n_elements[0]], index_dtype
             primal vertex / dual element index
         """
         if self.weights is not None:
-            points = np.concatenate([points, np.zeros_like(points[:, :1])], axis=1)
+            points = self.augment(points)
         tree, _ = self.pick_precompute
-        # finding the dual face we are in is as simple as finding the closest primal vertex,
-        # by virtue of the definition of duality
         _, dual_element_index = tree.query(points)
-
         return dual_element_index
 
     @cached_property
     def pick_fundamental_precomp(self):
-        # this may be a bit expensive; but hey it is cached; and it sure is elegant
-        fundamental = self.subdivide_fundamental(oriented=True).optimize_weights_fundamental()
-        domains = self.topology.cubical_domains()
+        """Perform precomputations for fundamental domain picking
+
+        Returns
+        -------
+        subdivided : type(self)
+            fundamental domain subdivision of self,
+            with fundamental domain weight optimization applied,
+            such that dual vertices do not coincide
+        domains : ndarray, [n_points, n_dim], index_dtype
+            n-th column corresponds to indices of n-element
+
+        Notes
+        -----
+        This may be a bit expensive; but hey it is cached; and it sure is elegant
+        """
+        subdivided = self.subdivide_fundamental(oriented=True).optimize_weights_fundamental()
+        domains = self.topology.fundamental_domains()
         domains = domains.reshape(-1, self.topology.n_dim + 1)
-        return fundamental, domains
+        return subdivided, domains
 
     def pick_fundamental(self, points, domain_idx=None):
         """Pick the fundamental domain
@@ -393,12 +444,12 @@ class BaseComplexSimplicial(BaseComplex):
         points : ndarray, [n_points, n_dim], float
             points to pick
         domain_idx : ndarray, [n_points], index_dtype, optional
-            feed previous returned idx in to exploit temporal coherence in queries
+            can be used to exploit temporal coherence in queries
 
         Returns
         -------
         domain_idx : ndarray, [n_points], index_dtype, optional
-            returned if domain_idx input is not None
+            element idx of the fundamental domain being picked
         baries: ndarray, [n_points, n_dim] float
             barycentric weights corresponding to the domain indices
         domains : ndarray, [n_points, n_dim], index_dtype
@@ -425,11 +476,11 @@ class BaseComplexSimplicial(BaseComplex):
             dual 0-form sampled at the given points
         """
         if weighted:
-            A = self.weighted_average_operators
+            averaging = self.weighted_average_operators
         else:
-            A = self.topology.dual.averaging_operators_0
+            averaging = self.topology.dual.averaging_operators_0
         # extend dual 0 form to all other dual elements by averaging
-        dual_forms = [a * d0 for a in A][::-1]
+        dual_forms = [a * d0 for a in averaging][::-1]
 
         # pick fundamental domains
         domain_idx, bary, domain = self.pick_fundamental(points)
@@ -441,8 +492,9 @@ class BaseComplexSimplicial(BaseComplex):
         bary[flip, -1] = temp
 
         # do interpolation over fundamental domain
-        i = [(dual_forms[i][domain[:, i]].T * bary[:, i].T).T
-            for i in range(self.topology.n_dim + 1)]
+        i = ((dual_forms[i][domain[:, i]].T * bary[:, i].T).T
+            for i in range(self.topology.n_dim + 1))
+        # sum over the contributions of all corners of the fundamental domain
         return sum(i)
 
     def sample_primal_0(self, p0, points):
