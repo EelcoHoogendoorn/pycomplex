@@ -1,17 +1,14 @@
 """Regular grid complexes"""
 
 import numpy as np
-import numpy_indexed as npi
 import scipy.sparse
 from cached_property import cached_property
 
-from pycomplex.topology import index_dtype, sign_dtype
-from pycomplex.sparse import normalize_l1
-from pycomplex.complex.base import BaseComplexCubical
+from pycomplex.complex.base import BaseComplex
 from pycomplex.topology.cubical import TopologyCubical
 
 
-class ComplexCubical(BaseComplexCubical):
+class ComplexCubical(BaseComplex):
     """Regular complex with euclidian embedding"""
 
     def __init__(self, vertices, cubes=None, topology=None):
@@ -30,6 +27,16 @@ class ComplexCubical(BaseComplexCubical):
             self.topology = topology
         if cubes is None:
             self.topology = topology
+
+    @cached_property
+    def primal_position(self):
+        """positions of all primal elements
+
+        Returns
+        -------
+        list of primal element positions, length n_dim
+        """
+        return [self.vertices[c].mean(axis=1) for c in self.topology.corners]
 
     def subdivide_cubical(coarse, creases=None, smooth=False):
         """Cubical subdivision; n-d case

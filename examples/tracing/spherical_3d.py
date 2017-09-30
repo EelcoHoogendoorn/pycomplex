@@ -116,7 +116,7 @@ if __name__ == '__main__':
         quit()
 
     elif False:
-        path = r'c:\development\examples\random_sphere_5'
+        path = r'../output/random_sphere_5'
         space = synthetic.optimal_delaunay_sphere(n_dim=4, n_points=300, iterations=50)
         space = space.optimize_weights()
 
@@ -142,12 +142,11 @@ if __name__ == '__main__':
         assert space.is_well_centered
 
         stepsize = .2  # ray step size in degrees
-        max_distance = 360  # trace rays half around the universe
+        max_distance = 180  # trace rays half around the universe
         fov = 1  # higher values give a wider field of view
-        resolution = (512, 512)  # in pixels
+        resolution = (256, 256)  # in pixels
 
-        path = r'/Users/eelco/development/examples/hexacosichoron_15'
-        path = r'c:\development\examples\hexacosichoron_18'
+        path = r'../output/hexacosichoron_0'
 
         # generate a random starting position and orientation
         coordinate = linalg.orthonormalize(np.random.randn(4, 4))

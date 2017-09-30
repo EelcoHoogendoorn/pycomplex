@@ -315,17 +315,3 @@ class BaseComplex(object):
     @abstractmethod
     def metric(self):
         raise NotImplementedError
-
-
-class BaseComplexCubical(BaseComplex):
-
-    @cached_property
-    def primal_position(self):
-        """positions of all primal elements
-
-        Returns
-        -------
-        list of primal element positions, length n_dim
-        """
-        return [self.vertices[c].mean(axis=1) for c in self.topology.corners]
-

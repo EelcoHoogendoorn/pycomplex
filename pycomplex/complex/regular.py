@@ -2,13 +2,36 @@
 
 """
 
+import numpy as np
+import numpy_indexed as npi
 import scipy.spatial
 
 from pycomplex.complex.cubical import *
 from pycomplex.geometry import regular
+from cached_property import cached_property
 
 
 class ComplexRegularMixin(object):
+
+    @cached_property
+    def positive_dual_metric(self):
+        """Returns true if all dual metrics are positive"""
+        return True
+
+    @cached_property
+    def is_well_centered(self):
+        """Test that all circumcenters are inside each simplex"""
+        return True
+
+    @cached_property
+    def is_pairwise_delaunay(self):
+        """Test that adjacent circumcenters do not cross eachother, or that dual 1-metric is positive"""
+        return True
+
+    @cached_property
+    def weighted_average_operators(self):
+        """No need for this fancy averaging nonsense on a regular grid"""
+        return self.topology.dual.averaging_operators_0
 
     @cached_property
     def pick_primal_precomp(self):

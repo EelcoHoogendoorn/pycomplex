@@ -35,7 +35,7 @@ from examples.diffusion.explicit import Diffusor
 from examples.flow.advection import Advector
 from examples.util import save_animation
 from pycomplex import synthetic
-from pycomplex.complex.spherical import ComplexSpherical
+from pycomplex.complex.simplicial.spherical import ComplexSpherical
 from pycomplex.math import linalg
 
 
@@ -166,8 +166,8 @@ class VorticityAdvector(Advector):
         if isinstance(self.complex, ComplexSpherical):
             advected_d0 = linalg.normalized(advected_d0)
 
-        print(dt)
-        if True:
+        # print(dt)
+        if False:
             print(flux_d1.min(), flux_d1.max())
             print(velocity_d0.min(), velocity_d0.max())
             # import matplotlib.pyplot as plt
@@ -180,7 +180,7 @@ class VorticityAdvector(Advector):
 
         # sample at all advected dual vertices, average at the mid of dual edge, and dot with advected dual edge vector
         # FIXME:
-        velocity_sampled_d0 = self.complex.sample_dual_0(velocity_d0, advected_d0, weighted=False)
+        velocity_sampled_d0 = self.complex.sample_dual_0(velocity_d0, advected_d0)
         # FIXME: test if sampling with dt=0 gives us back our original velocity_d0
 
         # integrate the tangent flux of the advected mesh.
@@ -190,7 +190,7 @@ class VorticityAdvector(Advector):
         # taking dot is euclidian integral
         flux_d1_advected = linalg.dot(velocity_sampled_d1, advected_edge)        # this does not include flux around boundary edges; but currently all zero anyway
 
-        if True:
+        if False:
             print(flux_d1_advected.min(), flux_d1_advected.max())
             velocity_d0_ = self.dual_flux_to_dual_velocity(flux_d1_advected)
             print(velocity_d0_.min(), velocity_d0_.max())
@@ -212,7 +212,7 @@ class VorticityAdvector(Advector):
         if self.complex.boundary is not None:
             F = self.complex.topology.dual.selector[1].T * self.constrain_divergence_boundary(flux_d1_advected)
 
-            if True:
+            if False:
                 print(F.min(), F.max())
                 velocity_d0_ = self.dual_flux_to_dual_velocity(F)
                 print(velocity_d0_.min(), velocity_d0_.max())
@@ -232,8 +232,8 @@ if __name__ == "__main__":
     dt = .1
 
     # np.seterr(all='raise')
-    # complex_type = 'sphere'
-    complex_type = 'simplex_quad'
+    # complex_type = 'grid'
+    complex_type = 'grid'
 
     if complex_type == 'sphere':
         complex = synthetic.icosphere(refinement=5)
@@ -316,7 +316,7 @@ if __name__ == "__main__":
 
     else:
         # use perlin noise for more chaotic flow pattern
-        H = get_harmonics_0(complex, zero_boundary=True)[:, 6]
+        # H = get_harmonics_0(complex, zero_boundary=True)[:, 6]
         from examples.diffusion.perlin_noise import perlin_noise
         H = perlin_noise(
             complex,
@@ -327,7 +327,7 @@ if __name__ == "__main__":
                 (.4, .4),
                 (.8, .8),
             ]
-        ) / 300 * 0 + H / 2000
+        ) / 300 * 1 #+ H / 2000
 
         flux_p1 = curl * H
         flux_d1 = complex.hodge_DP[1] * flux_p1
@@ -345,7 +345,7 @@ if __name__ == "__main__":
     # FIXME: conservation is still far from achieved
     # assert np.allclose(advected_0, flux_d1, atol=1e-6)
 
-    path = r'c:\development\examples\euler_47'
+    path = r'../output/euler_0'
     # path = None
     def advect(flux_d1, dt):
         return advector.advect_vorticity(flux_d1, dt)
@@ -370,5 +370,9 @@ if __name__ == "__main__":
         if complex_type == 'simplex':
             complex.as_2().as_2().plot_primal_0_form(
                 vorticity_p0, plot_contour=False, cmap='bwr', shading='gouraud', vmin=-2e-1, vmax=+2e-1)
+        if complex_type == 'grid':
+            tris.as_2().plot_primal_0_form(
+                tris.topology.transfer_operators[0] * vorticity_p0,
+                plot_contour=False, cmap='bwr', shading='gouraud', vmin=-2e-1, vmax=+2e-1)
 
         plt.axis('off')

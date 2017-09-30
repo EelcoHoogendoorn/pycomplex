@@ -11,7 +11,7 @@ from cached_property import cached_property
 
 from examples.util import save_animation
 from pycomplex import synthetic
-from pycomplex.complex.spherical import ComplexSpherical
+# from pycomplex.complex.simplicial.spherical import ComplexSpherical
 from pycomplex.math import linalg
 
 
@@ -27,8 +27,8 @@ class Advector(object):
         D01, D12 = self.complex.topology.dual.matrices_2
         D1D0 = D01.T
 
-        from pycomplex.geometry import euclidian
-        gradients = euclidian.simplex_gradients(self.complex.vertices[self.complex.topology.elements[-1]])
+        # from pycomplex.geometry import euclidian
+        # gradients = euclidian.simplex_gradients(self.complex.vertices[self.complex.topology.elements[-1]])
         # u, s, v = np.linalg.svd(gradients)
         # s = 1 / s
         # pinv = np.einsum('...ij,...j,...jk->...ki', u[..., :s.shape[-1]], s, v)
@@ -36,17 +36,22 @@ class Advector(object):
 
         # solve using normal equations instead?
         # grad.shape = 3, 2
-        normal = np.einsum('...ji,...jk->...ik', gradients, gradients)
-        inv = np.linalg.inv(normal)
-        pinv = np.einsum('...ij,...kj->...ik', inv, gradients)
+        # normal = np.einsum('...ji,...jk->...ik', gradients, gradients)
+        # inv = np.linalg.inv(normal)
+        # pinv = np.einsum('...ij,...kj->...ik', inv, gradients)
 
         # check = np.einsum('...ij,...jk->...ik', pinv, gradients)
 
+        # from pycomplex.geometry import euclidian
+        # gradients = euclidian.simplex_gradients(self.complex.vertices[self.complex.topology.elements[-1]])
+        # u, s, v = np.linalg.svd(gradients)
+        # s = 1 / s
+        # pinv = np.einsum('...ij,...j,...jk->...ki', u[..., :], s, v)
+        # # check = np.einsum('...ij,...jk->...ik', pinv, gradients)
 
 
 
-        # dual_vertex = self.complex.dual_position[0]
-        # dual_edge_vector = D1D0 * dual_vertex
+
         # # for incompressible flows on simplicial topologies, there exists a 3-vector at the dual vertex,
         # # which projected on the dual edges forms the dual fluxes. on a sphere the third component is not determined
         # # approximate inverse would still make sense in cubical topology however
@@ -57,19 +62,22 @@ class Advector(object):
         O = O.reshape(len(O), -1)
         # # tangent edges per primal n-element
         # # FIXME: need to enforce incompressibility constraint. more easily done using face normals
-        # tangent_directions = (dual_edge_vector)[B] * O[..., None]
-        # # compute pseudoinverse, to quickly construct velocities at dual vertices
-        # # for a regular grid, this should be just an averaging operator in both dims
-        # u, s, v = np.linalg.svd(tangent_directions)
-        # s = 1 / s
-        # # s[:, self.complex.topology.n_dim:] = 0
-        # pinv = np.einsum('...ij,...j,...jk->...ki', u[..., :s.shape[-1]], s, v)
+        dual_vertex = self.complex.dual_position[0]
+        dual_edge_vector = D1D0 * dual_vertex
+        tangent_directions = (dual_edge_vector)[B] * O[..., None]
+        # compute pseudoinverse, to quickly construct velocities at dual vertices
+        # for a regular grid, this should be just an averaging operator in both dims
+        u, s, v = np.linalg.svd(tangent_directions)
+        s = 1 / s
+        # s[:, self.complex.topology.n_dim:] = 0
+        pinv = np.einsum('...ij,...j,...jk->...ki', u[..., :s.shape[-1]], s, v)
 
         def dual_flux_to_dual_velocity(flux_d1):
             flux_d1 = self.complex.topology.dual.selector[1] * flux_d1
             # compute velocity component in the direction of the dual edge
             # tangent_velocity_component = (flux_d1 )[B] * O
             normal_flux = (self.complex.hodge_PD[1] * flux_d1)[B] * O
+            print(normal_flux.shape)
             # given these flows incident on the dual vertex, reconstruct the velocity vector there
             velocity_d0 = np.einsum('...ij,...j->...i', pinv, normal_flux)
 
@@ -77,7 +85,7 @@ class Advector(object):
             # if isinstance(self.complex, ComplexSpherical):
             #     velocity_d0 = velocity_d0 - dual_vertex * (velocity_d0 * dual_vertex).sum(axis=1, keepdims=True)
 
-            rec_flux = np.einsum('...ij,...j->...i', gradients, velocity_d0)
+            # rec_flux = np.einsum('...ij,...j->...i', gradients, velocity_d0)
             # assert np.allclose(rec_flux, normal_flux, atol=1e-6)
             # cast away dual boundary flux, then pad velocity with zeros... not quite right, should use the boundary information
             velocity_d0 = self.complex.topology.dual.selector[-1].T * velocity_d0
@@ -218,7 +226,7 @@ if __name__ == "__main__":
     flux_d1 = complex.hodge_DP[1] * (curl * (H_p0)) / 400
     flux_d1 = complex.topology.dual.selector[1].T * flux_d1
 
-    path = r'c:\development\examples\advection_17'
+    path = r'../output/advection_0'
 
     advector = Advector(complex)
     def advect(p0, dt):
