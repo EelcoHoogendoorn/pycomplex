@@ -42,7 +42,13 @@ class BaseComplex(object):
 
     @abstractmethod
     def subdivide_fundamental(self):
-        """Returns a simplicial complex"""
+        """Returns a simplicial complex
+
+        Notes
+        -----
+        In the context of a simplicial complex, this is also known as a barycentric subdivision,
+        but that does not generalize readily to a cubical complex.
+        """
         raise NotImplementedError
 
     def select_subset(self, n_chain):
@@ -62,9 +68,15 @@ class BaseComplex(object):
         if not len(n_chain) == self.topology.n_elements[-1]:
             raise ValueError
         subset_topology = self.topology.select_subset(n_chain)
-        # FIXME: this also copies the weights; also need their subset taken
-        # not hard to fix, but radius in spherical case should be copied though
-        return self.copy(topology=subset_topology, vertices=self.vertices[subset_topology.parent_idx[0]])
+        weights = getattr(self, 'weights', None)
+        kwargs = {}
+        if weights is not None:
+            kwargs['weights'] = weights[subset_topology.parent_idx[0]]
+        return self.copy(
+            topology=subset_topology,
+            vertices=self.vertices[subset_topology.parent_idx[0]],
+            **kwargs
+        )
 
     @cached_property
     def boundary(self):

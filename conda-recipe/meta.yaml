@@ -21,10 +21,10 @@ requirements:
   - pycosat
   - cached-property
   - fastcache
+  - funcsigs
 
 build:
   number: 1
-  script: python setup.py install
   noarch: python
 
 test:

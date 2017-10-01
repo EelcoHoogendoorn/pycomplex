@@ -81,8 +81,8 @@ class ComplexSimplicialEuclidian(BaseComplexSimplicial):
         plt.axis('equal')
 
     def as_spherical(self):
-        from pycomplex.complex.spherical import ComplexSpherical
-        return ComplexSpherical(vertices=self.vertices, topology=self.topology)
+        from pycomplex.complex.simplicial.spherical import ComplexSpherical
+        return ComplexSpherical(vertices=self.vertices, topology=self.topology, weights=self.weights)
 
     def as_2(self):
         return ComplexTriangularEuclidian(

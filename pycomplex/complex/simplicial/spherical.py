@@ -23,6 +23,10 @@ class ComplexSpherical(BaseComplexSimplicial):
         self.topology = topology
         self.radius = radius
 
+    def as_spherical(self):
+        from pycomplex.complex.simplicial.euclidian import ComplexSimplicialEuclidian
+        return ComplexSimplicialEuclidian(vertices=self.vertices, topology=self.topology, weights=self.weights)
+
     def homogenize(self, points):
         return points
 
