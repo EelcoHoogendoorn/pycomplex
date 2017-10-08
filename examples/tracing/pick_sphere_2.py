@@ -46,6 +46,8 @@ if True:
     # plt.show()
 
     tri_idx, bary = sphere.pick_primal(points.reshape(-1, 3))
+    print(bary.min(), bary.max())
+    # assert np.array_equiv(bary, np.clip(bary, 0, 1))
     plt.figure()
     plt.imshow(np.flip(np.moveaxis(bary.reshape(N, N, 3), 0, 1), axis=0))
     plt.figure()

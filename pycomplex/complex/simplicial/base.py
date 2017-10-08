@@ -320,8 +320,7 @@ class BaseComplexSimplicial(BaseComplex):
         basis = np.linalg.inv(self.homogenize(corners))
         return tree, basis
 
-    @cached_property
-    def pick_primal_precomp(self):
+    def pick_primal_precomp(self, weight):
         """Precomputations for primal picking
 
         Returns
@@ -336,28 +335,41 @@ class BaseComplexSimplicial(BaseComplex):
         -----
         Requires pairwise delaunay complex
         """
-        assert self.is_pairwise_delaunay    # if centroids cross eachother, this method fails
-        ee = self.dual_edge_excess(signed=False)
+        assert self.is_pairwise_delaunay  # if centroids cross eachother, this method fails
 
         corners = self.vertices[self.topology.elements[-1]]
         dual_vertex = np.einsum('...cn,...c->...n', corners, self.primal_barycentric[-1])
 
-        # sum these around each n-1-simplex, or bounding face, to get n-1-form
-        S = self.topology.selector[-2]  # only consider interior simplex boundaries
-        q = S * self.remap_boundary_N(ee, oriented=True)
-        T = S * self.topology.matrices[-1]
-        # solve T * w = q; that is,
-        # difference in desired weights on simplices over faces equals difference in squared distance over boundary between simplices
-        L = T.T * T
-        rhs = T.T * q
-        rhs = rhs - rhs.mean()  # this might aid numerical stability of minres
-        weight = scipy.sparse.linalg.minres(L, rhs, tol=1e-12)[0]
+        if weight:
+            ee = self.dual_edge_excess(signed=False)
+            # sum these around each n-1-simplex, or bounding face, to get n-1-form
+            S = self.topology.selector[-2]  # only consider interior simplex boundaries
+            q = S * self.remap_boundary_N(ee, oriented=True)
+            T = S * self.topology.matrices[-1]
+            # solve T * w = q; that is,
+            # difference in desired weights on simplices over faces equals difference in squared distance over boundary between simplices
+            L = T.T * T
+            rhs = T.T * q
+            rhs = rhs - rhs.mean()  # this might aid numerical stability of minres
+            weight = scipy.sparse.linalg.minres(L, rhs, tol=1e-12)[0]
+            points = self.augment(dual_vertex, weight)
+        else:
+            points = dual_vertex
 
-        tree = scipy.spatial.cKDTree(self.augment(dual_vertex, weight))
+        tree = scipy.spatial.cKDTree(points)
         basis = np.linalg.inv(self.homogenize(corners))
         return tree, basis
 
-    def pick_primal(self, points, simplex_idx=None):
+    @cached_property
+    def pick_primal_precomp_weighted(self):
+        return self.pick_primal_precomp(weight=True)
+
+    @cached_property
+    def pick_primal_precomp_unweighted(self):
+        return self.pick_primal_precomp(weight=False)
+
+
+    def pick_primal(self, points, simplex_idx=None, weighted=True):
         """Picking of primal simplex by means of a point query wrt its dual vertex
 
         Parameters
@@ -374,10 +386,13 @@ class BaseComplexSimplicial(BaseComplex):
             barycentric coordinates
         """
         assert self.is_pairwise_delaunay
-        tree, basis = self.pick_primal_precomp
+        if weighted:
+            tree, basis = self.pick_primal_precomp_weighted
+        else:
+            tree, basis = self.pick_primal_precomp_unweighted
 
         def query(points):
-            augmented = self.augment(points)
+            augmented = self.augment(points) if weighted else points
             dist, idx = tree.query(augmented)
             homogeneous = self.homogenize(points)
             baries = np.einsum('tcv,tc->tv', basis[idx], homogeneous)

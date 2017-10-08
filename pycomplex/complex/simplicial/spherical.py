@@ -215,7 +215,7 @@ class ComplexSpherical2(ComplexSpherical):
         This is a loop-like subdivision
 
         """
-        return ComplexSpherical2(
+        return type(self)(
             vertices=np.concatenate(self.primal_position[:2], axis=0),
             topology=self.topology.subdivide_loop()
         )
