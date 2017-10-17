@@ -56,7 +56,7 @@ class ComplexSimplicialEuclidian(BaseComplexSimplicial):
 
             if plot_vertices:
                 ax.scatter(*dual_vertices.T[:2], color=dual_color)
-        plt.axis('equal')
+        ax.axis('equal')
 
     def plot_domains(self, ax):
         """Plot projection of fundamental domain onto plane"""
@@ -78,7 +78,7 @@ class ComplexSimplicialEuclidian(BaseComplexSimplicial):
             lc = matplotlib.collections.LineCollection(edge[..., :2], color=c, alpha=0.5)
             ax.add_collection(lc)
 
-        plt.axis('equal')
+        ax.axis('equal')
 
     def as_spherical(self):
         from pycomplex.complex.simplicial.spherical import ComplexSpherical
@@ -289,7 +289,7 @@ class ComplexTriangularEuclidian(ComplexSimplicialEuclidian):
     def as_3(self):
         return ComplexTriangularEuclidian3(vertices=self.vertices, topology=self.topology)
 
-    def plot_dual_0_form_interpolated(self, d0, weighted=False, **kwargs):
+    def plot_dual_0_form_interpolated(self, d0, ax=None, weighted=False, **kwargs):
         if weighted:
             average = self.weighted_average_operators
         else:
@@ -297,13 +297,13 @@ class ComplexTriangularEuclidian(ComplexSimplicialEuclidian):
         S = self.topology.dual.selector
         sub_form = np.concatenate([s * a * d0 for s, a in zip(S, average[::-1])], axis=0)
         sub = self.subdivide_fundamental()
-        sub.plot_primal_0_form(sub_form, **kwargs)
+        sub.plot_primal_0_form(sub_form, ax=ax, **kwargs)
 
 
 class ComplexTriangularEuclidian2(ComplexTriangularEuclidian):
     """Triangular topology embedded in euclidian 2-space"""
 
-    def plot_primal_0_form(self, c0, plot_contour=True, cmap='viridis', **kwargs):
+    def plot_primal_0_form(self, c0, ax=None, plot_contour=True, cmap='viridis', **kwargs):
         """plot a primal 0-form
 
         Parameters
@@ -317,18 +317,19 @@ class ComplexTriangularEuclidian2(ComplexTriangularEuclidian):
 
         triang = tri.Triangulation(*self.vertices[:, :2].T, triangles=self.topology.triangles)
 
-        fig, ax = plt.subplots(1, 1)
+        if ax is None:
+            fig, ax = plt.subplots(1, 1)
 
         if plot_contour:
             levels = np.linspace(c0.min(), c0.max(), kwargs.get('levels', 20), endpoint=True)
-            plt.tricontourf(triang, c0, cmap=cmap, levels=levels)
-            plt.tricontour(triang, c0, colors='k', levels=levels)
+            ax.tricontourf(triang, c0, cmap=cmap, levels=levels)
+            ax.tricontour(triang, c0, colors='k', levels=levels)
         else:
-            plt.tripcolor(triang, c0, cmap=cmap, **kwargs)
+            ax.tripcolor(triang, c0, cmap=cmap, **kwargs)
 
-        plt.axis('equal')
+        ax.axis('equal')
 
-    def plot_primal_2_form(self, p2, cmap='jet'):
+    def plot_primal_2_form(self, p2, ax=None, cmap='jet'):
         """plot a primal 2-form
 
         Parameters
@@ -341,12 +342,14 @@ class ComplexTriangularEuclidian2(ComplexTriangularEuclidian):
         from matplotlib.collections import PolyCollection
         from matplotlib.cm import ScalarMappable
 
-        fig, ax = plt.subplots(1, 1)
+        if ax is None:
+            fig, ax = plt.subplots(1, 1)
+
         cmap = plt.get_cmap(cmap)
         facecolors = ScalarMappable(cmap=cmap).to_rgba(p2)
         ax.add_collection(PolyCollection(self.vertices[self.topology.triangles], facecolors=facecolors, edgecolors=None))
 
-        plt.axis('equal')
+        ax.axis('equal')
 
 
 class ComplexTriangularEuclidian3(ComplexTriangularEuclidian):
@@ -473,9 +476,9 @@ class ComplexTriangularEuclidian3(ComplexTriangularEuclidian):
             if plot_vertices:
                 ax.scatter(*dual_vertices.T[:2], color=dual_color)
 
-        plt.axis('equal')
+        ax.axis('equal')
 
-    def plot_primal_0_form(self, c0, backface_culling=True, plot_contour=True, cmap='viridis', **kwargs):
+    def plot_primal_0_form(self, c0, ax=None, backface_culling=True, plot_contour=True, cmap='viridis', **kwargs):
         """plot a primal 0-form
 
         Parameters
@@ -495,18 +498,19 @@ class ComplexTriangularEuclidian3(ComplexTriangularEuclidian):
 
         triang = tri.Triangulation(*self.vertices[:, :2].T, triangles=self.topology.triangles, mask=visible)
 
-        fig, ax = plt.subplots(1, 1)
+        if ax is None:
+            fig, ax = plt.subplots(1, 1)
+
         if plot_contour:
-            plt.tricontourf(triang, c0, cmap=cmap, **kwargs)
-            plt.tricontour(triang, c0, colors='k')
+            ax.tricontourf(triang, c0, cmap=cmap, **kwargs)
+            ax.tricontour(triang, c0, colors='k')
         else:
-            plt.tripcolor(triang, c0, cmap=cmap, **kwargs)
+            ax.tripcolor(triang, c0, cmap=cmap, **kwargs)
 
         ax.autoscale(tight=True)
-        plt.axis('equal')
-        # plt.show()
+        ax.axis('equal')
 
-    def plot_primal_2_form(self, p2, backface_culling=True):
+    def plot_primal_2_form(self, p2, ax=None, backface_culling=True):
         """plot a primal 0-form
 
         Parameters
@@ -526,13 +530,15 @@ class ComplexTriangularEuclidian3(ComplexTriangularEuclidian):
 
         tris = self.vertices[self.topology.triangles[visible]]
 
-        fig, ax = plt.subplots(1, 1)
+        if ax is None:
+            fig, ax = plt.subplots(1, 1)
+
         cmap = plt.get_cmap('jet')
         facecolors = ScalarMappable(cmap=cmap).to_rgba(p2)
         ax.add_collection(PolyCollection(tris[:, :, :2], facecolors=facecolors[visible], edgecolors=None))
 
         ax.autoscale(tight=True)
-        plt.axis('equal')
+        ax.axis('equal')
 
     def as_spherical(self):
         return ComplexTriangularEuclidian(vertices=self.vertices, topology=self.topology)

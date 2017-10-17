@@ -215,7 +215,7 @@ class ComplexCubical(BaseComplex):
             if plot_vertices:
                 ax.scatter(*dual_vertices.T[:2], color=dual_color)
 
-        plt.axis('equal')
+        ax.axis('equal')
 
 
 
@@ -278,8 +278,7 @@ class ComplexCubical1Euclidian2(ComplexCubical):
         if plot_vertices:
             ax.scatter(*self.vertices.T, color='b')
 
-        plt.axis('equal')
-        plt.show()
+        ax.axis('equal')
 
 
 class ComplexCubical3Euclidian3(ComplexCubical):

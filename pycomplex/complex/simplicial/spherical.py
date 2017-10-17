@@ -95,7 +95,7 @@ class ComplexSpherical(BaseComplexSimplicial):
             if plot_vertices:
                 plot_vertex(ax, dual_vertices, color=dual_color)
 
-        plt.axis('equal')
+        ax.axis('equal')
 
     def unsigned_volume(self, pts):
         from pycomplex.geometry import spherical
