@@ -478,7 +478,7 @@ class ComplexTriangularEuclidian3(ComplexTriangularEuclidian):
 
         ax.axis('equal')
 
-    def plot_primal_0_form(self, c0, ax=None, backface_culling=True, plot_contour=True, cmap='viridis', **kwargs):
+    def plot_primal_0_form(self, c0, ax=None, backface_culling=True, flip_normals=False, plot_contour=True, cmap='viridis', **kwargs):
         """plot a primal 0-form
 
         Parameters
@@ -492,9 +492,10 @@ class ComplexTriangularEuclidian3(ComplexTriangularEuclidian):
         import matplotlib.tri as tri
 
         if backface_culling:
-            visible = self.triangle_normals()[:, 2] > 0
+            normals = -self.triangle_normals() if flip_normals else self.triangle_normals()
+            visible = normals[:, 2] > 0
         else:
-            visible = Ellipsis
+            visible = None
 
         triang = tri.Triangulation(*self.vertices[:, :2].T, triangles=self.topology.triangles, mask=visible)
 
