@@ -95,9 +95,17 @@ def test_fundamental_domains():
         simplex.plot_domains(ax)
         plt.show()
 
-# test_fundamental_domains()
+
 def test_subdivide_fundamental():
     for n in [2, 3, 4, 5]:
         sphere = synthetic.n_cube_dual(4).as_euclidian()
         sub = sphere.topology.subdivide_fundamental()
         print(sub.is_oriented)
+
+
+def test_subdivide_direct():
+    triangle = synthetic.n_simplex(2).as_2()
+    sub = triangle.topology.subdivide_loop_direct()
+    print(sub.transfer_matrices[1])
+    sub = sub.subdivide_loop_direct()
+    print(sub.is_oriented)

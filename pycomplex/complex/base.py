@@ -324,6 +324,12 @@ class BaseComplex(object):
     def unsigned_volume(self, pts):
         raise NotImplementedError
 
+    @property
     @abstractmethod
     def metric(self):
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def multigrid_transfers(self):
         raise NotImplementedError

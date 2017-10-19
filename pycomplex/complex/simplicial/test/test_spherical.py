@@ -32,23 +32,6 @@ def test_icosahedron():
     plt.show()
 
 
-def test_overlap():
-    # drawing to intuit multigrid transfer operators
-    # sphere = synthetic.icosahedron().subdivide_fundamental()
-    # sphere = sphere.select_subset(np.eye(20*6)[0])
-    for i in range(2):
-        sphere = sphere.subdivide_loop()
-
-    fig, ax = plt.subplots(1, 1)
-    sphere = sphere.optimize_weights()
-    # sphere = sphere.optimize_weights_metric()
-    subsphere = sphere.subdivide_loop()
-    sphere.plot(ax=ax)
-    subsphere = subsphere.optimize_weights()
-    subsphere.plot(ax=ax, primal_color='c', dual_color='m')
-    plt.show()
-
-
 def test_icosahedron_subset():
     """Test that a concave boundary works just the same on a sphere"""
     sphere = synthetic.icosahedron()
@@ -220,3 +203,29 @@ def test_fundamental_subdivide():
     sphere = sphere.subdivide_fundamental().optimize_weights()
     sphere.plot(backface_culling=True, plot_vertices=False)
     plt.show()
+
+
+def test_overlap():
+    # drawing to intuit multigrid transfer operators
+    sphere = synthetic.icosahedron()#.subdivide_fundamental()
+    sphere = sphere.select_subset(np.eye(20)[0])
+    for i in range(2):
+        sphere = sphere.subdivide_loop()
+
+    fig, ax = plt.subplots(1, 1)
+    # sphere = sphere.optimize_weights()
+    # sphere = sphere.optimize_weights_metric()
+    subsphere = sphere.subdivide_loop()
+    sphere.plot(ax=ax)
+    # subsphere = subsphere.optimize_weights()
+    subsphere.plot(ax=ax, primal_color='c', dual_color='m')
+    plt.show()
+
+
+def test_multigrid():
+    sphere = synthetic.icosahedron()#.subdivide_fundamental()
+    sphere_0 = sphere.select_subset(np.eye(20)[0])
+    sphere_1 = sphere_0.subdivide_loop_direct()
+    sphere_2 = sphere_1.subdivide_loop_direct()
+    t = sphere.multigrid_transfer_d2(sphere_1, sphere_2)
+    print(t)

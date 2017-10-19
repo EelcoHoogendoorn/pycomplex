@@ -389,8 +389,8 @@ class TopologyTriangular(TopologySimplicial):
         E21 = self.incidence[2, 1]
         E20 = self.incidence[2, 0]
         E10 = self.incidence[1, 0]
-        O21 = self.orientation[1]
-        O10 = self.orientation[0]
+        O21 = self._orientation[1]
+        O10 = self._orientation[0]
         N0, N1, N2 = self.n_elements
 
         # positive and negatively rolled E21 info is needed several times; compute once
@@ -408,10 +408,10 @@ class TopologyTriangular(TopologySimplicial):
         eE10[:,1,0] = new_edge_vertex
         eE10[:,1,1] = E10[:,1]
         # edge-edge sign info
-        eO10[1,:,0,0] = +O10[:,0]
-        eO10[1,:,0,1] = -O10[:,0]
-        eO10[1,:,1,0] = -O10[:,1]
-        eO10[1,:,1,1] = +O10[:,1]
+        eO10[:,0,0] = +O10[:,0]
+        eO10[:,0,1] = -O10[:,0]
+        eO10[:,1,0] = -O10[:,1]
+        eO10[:,1,1] = +O10[:,1]
 
         # 3 new edges per face
         fE10 = np.empty((N2, 3, 2), index_dtype) # edge-vertex info added as consequence of faces
@@ -463,16 +463,16 @@ class TopologyTriangular(TopologySimplicial):
             eO10.reshape(-1, 2),
             fO10.reshape(-1, 2)), axis=0)
 
-        O = np.zeros_like(self.orientation)
-        O[0] = sO10
-        O[1] = sO21
-        E = np.zeros_like(self.elements)
-        E[...] = None
-        E[2, 0] = sE20
-        E[2, 1] = sE21
-        E[1, 0] = sE10
+        O = [sO10, sO21]
+        B = [sE10, sE21]
+        E = [np.arange(N0 + N1, dtype=index_dtype), sE10, sE20]
 
-        return TopologyTriangular(elements=E, orientation=O)
+        fine = TopologyTriangular(elements=E, boundary=B, orientation=O)
+
+        fine.transfer_matrices = self.subdivide_loop_direct_transfer(self, fine)
+        fine.parent = self
+
+        return fine
 
     @staticmethod
     def subdivide_loop_direct_transfer(coarse, fine):
@@ -482,6 +482,9 @@ class TopologyTriangular(TopologySimplicial):
             (fine.range(1)[:coarse.n_elements[1]*2], np.repeat(coarse.range(1), 2)),
             (fine.range(2),                          np.repeat(coarse.range(2), 4)),
         ]
+        transfer_matrices = [transfer_matrix(*t, shape=(fine.n_elements[n], coarse.n_elements[n]))
+                                 for n, t in enumerate(transfers)]
+        return transfer_matrices
 
     def subdivide_cubical(self):
         return super(TopologyTriangular, self).subdivide_cubical().as_2()
