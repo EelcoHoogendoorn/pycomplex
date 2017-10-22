@@ -9,7 +9,6 @@ from pycomplex.complex.simplicial.base import BaseComplexSimplicial
 from pycomplex.geometry import spherical
 from pycomplex.math import linalg
 from pycomplex.topology.simplicial import TopologyTriangular, TopologySimplicial
-from pycomplex.sparse import normalize_l1
 
 
 class ComplexSpherical(BaseComplexSimplicial):
@@ -289,7 +288,7 @@ class ComplexSpherical2(ComplexSpherical):
 
         corner_transfer = coo_matrix(
             areas,
-            # for every fine edge, decide what dual cell it belongs to
+            # for every fine edge, decide what coarse dual cell it belongs to
             coarse.pick_dual(fine.primal_position[1])[domains[:, 1]],
             domains[:, 0],
         )
@@ -306,14 +305,12 @@ class ComplexSpherical2(ComplexSpherical):
         e = fine.primal_position[1][i21[central_tris]]
         f = fine.primal_position[2][central_tris]
 
-        # find the coarse dual cell the central fine dual vertex resides in
-        containing_dual_cell = coarse.pick_dual(f)
-        # fundamental_cell = fine.pick_fundamental(C)
         I20 = coarse.topology.incidence[2, 0]
         I21 = coarse.topology.incidence[2, 1]
 
+        # find the coarse dual cell the central fine dual vertex resides in
         # `m` is the column in our incidence arrays representing the middle
-        a, m = np.where(I20 == containing_dual_cell[:, None])
+        a, m = np.where(I20 == coarse.pick_dual(f)[:, None])
         assert np.array_equiv(a, np.arange(len(a))), "Fine central dual vertex not in any of the three coarse dual cells it is expected to be in"
         l = m - 1
         r = m - 2
@@ -322,7 +319,7 @@ class ComplexSpherical2(ComplexSpherical):
         il = +intersect_edges(v[a, l], C, e[a, L], f)   # right fine edge is left coarse edge / left fine vertex
         ir = -intersect_edges(v[a, r], C, e[a, R], f)   # left fine edge if right coarse edge / right fine vertex
 
-        if False:
+        if True:
             import matplotlib.pyplot as plt
             fig, ax = plt.subplots(1, 1)
             coarse.plot(ax=ax)
@@ -363,8 +360,10 @@ class ComplexSpherical2(ComplexSpherical):
         assert(np.all(areas > -1e-10))
 
         # need to grab coarsetri x 3coarsevert x 3finevert arrays of coarse and fine vertices
-        fine_vertex   = np.repeat(i20[central_tris, None,    :], 3, axis=1)
-        coarse_vertex = np.repeat(I20[:           , :   , None], 3, axis=2)
+        # fine_vertex   = np.repeat(i20[central_tris, None,    :], 3, axis=1)
+        # coarse_vertex = np.repeat(I20[:           , :   , None], 3, axis=2)
+        fine_vertex = np.broadcast_to(i20[central_tris, None,    :], areas.shape)
+        coarse_vertex = np.broadcast_to(I20[:         , :   , None], areas.shape)
 
         # finally, we have the transfer matrix of the central fine triangles
         center_transfer = coo_matrix(areas, coarse_vertex, fine_vertex)
@@ -372,20 +371,38 @@ class ComplexSpherical2(ComplexSpherical):
         return (center_transfer + corner_transfer).tocsr()
 
     @cached_property
-    def transfer_d2(self):
-        return normalize_l1(self.multigrid_transfer_dual ,axis=0)
+    def coarse_to_fine(self):
+        """
+
+        Returns
+        -------
+        sparse matrix, [fine.n_vertices, coarse.n_vertices], float
+        """
+        from pycomplex.sparse import normalize_l1
+        return normalize_l1(self.multigrid_transfer_dual)
     @cached_property
-    def stuff(self):
-        # calc normalizations
-        self.coarse_area = self.transfer   * np.ones(fine  .topology.D2)
-        self.fine_area   = self.transfer.T * np.ones(coarse.topology.D2)
+    def fine_to_coarse(self):
+        """
 
-        self.f = np.sqrt( self.fine_area)[:,None]
-        self.c = np.sqrt( self.coarse_area)[:,None]
+        Returns
+        -------
+        sparse matrix, [coarse.n_vertices, fine.n_vertices], float
+        """
+        from pycomplex.sparse import normalize_l1
+        return normalize_l1(self.multigrid_transfer_dual.T)
 
-        # test for consistency with metric calculations
-        assert(np.allclose(self.coarse_area, coarse.D2P0, 1e-10))
-        assert(np.allclose(self.fine_area  , fine  .D2P0, 1e-10))
+    # @cached_property
+    # def stuff(self):
+    #     # calc normalizations
+    #     self.coarse_area = self.transfer   * np.ones(fine  .topology.D2)
+    #     self.fine_area   = self.transfer.T * np.ones(coarse.topology.D2)
+    #
+    #     self.f = np.sqrt( self.fine_area)[:,None]
+    #     self.c = np.sqrt( self.coarse_area)[:,None]
+    #
+    #     # test for consistency with metric calculations
+    #     assert(np.allclose(self.coarse_area, coarse.D2P0, 1e-10))
+    #     assert(np.allclose(self.fine_area  , fine  .D2P0, 1e-10))
 
 
 

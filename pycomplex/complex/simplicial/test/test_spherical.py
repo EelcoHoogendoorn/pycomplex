@@ -223,18 +223,78 @@ def test_overlap():
     plt.show()
 
 
-def test_multigrid():
-    sphere = synthetic.icosahedron()#.subdivide_fundamental()
-    sphere_0 = sphere.select_subset(np.eye(20)[0])
+def test_multigrid_tri():
+    sphere = synthetic.icosahedron().subdivide_fundamental()
+    sphere_0 = sphere.select_subset(np.eye(20*6)[1])
     sphere_1 = sphere_0.subdivide_loop()
     sphere_2 = sphere_1.subdivide_loop()
     sphere_3 = sphere_2.subdivide_loop()
     sphere_4 = sphere_3.subdivide_loop()
 
 
-    t = sphere.multigrid_transfer_dual(sphere_3, sphere_4)
+    t = sphere.multigrid_transfer_dual(sphere_0, sphere_1).T
+    from pycomplex.sparse import normalize_l1
+
+    # t = normalize_l1(t)
 
     t = t.tocoo()
     plt.scatter(t.row, t.col, c=t.data)
+    plt.gca().invert_yaxis()
+
+    plt.axis('equal')
+
+    plt.colorbar()
     plt.show()
+
     print(t)
+
+
+def test_multigrid_form():
+    sphere_0 = synthetic.icosahedron().subdivide_fundamental()
+    sphere_1 = sphere_0.subdivide_loop()
+    sphere_2 = sphere_1.subdivide_loop()
+    sphere_3 = sphere_2.subdivide_loop()
+    sphere_4 = sphere_3.subdivide_loop()
+    fine, coarse = sphere_3, sphere_2
+
+    t = sphere_0.multigrid_transfer_dual(coarse, fine).T
+    from pycomplex.sparse import normalize_l1
+    c2f = normalize_l1(t, axis=0)
+    f2c = normalize_l1(t.T, axis=0)
+
+    P0 = np.random.rand(coarse.topology.n_elements[0])
+    D2 = coarse.hodge_DP[0] * P0
+    d2 = c2f * D2
+    p0 = fine.hodge_PD[0] * d2
+    print(d2.sum(), D2.sum())
+
+    fig, ax = plt.subplots(1, 1)
+    coarse.as_euclidian().plot_primal_0_form(P0, ax=ax, vmin=0, vmax=1)
+    fig, ax = plt.subplots(1, 1)
+    fine.as_euclidian().plot_primal_0_form(p0, ax=ax, vmin=0, vmax=1)
+    plt.show()
+
+
+    p0 = np.random.rand(fine.topology.n_elements[0])
+    d2 = fine.hodge_DP[0] * p0
+    D2 = f2c * d2
+    P0 = coarse.hodge_PD[0] * D2
+    print(d2.sum(), D2.sum())
+
+
+    fig, ax = plt.subplots(1, 1)
+    coarse.as_euclidian().plot_primal_0_form(P0, ax=ax, vmin=0, vmax=1)
+    fig, ax = plt.subplots(1, 1)
+    fine.as_euclidian().plot_primal_0_form(p0, ax=ax, vmin=0, vmax=1)
+    plt.show()
+    plt.show()
+
+
+    if False:
+        t = t.tocoo()
+        plt.scatter(t.row, t.col, c=t.data)
+        plt.gca().invert_yaxis()
+        plt.axis('equal')
+        plt.colorbar()
+    plt.show()
+
