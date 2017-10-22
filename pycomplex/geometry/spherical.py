@@ -34,9 +34,9 @@ def triangle_area_from_normals(*edge_planes):
     areas : ndarray, [n], float
         spherical area enclosed by the input planes
     """
-    edge_planes = [linalg.normalized(ep) for ep in edge_planes]
+    edge_planes = [linalg.normalized(ep, ignore_zeros=True) for ep in edge_planes]
     angles      = [linalg.dot(edge_planes[p - 2], edge_planes[p - 1]) for p in range(3)] #a3 x [faces, c3]
-    areas       = sum(np.arccos(-a) for a in angles) - np.pi                        #faces
+    areas       = sum(np.arccos(-np.clip(a, -1, 1)) for a in angles) - np.pi                        #faces
     return areas
 
 
@@ -160,3 +160,25 @@ def circumcenter(pts):
     from pycomplex.geometry import euclidian
     return linalg.normalized(euclidian.circumcenter(pts))
 
+
+def intersect_edges(s0, e0, s1, e1):
+    """intersect spherical edges defined by their endpoints
+
+    Parameters
+    ----------
+    s0 : ndarray, [..., 3], float
+    e0 : ndarray, [..., 3], float
+    s1 : ndarray, [..., 3], float
+    e1 : ndarray, [..., 3], float
+
+    Returns
+    -------
+    ndarray, [..., 3], float
+
+    Notes
+    -----
+    It is assumed the edges are not colinear
+    """
+    n0 = np.cross(s0, e0)
+    n1 = np.cross(s1, e1)
+    return linalg.normalized(np.cross(n0, n1))

@@ -355,6 +355,13 @@ class TopologyTriangular(TopologySimplicial):
         return fine
 
     def subdivide_loop_transfer(coarse, fine):
+        """Transfer operators belonging to loop subdivision logic
+
+        Notes
+        -----
+        no consideration is yet given to relative signs of edge-transfers
+        """
+
         # build up transfer operators; only edge-edge has some nontrivial logic
         I10f = np.sort(fine.corners[1], axis=1)
         # filter down edges for those having connection with original vertices
@@ -377,14 +384,19 @@ class TopologyTriangular(TopologySimplicial):
     def subdivide_loop_direct(self):
         """Subdivide triangular topology in a direct manner, without a call to from_simplices
 
-        This allows us to impart a little more structure to the subdivision,
-        leading to particularly simple forms of the transfer operators between levels,
-        and should be more efficient as well
-
         Returns
         -------
         TopologyTriangular
             loop-subdivided topology
+
+        Notes
+        -----
+        This subdivision allows us to impart a little more structure to the subdivision,
+        leading to particularly simple forms of the transfer operators between levels,
+        and leading to inheritance of orientation information; or only transfer operators of positive sign
+
+        Every coarse triangle spawns 4 new triangles, the first of which is the central one,
+        and the others follow the vertex order
         """
         E21 = self.incidence[2, 1]
         E20 = self.incidence[2, 0]

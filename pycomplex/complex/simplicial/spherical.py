@@ -9,6 +9,7 @@ from pycomplex.complex.simplicial.base import BaseComplexSimplicial
 from pycomplex.geometry import spherical
 from pycomplex.math import linalg
 from pycomplex.topology.simplicial import TopologyTriangular, TopologySimplicial
+from pycomplex.sparse import normalize_l1
 
 
 class ComplexSpherical(BaseComplexSimplicial):
@@ -236,145 +237,143 @@ class ComplexSpherical2(ComplexSpherical):
         return ComplexTriangularEuclidian3(vertices=self.vertices, topology=self.topology)
 
     @staticmethod
-    def multigrid_transfer_d2(coarse, fine):
-        """Construct multigrid transfer operator between spherical triangular complex
-        and its direct loop subdivision
+    def multigrid_transfer_dual(coarse, fine):
+        """Construct dual transfer operator between spherical triangular complex
+        and its loop subdivision
 
         Returns
         -------
         sparse matrix, [fine.n_vertices, coarse.n_vertices], float
-            transfer operator
+            transfer matrix. each entry of the matrix represents the
+            area overlap between fine and coarse dual cells
 
         Notes
         -----
-        Corners of each fine triangle are always trivial
+        This operator is defined by the overlap between coarse and fine dual cells;
+        computing those overlaps is the challenge addressed by this function
+
+        The corner fine triangles of each coarse triangle are always trivial
         Crux is in the middle triangle, where fine and coarse dual vertex meet
-        We can query coarse dual vertices with fine dual vertices of central triangles to figure out the conditional
+
+        Can generalize this to euclidian complexes as well, by passing in the metric functions
+
+        clrm are the center, left, right and mid of the fine central triangle (edge-midpoints of fine)
+        CLRM are the center, left, right and mid of the coarse elements (vertices; edge-midpoints of coarse)
+        where left-right is as judged looking from the picked coarse vertex down to the middle tri
 
         """
-        from pycomplex.geometry.spherical import triangle_area_from_corners, triangle_area_from_normals
-        def triangle_areas_around_center(center, corners):
-            """given a triangle formed by corners, and its dual point center,
-            compute spherical area of the voronoi faces
 
-            Parameters
-            ----------
-            center : ndarray, [..., 3], float
-            corners : ndarray, [..., 3, 3], float
+        assert fine.radius == 1
+        assert coarse.radius == 1
+        assert fine.is_well_centered
+        assert coarse.is_well_centered
 
-            Returns
-            -------
-            areas : ndarray, [..., 3], float
-                spherical area opposite to each corner
-            """
-            areas = np.empty(corners.shape[:-1])
-            for i in range(3):
-                areas[:, :, i] = triangle_area_from_corners(center, corners[:, :, i - 2], corners[:, :, i - 1])
-            # swivel equilaterals to vonoroi parts
-            return (areas.sum(axis=2)[:, :, None] - areas) / 2
+        from pycomplex.geometry.spherical import triangle_area_from_corners, intersect_edges
 
-        def gather(idx, vals):
-            return vals[idx]
         def coo_matrix(data, row, col):
             """construct a coo_matrix from data and index arrays"""
             return scipy.sparse.coo_matrix(
-                (data.ravel(),(row.ravel(), col.ravel())),
+                (data.ravel(), (row.ravel(), col.ravel())),
                 shape=(coarse.topology.n_elements[0], fine.topology.n_elements[0]))
 
         all_tris = np.arange(fine.topology.n_elements[2]).reshape(coarse.topology.n_elements[2], 4)
-        central_tris = all_tris[:,0]
-        corner_tris  = all_tris[:,1:]
-        #first, compute contribution to transfer matrices from the central refined triangle
+        # NOTE: this represents an assumption on relation between fine and coarse
+        central_tris = all_tris[:,0].flatten()
+        corner_tris  = all_tris[:,1:].flatten()
 
-        coarse_dual   = coarse.primal_position[2]
-        fine_dual     = fine.primal_position[2][central_tris]
-        face_edge_mid = gather(fine.topology.elements[-1][0::4], fine.primal_position[0])
+        # for corner tris, we can simply work with fundamental domains
+        # FIXME: is it not easier to define central triangle relative to these contributions too?
+        domains = fine.topology.fundamental_domains()
+        domains = domains[corner_tris].reshape(-1, 3)
+        areas = triangle_area_from_corners(*[fine.primal_position[i][domains[:, i]] for i in range(3)])
 
-        fine_edge_normal = [np.cross(face_edge_mid[:,i-2,:], face_edge_mid[:,i-1,:]) for i in range(3)]
-        fine_edge_mid    = [(face_edge_mid[:,i-2,:] + face_edge_mid[:,i-1,:])/2      for i in range(3)]
-        fine_edge_dual   = [np.cross(fine_edge_mid[i], fine_edge_normal[i])          for i in range(3)]
-        fine_edge_normal = np.array(fine_edge_normal)
-        fine_edge_mid    = np.array(fine_edge_mid)
-        fine_edge_dual   = np.array(fine_edge_dual)
-
-        coarse_areas     = [triangle_area_from_corners(coarse_dual, face_edge_mid[:,i-2,:], face_edge_mid[:,i-1,:]) for i in range(3)]
-        fine_areas       = [triangle_area_from_corners(fine_dual  , face_edge_mid[:,i-2,:], face_edge_mid[:,i-1,:]) for i in range(3)]
-        fine_areas       = [(fine_areas[i-2]+fine_areas[i-1])/2 for i in range(3)]
-        coarse_areas     = np.array(coarse_areas)
-        fine_areas       = np.array(fine_areas)
-
-        #normal of edge midpoints to coarse dual
-        interior_normal = np.array([np.cross(face_edge_mid[:,i,:], coarse_dual) for i in range(3)])
-
-        #the 0-3 index of the overlapping domains
-        #biggest of the subtris formed with the coarse dual vertex seems to work; but cant prove why it is so...
-        touching = np.argmax(coarse_areas, axis=0)
-
-        # indexing arrays
-        I = np.arange(len(touching))
-        m = touching        # middle pair
-        l = touching-1      # left-rotated pair
-        r = touching-2      # right-rotated pair
-
-        #compute sliver triangles
-        sliver_r = triangle_area_from_normals(
-            +fine_edge_normal[l, I],
-            +fine_edge_dual  [l, I],
-            +interior_normal [r, I])
-        sliver_l = triangle_area_from_normals(
-            +fine_edge_normal[r, I],
-            -fine_edge_dual  [r, I],
-            -interior_normal [l, I])
+        corner_transfer = coo_matrix(
+            areas,
+            # for every fine edge, decide what dual cell it belongs to
+            coarse.pick_dual(fine.primal_position[1])[domains[:, 1]],
+            domains[:, 0],
+        )
 
 
-        assert(np.all(sliver_l > -1e-10))
-        assert(np.all(sliver_r > -1e-10))
+        # now work on central triangle; this is the hard part
+        C = coarse.primal_position[2]               # coarse dual vertex position
 
+        # get the positions of the elements of the central fine triangle
+        i20 = fine.topology.incidence[2, 0]
+        i21 = fine.topology.incidence[2, 1]
+
+        v = fine.primal_position[0][i20[central_tris]]
+        e = fine.primal_position[1][i21[central_tris]]
+        f = fine.primal_position[2][central_tris]
+
+        # find the coarse dual cell the central fine dual vertex resides in
+        containing_dual_cell = coarse.pick_dual(f)
+        # fundamental_cell = fine.pick_fundamental(C)
+        I20 = coarse.topology.incidence[2, 0]
+        I21 = coarse.topology.incidence[2, 1]
+
+        # `m` is the column in our incidence arrays representing the middle
+        a, m = np.where(I20 == containing_dual_cell[:, None])
+        assert np.array_equiv(a, np.arange(len(a))), "Fine central dual vertex not in any of the three coarse dual cells it is expected to be in"
+        l = m - 1
+        r = m - 2
+        # when referring to fine edge midpoints, L/R is reversed
+        L, R = r, l
+        il = +intersect_edges(v[a, l], C, e[a, L], f)   # right fine edge is left coarse edge / left fine vertex
+        ir = -intersect_edges(v[a, r], C, e[a, R], f)   # left fine edge if right coarse edge / right fine vertex
+
+        if False:
+            import matplotlib.pyplot as plt
+            fig, ax = plt.subplots(1, 1)
+            coarse.plot(ax=ax)
+            fine.plot(ax=ax, primal_color='c', dual_color='m')
+            ax.scatter(*il[:, :2].T, c='y')
+            ax.scatter(*ir[:, :2].T, c='g')
+            plt.show()
+
+        A = triangle_area_from_corners
+        c = f
+
+        wedge_l = A(C, e[a, L], il)
+        wedge_r = A(C, e[a, R], ir)
+        diamond_l = A(C, c, il)
+        diamond_r = A(C, c, ir)
+        sliver_l = A(v[a, l], c, il)
+        sliver_r = A(v[a, r], c, ir)
 
         # assemble area contributions of the middle triangle
-        areas = np.empty((len(touching), 3, 3))     #coarsetris x coarsevert x finevert
+        areas = np.empty((len(a), 3, 3))     # coarsetris x coarsevert x finevert
         # the non-overlapping parts
-        areas[I,l,l] = 0
-        areas[I,r,r] = 0
+        areas[a, R, l] = 0
+        areas[a, L, r] = 0
         # triangular slivers disjoint from the m,m intersection
-        areas[I,r,l] = sliver_l
-        areas[I,l,r] = sliver_r
+        areas[a, L, l] = A(v[a, l], e[a, L], il)
+        areas[a, R, r] = A(v[a, r], e[a, R], ir)
         # subset of coarse tri bounding sliver
-        areas[I,r,m] = coarse_areas[r,I] - sliver_l
-        areas[I,l,m] = coarse_areas[l,I] - sliver_r
+        areas[a, L, m] = A(v[a, m], e[a, L], C) + wedge_l
+        areas[a, R, m] = A(v[a, m], e[a, R], C) + wedge_r
         # subset of fine tri bounding sliver
-        areas[I,m,l] = fine_areas[l,I] - sliver_l
-        areas[I,m,r] = fine_areas[r,I] - sliver_r
+        areas[a, m, l] = A(v[a, l], e[a, m], c) + sliver_l
+        areas[a, m, r] = A(v[a, r], e[a, m], c) + sliver_r
         # square middle region; may compute as fine or coarse minus its flanking parts
-        areas[I,m,m] = coarse_areas[m,I] - areas[I,m,l] - areas[I,m,r]
+        areas[a, m, m] = diamond_l + diamond_r
 
-        # we may get numerical negativity for 2x2x2 symmetry, with equilateral fundemantal domain,
+        # we may get numerical negativity for 2x2x2 symmetry, with equilateral fundamental domain,
         # or high subdivision levels. or is error at high subdivision due to failing of touching logic?
         assert(np.all(areas > -1e-10))
 
-        # areas maps between coarse vertices and fine edge vertices.
-        # add mapping for coarse to fine vertices too
-
         # need to grab coarsetri x 3coarsevert x 3finevert arrays of coarse and fine vertices
-        fine_vertex   = np.repeat( fine  .topology.elements[-1][0::4, None,    :], 3, axis=1)
-        coarse_vertex = np.repeat( coarse.topology.elements[-1][:   , :   , None], 3, axis=2)
+        fine_vertex   = np.repeat(i20[central_tris, None,    :], 3, axis=1)
+        coarse_vertex = np.repeat(I20[:           , :   , None], 3, axis=2)
 
-
+        # finally, we have the transfer matrix of the central fine triangles
         center_transfer = coo_matrix(areas, coarse_vertex, fine_vertex)
 
-
-        # add corner triangle contributions; this is relatively easy
-        # coarsetri x 3coarsevert x 3finevert
-        corner_vertex = gather(corner_tris, fine.topology.elements[-1])
-        corner_dual   = gather(corner_tris, fine.dual)
-        corner_primal = gather(corner_vertex, fine.primal)
-
-        # coarsetri x 3coarsevert x 3finevert
-        corner_areas    = triangle_areas_around_center(corner_dual, corner_primal)
-        # construct matrix
-        corner_transfer = coo_matrix(corner_areas, coarse_vertex, corner_vertex)
         return (center_transfer + corner_transfer).tocsr()
 
+    @cached_property
+    def transfer_d2(self):
+        return normalize_l1(self.multigrid_transfer_dual ,axis=0)
     @cached_property
     def stuff(self):
         # calc normalizations

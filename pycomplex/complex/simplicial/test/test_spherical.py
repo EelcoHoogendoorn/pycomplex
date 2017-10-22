@@ -209,12 +209,13 @@ def test_overlap():
     # drawing to intuit multigrid transfer operators
     sphere = synthetic.icosahedron()#.subdivide_fundamental()
     sphere = sphere.select_subset(np.eye(20)[0])
-    for i in range(2):
-        sphere = sphere.subdivide_loop()
+    for i in range(1):
+        sphere = sphere.subdivide_loop_direct()
 
     fig, ax = plt.subplots(1, 1)
     # sphere = sphere.optimize_weights()
     # sphere = sphere.optimize_weights_metric()
+    # FIXME: invocation of direct loop fails when not on simple triangle
     subsphere = sphere.subdivide_loop()
     sphere.plot(ax=ax)
     # subsphere = subsphere.optimize_weights()
@@ -225,7 +226,15 @@ def test_overlap():
 def test_multigrid():
     sphere = synthetic.icosahedron()#.subdivide_fundamental()
     sphere_0 = sphere.select_subset(np.eye(20)[0])
-    sphere_1 = sphere_0.subdivide_loop_direct()
-    sphere_2 = sphere_1.subdivide_loop_direct()
-    t = sphere.multigrid_transfer_d2(sphere_1, sphere_2)
+    sphere_1 = sphere_0.subdivide_loop()
+    sphere_2 = sphere_1.subdivide_loop()
+    sphere_3 = sphere_2.subdivide_loop()
+    sphere_4 = sphere_3.subdivide_loop()
+
+
+    t = sphere.multigrid_transfer_dual(sphere_3, sphere_4)
+
+    t = t.tocoo()
+    plt.scatter(t.row, t.col, c=t.data)
+    plt.show()
     print(t)
