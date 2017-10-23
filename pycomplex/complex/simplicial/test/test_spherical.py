@@ -255,9 +255,13 @@ def test_multigrid_form():
     sphere_2 = sphere_1.subdivide_loop()
     sphere_3 = sphere_2.subdivide_loop()
     sphere_4 = sphere_3.subdivide_loop()
-    fine, coarse = sphere_3, sphere_2
+    fine, coarse = sphere_2, sphere_1
 
     t = sphere_0.multigrid_transfer_dual(coarse, fine).T
+
+    npt.assert_allclose(t.sum(axis=0), coarse.dual_metric[-1][None, :])
+    npt.assert_allclose(t.sum(axis=1), fine.dual_metric[-1][:, None])
+
     from pycomplex.sparse import normalize_l1
     c2f = normalize_l1(t, axis=0)
     f2c = normalize_l1(t.T, axis=0)

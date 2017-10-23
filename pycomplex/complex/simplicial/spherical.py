@@ -276,7 +276,7 @@ class ComplexSpherical2(ComplexSpherical):
                 shape=(coarse.topology.n_elements[0], fine.topology.n_elements[0]))
 
         all_tris = np.arange(fine.topology.n_elements[2]).reshape(coarse.topology.n_elements[2], 4)
-        # NOTE: this represents an assumption on relation between fine and coarse
+        # NOTE: this organization represents an assumption on relation between fine and coarse complexes
         central_tris = all_tris[:,0].flatten()
         corner_tris  = all_tris[:,1:].flatten()
 
@@ -289,54 +289,54 @@ class ComplexSpherical2(ComplexSpherical):
         corner_transfer = coo_matrix(
             areas,
             # for every fine edge, decide what coarse dual cell it belongs to
+            # then knowing the fine edge, we can decide on the dual cell
             coarse.pick_dual(fine.primal_position[1])[domains[:, 1]],
             domains[:, 0],
         )
 
 
         # now work on central triangle; this is the hard part
-        C = coarse.primal_position[2]               # coarse dual vertex position
-
-        # get the positions of the elements of the central fine triangle
         i20 = fine.topology.incidence[2, 0]
         i21 = fine.topology.incidence[2, 1]
-
-        v = fine.primal_position[0][i20[central_tris]]
-        e = fine.primal_position[1][i21[central_tris]]
-        f = fine.primal_position[2][central_tris]
-
         I20 = coarse.topology.incidence[2, 0]
         I21 = coarse.topology.incidence[2, 1]
 
+        # get the positions of the elements of the central fine triangle
+        p0 = fine.primal_position[0][i20[central_tris]]
+        p1 = fine.primal_position[1][i21[central_tris]]
+        p2 = fine.primal_position[2][central_tris]
+        P2 = coarse.primal_position[2]    # coarse dual vertex position
+
         # find the coarse dual cell the central fine dual vertex resides in
         # `m` is the column in our incidence arrays representing the middle
-        a, m = np.where(I20 == coarse.pick_dual(f)[:, None])
+        a, m = np.where(I20 == coarse.pick_dual(p2)[:, None])
         assert np.array_equiv(a, np.arange(len(a))), "Fine central dual vertex not in any of the three coarse dual cells it is expected to be in"
-        l = m - 1
-        r = m - 2
+        # compute columns left and right of the middle one
         # when referring to fine edge midpoints, L/R is reversed
-        L, R = r, l
-        il = +intersect_edges(v[a, l], C, e[a, L], f)   # right fine edge is left coarse edge / left fine vertex
-        ir = -intersect_edges(v[a, r], C, e[a, R], f)   # left fine edge if right coarse edge / right fine vertex
+        R = l = m - 1
+        L = r = m - 2
+
+        # compute the two intersection points
+        pl = +intersect_edges(p0[a, l], P2, p1[a, L], p2)   # right fine edge is left coarse edge / left fine vertex
+        pr = -intersect_edges(p0[a, r], P2, p1[a, R], p2)   # left fine edge if right coarse edge / right fine vertex
 
         if True:
             import matplotlib.pyplot as plt
             fig, ax = plt.subplots(1, 1)
             coarse.plot(ax=ax)
             fine.plot(ax=ax, primal_color='c', dual_color='m')
-            ax.scatter(*il[:, :2].T, c='y')
-            ax.scatter(*ir[:, :2].T, c='g')
+            ax.scatter(*pl[:, :2].T, c='y')
+            ax.scatter(*pr[:, :2].T, c='g')
             plt.show()
 
         A = triangle_area_from_corners
-        c = f
 
-        wedge_l = A(C, e[a, L], il)
-        wedge_r = A(C, e[a, R], ir)
-        diamond_l = A(C, c, il)
-        diamond_r = A(C, c, ir)
-        sliver_l = A(v[a, l], c, il)
-        sliver_r = A(v[a, r], c, ir)
+        wedge_l = A(P2, p1[a, L], pl)
+        wedge_r = A(P2, p1[a, R], pr)
+        diamond_l = A(P2, pl, p2)
+        diamond_r = A(P2, pr, p2)
+        sliver_l = A(p0[a, l], pl, p2)
+        sliver_r = A(p0[a, r], pr, p2)
 
         # assemble area contributions of the middle triangle
         areas = np.empty((len(a), 3, 3))     # coarsetris x coarsevert x finevert
@@ -344,29 +344,25 @@ class ComplexSpherical2(ComplexSpherical):
         areas[a, R, l] = 0
         areas[a, L, r] = 0
         # triangular slivers disjoint from the m,m intersection
-        areas[a, L, l] = A(v[a, l], e[a, L], il)
-        areas[a, R, r] = A(v[a, r], e[a, R], ir)
+        areas[a, L, l] = A(p0[a, l], p1[a, L], pl)
+        areas[a, R, r] = A(p0[a, r], p1[a, R], pr)
         # subset of coarse tri bounding sliver
-        areas[a, L, m] = A(v[a, m], e[a, L], C) + wedge_l
-        areas[a, R, m] = A(v[a, m], e[a, R], C) + wedge_r
+        areas[a, L, m] = A(p0[a, m], p1[a, L], P2) + wedge_l
+        areas[a, R, m] = A(p0[a, m], p1[a, R], P2) + wedge_r
         # subset of fine tri bounding sliver
-        areas[a, m, l] = A(v[a, l], e[a, m], c) + sliver_l
-        areas[a, m, r] = A(v[a, r], e[a, m], c) + sliver_r
+        areas[a, m, l] = A(p0[a, l], p1[a, m], p2) + sliver_l
+        areas[a, m, r] = A(p0[a, r], p1[a, m], p2) + sliver_r
         # square middle region; may compute as fine or coarse minus its flanking parts
         areas[a, m, m] = diamond_l + diamond_r
 
-        # we may get numerical negativity for 2x2x2 symmetry, with equilateral fundamental domain,
-        # or high subdivision levels. or is error at high subdivision due to failing of touching logic?
-        assert(np.all(areas > -1e-10))
-
-        # need to grab coarsetri x 3coarsevert x 3finevert arrays of coarse and fine vertices
-        # fine_vertex   = np.repeat(i20[central_tris, None,    :], 3, axis=1)
-        # coarse_vertex = np.repeat(I20[:           , :   , None], 3, axis=2)
-        fine_vertex = np.broadcast_to(i20[central_tris, None,    :], areas.shape)
-        coarse_vertex = np.broadcast_to(I20[:         , :   , None], areas.shape)
+        assert(np.all(areas >= 0))
 
         # finally, we have the transfer matrix of the central fine triangles
-        center_transfer = coo_matrix(areas, coarse_vertex, fine_vertex)
+        center_transfer = coo_matrix(
+            areas,
+            np.broadcast_to(I20[:           , :, None], areas.shape),
+            np.broadcast_to(i20[central_tris, None, :], areas.shape),
+        )
 
         return (center_transfer + corner_transfer).tocsr()
 
