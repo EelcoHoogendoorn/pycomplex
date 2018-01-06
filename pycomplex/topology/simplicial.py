@@ -224,11 +224,22 @@ class TopologySimplicial(PrimalTopology):
         return domains
 
     def subdivide_fundamental(self, oriented=True):
-        """Perform a subdivision into fundamental domains"""
+        """Perform a subdivision into fundamental domains
+
+        Parameters
+        ----------
+        oriented : bool
+            if True, orientedness of self is preserved
+            if False, new simplices connected along an edge in the original mesh will have opposing orientation
+
+        Returns
+        -------
+        type(self)
+        """
         offset = np.cumsum([0] + self.n_elements, dtype=index_dtype)[:-1]
         # subdivision is essentially just remapping fundamental-domain n-simplex indices to 0-simplex indices
         simplices = self.fundamental_domains() + offset
-        # flip the mirrored side to preserve orientation;
+        # optionally flip the mirrored side to preserve orientation of the topology
         if oriented:
             simplices[..., 1, [-2, -1]] = simplices[..., 1, [-1, -2]]
         sub = type(self).from_simplices(simplices.reshape(-1, self.n_dim + 1))
@@ -241,6 +252,11 @@ class TopologySimplicial(PrimalTopology):
         Returns
         -------
         TopologyCubical
+            topology containing one cube for each corner of each simplex
+
+        Notes
+        -----
+        does not work for all ndim yet
         """
         N = self.n_elements
 

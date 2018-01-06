@@ -23,7 +23,7 @@ class ComplexSpherical(BaseComplexSimplicial):
         self.topology = topology
         self.radius = radius
 
-    def as_spherical(self):
+    def as_euclidian(self):
         from pycomplex.complex.simplicial.euclidian import ComplexSimplicialEuclidian
         return ComplexSimplicialEuclidian(vertices=self.vertices, topology=self.topology, weights=self.weights)
 
@@ -194,6 +194,7 @@ class ComplexSpherical2(ComplexSpherical):
     """Simplicial complex on the surface of a 2-sphere"""
 
     def __init__(self, vertices, simplices=None, topology=None, radius=1, weights=None):
+        # FIXME: do we expect all vertices to have radius one, and do we enfroce this?
         self.vertices = np.asarray(vertices)
         self.weights = weights
 

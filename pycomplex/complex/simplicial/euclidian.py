@@ -4,6 +4,7 @@ import numpy_indexed as npi
 import scipy.sparse
 from cached_property import cached_property
 
+from pycomplex.math import linalg
 from pycomplex.geometry import euclidian
 from pycomplex.topology.simplicial import TopologyTriangular, TopologySimplicial
 
@@ -259,6 +260,17 @@ class ComplexTriangularEuclidian(ComplexSimplicialEuclidian):
     def subdivide_loop(coarse, smooth=False, creases=None):
         """Loop subdivision
 
+        Parameters
+        ----------
+        smooth : bool
+            if False, newly created vertices are linearly interpolated from their parent
+            if True, mesh is smoothed after subdivision
+        creases : dict of (int, ndarray), optional
+            dict of n-chains, where nonzero elements denote crease elements
+
+        Returns
+        -------
+        fine : type(coarse)
         """
         fine = type(coarse)(
             vertices=np.concatenate(coarse.primal_position[:2], axis=0),
@@ -425,6 +437,7 @@ class ComplexTriangularEuclidian3(ComplexTriangularEuclidian):
         return (normals * centroids).sum() / self.n_dim
 
     def area(self):
+        """Compute triangle areas"""
         normals = self.triangle_normals()
         return np.linalg.norm(normals, axis=1).sum() / 2
 
@@ -542,4 +555,83 @@ class ComplexTriangularEuclidian3(ComplexTriangularEuclidian):
         ax.axis('equal')
 
     def as_spherical(self):
-        return ComplexTriangularEuclidian(vertices=self.vertices, topology=self.topology)
+        radius = np.linalg.norm(self.vertices, axis=1)
+        assert np.allclose(radius, radius.mean())
+        from pycomplex.complex.simplicial.spherical import ComplexSpherical2
+        return ComplexSpherical2(vertices=self.vertices, topology=self.topology)
+
+    def save_STL(self, filename):
+        """Save a mesh to binary STL.
+
+        Parameters
+        ----------
+        filename : str
+        """
+        header      = np.zeros(80, '<c')
+        triangles   = np.array(self.topology.n_elements[2], '<u4')
+        dtype       = [('normal', '<f4', 3,), ('vertex', '<f4', (3, 3)), ('abc', '<u2', 1,)]
+        data        = np.empty(triangles, dtype)
+
+        data['abc']    = 0     #standard stl cruft; can store two bytes per triangle, but not really used for anything
+        data['vertex'] = self.vertices[self.topology.corners[2]]
+        data['normal'] = linalg.normalized(self.triangle_normals()) # normal also isnt really used
+
+        with open(filename, 'wb') as fh:
+            header.   tofile(fh)
+            triangles.tofile(fh)
+            data.     tofile(fh)
+
+    @classmethod
+    def load_STL(cls, filename):
+        """Load an STL file from disk
+
+        Parameters
+        ----------
+        filename : str
+
+        Returns
+        -------
+        cls
+        """
+        dtype = [('normal', '<f4', 3,), ('vertex', '<f4', (3, 3)), ('abc', '<u2', 1,)]
+
+        with open(filename, 'rb') as fh:
+            header = np.fromfile(fh, '<c', 80)
+            triangles = np.fromfile(fh, '<u4', 1)[0]
+            data = np.fromfile(fh, dtype, triangles)
+
+        vertices, triangles = npi.unique(data['vertex'].reshape(-1, 3), return_inverse=True)
+        return cls(vertices, triangles=triangles.reshape(-1, 3))
+
+    def extrude(self, other):
+        """Extrude simplicial complex from self to other, where other is a displaced copy of self
+        Boundary is stitched with a triangle strip
+
+        Parameters
+        ----------
+        other : type(self)
+
+        Returns
+        -------
+        solid : type(self)
+        """
+        assert self.topology is other.topology
+        assert self.topology.is_oriented
+        assert self.boundary
+
+        n_vertices = len(self.vertices)
+        boundary_edges = self.topology.incidence[1, 0][self.boundary.topology.parent_idx[1]]
+        boundary_tris = np.concatenate((
+            np.concatenate((boundary_edges[:, ::-1], boundary_edges[:, 0:1] + n_vertices), axis=1),
+            np.concatenate((boundary_edges[:, ::+1] + n_vertices, boundary_edges[:, 1:2]), axis=1)
+        ))
+
+        self_tris = self.topology.incidence[2, 0]
+        other_tris = self.topology.incidence[2, 0][:, ::-1] + n_vertices
+
+        solid_points = np.concatenate((self.vertices, other.vertices))
+        solid_tris   = np.concatenate((self_tris, other_tris, boundary_tris))
+
+        solid = type(self)(vertices=solid_points, triangles=solid_tris)
+        assert solid.topology.is_oriented
+        return solid

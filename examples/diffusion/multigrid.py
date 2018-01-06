@@ -1,7 +1,10 @@
 
+"""Notes: still a WIP"""
+
 import numpy as np
 
 from examples.diffusion.explicit import Diffusor
+
 
 class MultiDiffusor(object):
     """Solve diffusion problems with multigrid logic and explicit integration"""
@@ -63,7 +66,7 @@ if __name__ == '__main__':
     diffusor = MultiDiffusor(hierarchy)
     print(diffusor.eigenvalues)
 
-    field = diffusor.integrate_explicit_sigma(field, 1.5)
+    field = diffusor.integrate_explicit(field, 1.5)
     print(field.min(), field.max())
 
     if kind == 'sphere':

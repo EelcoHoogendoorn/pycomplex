@@ -38,7 +38,7 @@ z = np.sqrt(np.clip(1 - linalg.dot(points, points), 0, 1))
 points = np.concatenate([points, z[..., None]], axis=-1)
 
 
-if True:
+if False:
     # primal pick compared to primal plot
 
     sphere.as_euclidian().plot_primal_0_form(p0, plot_contour=False, shading='gouraud', vmin=vmin, vmax=vmax)

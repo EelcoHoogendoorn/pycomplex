@@ -15,7 +15,6 @@ class BaseComplexSimplicial(BaseComplex):
     This is an abstract base class
     """
 
-
     def subdivide_fundamental(self, oriented=True):
         return type(self)(
             vertices=np.concatenate(self.primal_position, axis=0),
@@ -452,7 +451,7 @@ class BaseComplexSimplicial(BaseComplex):
         return subdivided, domains
 
     def pick_fundamental(self, points, domain_idx=None):
-        """Pick the fundamental domain
+        """Pick the fundamental domains
 
         Parameters
         ----------
@@ -501,7 +500,7 @@ class BaseComplexSimplicial(BaseComplex):
         domain_idx, bary, domain = self.pick_fundamental(points)
 
         # reverse flips made for orientation preservation
-        flip = np.bitwise_and(domain_idx, 1) == 0
+        flip = np.bitwise_and(domain_idx, 1) == 1
         temp = bary[flip, -2]
         bary[flip, -2] = bary[flip, -1]
         bary[flip, -1] = temp

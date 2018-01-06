@@ -110,6 +110,7 @@ class CompositeComplex(object):
     def boundary(self):
         """not sure yet how to represent"""
 
+
 if __name__ == "__main__":
     from pycomplex import synthetic
     quad = synthetic.n_cube(2)
