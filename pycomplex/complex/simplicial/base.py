@@ -188,8 +188,10 @@ class BaseComplexSimplicial(BaseComplex):
         copy of self, with optimized weights such that the dual vertex is well-centered
         """
         assert self.weights is None
-
         parent = self.topology.parent
+        from pycomplex.topology.simplicial import TopologySimplicial
+        assert isinstance(parent, TopologySimplicial)
+
         weights = self.topology.form(0)
 
         # calculate average length of edge connecting to vertex-vertex

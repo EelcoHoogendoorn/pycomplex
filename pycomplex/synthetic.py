@@ -119,7 +119,7 @@ def n_cube_dual(n_dim):
     Returns
     -------
     ComplexSpherical
-        consists of regular simplices on the surface of an n-sphere
+        consists of 2**n_dim regular simplices on the surface of an n_dim-1-sphere
 
     Notes
     -----
@@ -295,11 +295,10 @@ def delaunay_cube(density=30, n_dim=2, iterations=30):
     Returns
     -------
     ComplexSimplicialEuclidian
-
     """
     import scipy.spatial
 
-    idx = np.indices((density + 1,)*n_dim)
+    idx = np.indices((density + 1,) * n_dim)
     outer = np.where(np.any(np.logical_or(idx == 0, idx == density), axis=0))
     outer = np.array(outer).T / density
 
@@ -317,7 +316,7 @@ def delaunay_cube(density=30, n_dim=2, iterations=30):
         complex = ComplexSimplicialEuclidian(points, topology=topology)
         return complex
 
-    points = np.random.uniform(0, 1, (density ** 2, n_dim))
+    points = np.random.uniform(0, 1, (density ** n_dim, n_dim))
     complex = complex_from_points(points)
 
     for i in range(iterations):

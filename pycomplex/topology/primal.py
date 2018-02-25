@@ -101,7 +101,7 @@ class PrimalTopology(BaseTopology):
             if True, strict checking for manifoldness is performed
         """
         if not np.array_equiv(elements[0].flatten(), np.arange(len(elements[0]))):
-            raise ValueError
+            raise ValueError('Vertices need to form a contiguous range starting at 0')
 
         self.strict = strict
         self._elements = elements

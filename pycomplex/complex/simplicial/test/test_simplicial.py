@@ -86,6 +86,19 @@ def test_subdivided_triangle():
     tri = synthetic.n_simplex(2).as_2().as_2()
     for i in range(5):
         tri = tri.subdivide_loop()
+    tri.plot(plot_dual=True)
+    plt.show()
+
+
+def test_subdivided_mesh():
+    surface = synthetic.n_cube(3).boundary.subdivide_fundamental().as_2().as_3()
+    surface = surface.smooth()
+    for i in range(2):
+        surface = surface.subdivide_loop(smooth=True)
+
+    surface = surface.transform(linalg.orthonormalize(np.random.randn(3, 3)))
+    surface.plot_3d(plot_dual=True, backface_culling=True)
+    plt.show()
 
 
 def test_power_dual():

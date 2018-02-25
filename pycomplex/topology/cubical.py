@@ -316,6 +316,13 @@ class TopologyCubical(PrimalTopology):
         raise NotImplementedError
 
     def subdivide_fundamental(self):
+        """Subdivide cubical topology into simplicial topology,
+        by means of splitting each n-cube into its fundamental domains
+
+        Returns
+        -------
+        sub: TopologySimplicial
+        """
         offset = np.cumsum([0] + self.n_elements, dtype=index_dtype)[:-1]
         # subdivision is essentially just remapping fundamental-domain n-simplex indices to 0-simplex indices
         simplices = self.fundamental_domains() + offset
@@ -327,8 +334,10 @@ class TopologyCubical(PrimalTopology):
         return sub
 
     def fundamental_domains(self):
-        """Form fundamental domain simplices by connecting corners of all degrees
+        """Form fundamental domain simplices for each n-cube by connecting corners of all degrees
 
+        Notes
+        -----
         This is very similar to simplex fundamental domain subdivision logic
 
         Returns
@@ -487,3 +496,4 @@ class TopologyCubical2(TopologyCubical):
                 shape=(simplicial.n_elements[2], cubical.n_elements[2])
             )
         ]
+        simplicial.parent = cubical

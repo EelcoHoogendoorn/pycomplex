@@ -176,7 +176,7 @@ class ComplexSimplicialEuclidian(BaseComplexSimplicial):
 
 
 class ComplexTriangularEuclidian(ComplexSimplicialEuclidian):
-    """Triangular simplicial complex"""
+    """Triangular simplicial complex in euclidian space"""
 
     def __init__(self, vertices, triangles=None, topology=None, weights=None):
         self.vertices = np.asarray(vertices)
@@ -287,8 +287,45 @@ class ComplexTriangularEuclidian(ComplexSimplicialEuclidian):
 
         return fine
 
+    def subdivide_loop_operator(coarse, smooth=False, creases=None):
+        """By constructing this in operator form, rather than subdividing directly,
+        we can cache the expensive parts of this calculation,
+        and achieve very fast updates to our subdivision curves under change of vertex position
+
+        Parameters
+        ----------
+        creases : dict of (int: ndarray), optional
+            dict of n to n-chains, where nonzero elements denote crease elements
+        smooth : bool
+            if true, smoothing is performed after subdivision
+
+        Returns
+        -------
+        operator : sparse array, [coarse.n_vertices, fine.n_vertices]
+            sparse array mapping coarse to fine vertices
+
+        """
+        coarse_averaging = scipy.sparse.vstack(coarse.topology.averaging_operators_0)
+
+        if smooth:
+            # NOTE: only difference with cubical case lies in this call
+            fine = coarse.subdivide_loop()
+
+            # propagate creases to lower level
+            if creases is not None:
+                creases = {n: fine.topology.transfer_matrices[n] * c
+                           for n, c in creases.items()}
+
+            operator = fine.smooth_operator(creases) * coarse_averaging
+
+        else:
+            operator = coarse_averaging
+
+        return operator
+
+
     def subdivide_cubical(self):
-        """Convert the simplicial complex into a cubical complex"""
+        """Convert the simplicial-2 complex into a cubical-2 complex"""
         from pycomplex.complex.cubical import ComplexCubical2
         return ComplexCubical2(
             vertices=np.concatenate(self.primal_position, axis=0),
@@ -296,10 +333,12 @@ class ComplexTriangularEuclidian(ComplexSimplicialEuclidian):
         )
 
     def as_2(self):
+        assert self.n_dim == 2
         return ComplexTriangularEuclidian2(vertices=self.vertices, topology=self.topology, weights=self.weights)
 
     def as_3(self):
-        return ComplexTriangularEuclidian3(vertices=self.vertices, topology=self.topology)
+        assert self.n_dim == 3
+        return ComplexTriangularEuclidian3(vertices=self.vertices, topology=self.topology, weights=self.weights)
 
     def plot_dual_0_form_interpolated(self, d0, ax=None, weighted=False, **kwargs):
         if weighted:
@@ -437,7 +476,7 @@ class ComplexTriangularEuclidian3(ComplexTriangularEuclidian):
         return (normals * centroids).sum() / self.n_dim
 
     def area(self):
-        """Compute triangle areas"""
+        """Compute total surface area"""
         normals = self.triangle_normals()
         return np.linalg.norm(normals, axis=1).sum() / 2
 

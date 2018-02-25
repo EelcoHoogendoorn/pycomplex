@@ -99,6 +99,7 @@ class ComplexCubical(BaseComplex):
         coarse_averaging = scipy.sparse.vstack(coarse.topology.averaging_operators_0)
 
         if smooth:
+            # NOTE: only difference with triangular case lies in this call
             fine = coarse.subdivide_cubical()
 
             # propagate creases to lower level
