@@ -22,6 +22,7 @@ class Advector(object):
 
     @cached_property
     def dual_flux_to_dual_velocity(self):
+        # FIXME: this is more general than advection alone, and should be moved to the complex as a sharp/flat operator, and be tested seperately
         # assert self.complex.is_pairwise_delaunay    # required since we are dividing by dual edge lengths; does not work for cubes yet
         # T01, T12 = self.complex.topology.matrices
         D01, D12 = self.complex.topology.dual.matrices_2
@@ -99,7 +100,7 @@ class Advector(object):
         mesh_p0 = self.complex.primal_position[0]
         # is there any merit to higher order integration of this step?
         advected_p0 = mesh_p0 + self.complex.sample_dual_0(velocity_d0, mesh_p0) * dt
-        # FIXME: sample is overkill here; could just average directly
+        # FIXME: sample is overkill here; could just average with operator directly at pp0
         # No, need correct boundary handling; which is lacking atm btw
 
 
@@ -116,6 +117,18 @@ class Advector(object):
         return self.complex.sample_primal_0(field_p0, advected_p0)
 
     def advect_d0(self, flux_d1, field_d0, dt):
+        """Advect a dual-0-form along a flowfield given by a dual-1-form for a timestep dt
+
+        Parameters
+        ----------
+        flux_d1 : dual-1-form
+        field_d0 : dual-0-form
+
+        Returns
+        -------
+        dual-0-form
+            advected dual-0-form
+        """
         velocity_d0 = self.dual_flux_to_dual_velocity(flux_d1)
         mesh_d0 = self.complex.dual_position[0]
         advected_d0 = mesh_d0 + velocity_d0 * dt
