@@ -18,10 +18,24 @@ from pycomplex.math import linalg
 class Advector(object):
 
     def __init__(self, complex):
+        """
+
+        Parameters
+        ----------
+        complex: BaseComplex
+            must have a `sample_dual_0` method
+        """
         self.complex = complex
 
     @cached_property
     def dual_flux_to_dual_velocity(self):
+        """
+
+        Returns
+        -------
+        callable that maps a dual-1-form representing tangent flux,
+        to a vector field represented at dual vertices in the embedding space
+        """
         # assert self.complex.is_pairwise_delaunay    # required since we are dividing by dual edge lengths; does not work for cubes yet
         # T01, T12 = self.complex.topology.matrices
         D01, D12 = self.complex.topology.dual.matrices_2

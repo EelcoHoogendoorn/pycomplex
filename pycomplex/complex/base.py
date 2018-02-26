@@ -225,13 +225,6 @@ class BaseComplex(object):
         P, D = self.metric
         return [d / p for p, d in zip(P, D[::-1])]
 
-    @abstractmethod
-    def pick_primal(self, points):
-        raise NotImplementedError
-    @abstractmethod
-    def pick_dual(self, points):
-        raise NotImplementedError
-
     @cached_property
     def positive_dual_metric(self):
         """Returns true if all dual metrics are positive"""
@@ -249,15 +242,18 @@ class BaseComplex(object):
 
     @cached_property
     def weighted_average_operators(self):
-        """Weight averaging over the duals by their barycentric mean coordinates
+        """Weighted averaging of dual 0-forms by their barycentric mean coordinates
+        In conjunction with the barycentric coordinates on each fundamental domain,
+        this can be used to construct a barycentric interpolation of dual 0-forms;
+        see `BaseComplex.sample_dual_0`
 
-        Divide by distance to dual vertex to make all other zero when approaching vertex
-        Divide by distance to dual edge to make all other zero when approaching dual edge
-        Divide by distance to dual face to make all other zero when approaching dual face
-        and so on.
+        This is equivalent to a mean-value barycentric interpolation,
+        evaluated only at the position of primal/dual elements
 
-        General idea; divide perimeter of a dual element
-        by the distance to all corners corresponding to lower order duals
+        Returns
+        -------
+        array_like, [topology.n_dim+1] of sparse matrices
+        n-th entry maps dual 0-form to dual of primal n-form (FIXME: returning reverse order is more natural)
 
         References
         ----------
@@ -266,8 +262,16 @@ class BaseComplex(object):
 
         Notes
         -----
+        Divide by distance to dual vertex to make all other zero when approaching vertex
+        Divide by distance to dual edge to make all other zero when approaching dual edge
+        Divide by distance to dual face to make all other zero when approaching dual face
+        and so on.
+
+        General idea; divide perimeter of a dual element
+        by the distance to all corners corresponding to lower order duals
+
         Requires a well-centered mesh.
-        Getting this working on non-well centered meshes requires handling of sign in metric caluculations,
+        Getting this working on non-well centered meshes requires handling of sign in metric calculations,
         but also replacing the division by the distance to each corner of a domain,
         with a product to all other distances in the cell, to avoid divisions by zero.
         This strikes me as a bit daunting still
@@ -319,6 +323,22 @@ class BaseComplex(object):
             res.append(normalize_l1(q, axis=1))
 
         return res
+
+    @abstractmethod
+    def pick_primal(self, points):
+        raise NotImplementedError
+    @abstractmethod
+    def pick_dual(self, points):
+        raise NotImplementedError
+    @abstractmethod
+    def pick_fundamental(self, points):
+        raise NotImplementedError
+
+    @abstractmethod
+    def sample_dual_0(self, d0, points):
+        """Sample a dual 0-form at the given points in the embedding space,
+        using linear interpolation over fundamental domains"""
+        raise NotImplementedError
 
     @abstractmethod
     def unsigned_volume(self, pts):

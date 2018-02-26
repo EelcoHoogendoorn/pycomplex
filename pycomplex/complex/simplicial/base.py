@@ -369,9 +369,10 @@ class BaseComplexSimplicial(BaseComplex):
     def pick_primal_precomp_unweighted(self):
         return self.pick_primal_precomp(weight=False)
 
-
     def pick_primal(self, points, simplex_idx=None, weighted=True):
         """Picking of primal simplex by means of a point query wrt its dual vertex
+        Note that the crux of this functionality lies in the precomputation step,
+        where the coordinates are augmented with an extra dimension to make this possible
 
         Parameters
         ----------
@@ -464,9 +465,9 @@ class BaseComplexSimplicial(BaseComplex):
 
         Returns
         -------
-        domain_idx : ndarray, [n_points], index_dtype, optional
+        domain_idx : ndarray, [n_points], index_dtype
             element idx of the fundamental domain being picked
-        baries: ndarray, [n_points, n_dim] float
+        baries : ndarray, [n_points, n_dim] float
             barycentric weights corresponding to the domain indices
         domains : ndarray, [n_points, n_dim], index_dtype
             n-th column corresponds to indices of n-element
