@@ -87,12 +87,12 @@ class MyComplex(ComplexTriangularEuclidian3):
         Parameters
         ----------
         seed : ndarray, [n_vertices], float
-            primal 0-form indicating starting point
+            primal 0-form; indicating starting point
 
         Returns
         -------
         ndarray, [n_vertices], float
-            distance from the seed point
+            primal 0-form; distance from the seed point
 
         Notes
         -----
