@@ -216,6 +216,13 @@ def optimal_delaunay_sphere(n_points, n_dim, iterations=50, weights=True, push_i
     """Try and construct an optimal delaunay mesh on the sphere, in the sense described in [1],
     by repeated averaging over dual centroid positions
 
+    Parameters
+    ----------
+    n_points : int
+        number of vertices of the primal mesh
+    n_dim : int
+        dimension of the embedding space
+
     Returns
     -------
     ComplexSpherical

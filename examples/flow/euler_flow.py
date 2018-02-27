@@ -158,7 +158,7 @@ class VorticityAdvector(Advector):
         D01, D12 = self.complex.topology.dual.matrices_2
         D1D0 = D01.T
 
-        velocity_d0 = self.dual_flux_to_dual_velocity(flux_d1)
+        velocity_d0 = self.complex.dual_flux_to_dual_velocity(flux_d1)
 
 
         # advect the dual mesh
@@ -233,7 +233,7 @@ if __name__ == "__main__":
 
     # np.seterr(all='raise')
     # complex_type = 'grid'
-    complex_type = 'grid'
+    complex_type = 'sphere'
 
     if complex_type == 'sphere':
         complex = synthetic.icosphere(refinement=5)
