@@ -100,8 +100,8 @@ class Advector(object):
             # if isinstance(self.complex, ComplexSpherical):
             #     velocity_d0 = velocity_d0 - dual_vertex * (velocity_d0 * dual_vertex).sum(axis=1, keepdims=True)
 
-            # rec_flux = np.einsum('...ij,...j->...i', gradients, velocity_d0)
-            # assert np.allclose(rec_flux, normal_flux, atol=1e-6)
+            rec_flux = np.einsum('...ij,...j->...i', gradients, velocity_d0)
+            assert np.allclose(rec_flux, normal_flux, atol=1e-6)
             # cast away dual boundary flux, then pad velocity with zeros... not quite right, should use the boundary information
             velocity_d0 = self.complex.topology.dual.selector[-1].T * velocity_d0
 
@@ -117,7 +117,6 @@ class Advector(object):
         # FIXME: sample is overkill here; could just average with operator directly at pp0
         # No, need correct boundary handling; which is lacking atm btw
 
-
         if False:
             # import matplotlib.pyplot as plt
             self.complex.plot(plot_dual=False)
@@ -126,7 +125,6 @@ class Advector(object):
             plt.quiver(self.complex.primal_position[2][:, 0], self.complex.primal_position[2][:, 1], velocity_d0[:, 0], velocity_d0[:, 1])
             plt.axis('equal')
             plt.show()
-
 
         return self.complex.sample_primal_0(field_p0, advected_p0)
 

@@ -353,6 +353,16 @@ def segment_normals(corners):
 
 
 def simplex_normals(corners):
+    """Compute simplex normals for the opposing face of all corner points
+
+    Parameters
+    ----------
+    corners : ndarray, [..., n_pts, n_dim], float
+
+    Returns
+    -------
+    normals : ndarray, [..., n_pts, n_dim], float
+    """
     corners = np.asarray(corners)
     barycenter = corners.mean(axis=-2, keepdims=True)
     gradients = linalg.pinv(corners - barycenter)
@@ -361,8 +371,19 @@ def simplex_normals(corners):
 
 
 def simplex_gradients(corners):
+    """Compute simplex volume gradients with respect to all corner points
+
+    Parameters
+    ----------
+    corners : ndarray, [..., n_pts, n_dim], float
+
+    Returns
+    -------
+    gradients : ndarray, [..., n_pts, n_dim], float
+    """
     corners = np.asarray(corners)
     gradients = simplex_normals(corners)
+    # multiply each normal with the area of the face opposing each corner
     for i in range(corners.shape[-2]):
         gradients[..., i, :] *= unsigned_volume(np.roll(corners, -i, axis=-2)[..., 1:, :])[..., None]
     return gradients

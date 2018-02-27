@@ -77,17 +77,20 @@ def test_extrude():
 
 def test_flux_to_vector():
     """Test if a constant gradient potential produces constant vectors"""
-    # FIXME: current flowfield is anything but constant. i think we can do better
-    quad = synthetic.delaunay_cube(n_dim=2)
+    quad = synthetic.delaunay_cube(n_dim=2, density=10)
     # potential that is a linear gradient
     phi_p0 = quad.primal_position[0][:, 0]
 
     P01, P12 = quad.topology.matrices
     flux_p1 = P01.T * phi_p0
+    # check what happens to non-solenoidal components
+    # flux_p1 += np.random.randn(*flux_p1.shape) * 1e-2
     flux_d1 = quad.hodge_DP[1] * flux_p1
     # add zero boundary terms
     flux_d1 = quad.topology.dual.selector[1].T * flux_d1
     velocity_d0 = quad.dual_flux_to_dual_velocity(flux_d1)
+
+    npt.assert_allclose(velocity_d0, [[0, 1]]*len(velocity_d0), atol=1e-9, rtol=1)
 
     quad.plot(plot_dual=False)
     p = quad.primal_position[2]
