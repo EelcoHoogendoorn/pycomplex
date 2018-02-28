@@ -244,6 +244,7 @@ if __name__ == "__main__":
 
     if complex_type == 'sphere':
         complex = synthetic.icosphere(refinement=5)
+        print(complex.topology.n_elements)
 
         # FIXME: for reasons not quite clear to me irregular mesh with same vert-count is a fair bit slower. probably the condition number?
         # complex = synthetic.optimal_delaunay_sphere(complex.topology.n_elements[0], 3, iterations=10)
@@ -335,7 +336,7 @@ if __name__ == "__main__":
                 (.4, .4),
                 (.8, .8),
             ]
-        ) / 300 * 1 #+ H / 2000
+        ) / 100 * 1 #+ H / 2000
 
         flux_p1 = curl * H
         flux_d1 = complex.hodge_DP[1] * flux_p1

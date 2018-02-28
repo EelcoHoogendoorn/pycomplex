@@ -305,7 +305,7 @@ def test_multigrid_form():
 
 def test_flux_to_vector():
     """Test if a constant gradient potential produces constant vectors"""
-    sphere = synthetic.optimal_delaunay_sphere(n_dim=3, n_points=200)
+    sphere = synthetic.optimal_delaunay_sphere(n_dim=3, n_points=200, condition='centered')
     # potential that is a linear gradient
     phi_p0 = sphere.primal_position[0][:, 0]
 
