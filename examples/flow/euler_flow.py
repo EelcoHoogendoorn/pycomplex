@@ -240,7 +240,7 @@ if __name__ == "__main__":
 
     # np.seterr(all='raise')
     # complex_type = 'grid'
-    complex_type = 'grid'
+    complex_type = 'sphere'
 
     if complex_type == 'sphere':
         complex = synthetic.icosphere(refinement=5)
@@ -265,7 +265,7 @@ if __name__ == "__main__":
     if complex_type == 'simplex_quad':
         # the only difference between this and 'simplicial fluids', should be the dual interpolation
         while True:
-            complex = synthetic.delaunay_cube(30, 2, iterations=50)
+            complex = synthetic.delaunay_cube(density=10, n_dim=2, iterations=50)
 
             # smooth while holding boundary constant
             # FIXME: need more utility functions for this; too much boilerplate for such a simple pattern
@@ -274,12 +274,13 @@ if __name__ == "__main__":
             chain_1 = complex.topology.chain(1, fill=0)
             chain_1[complex.boundary.topology.parent_idx[1]] = 1
             creases = {0: chain_0, 1: chain_1}
-            for i in range(0):
+            for i in range(2):
                 complex = complex.as_2().subdivide_loop(smooth=True, creases=creases)
                 for d, c in creases.items():
                     creases[d] = complex.topology.transfer_matrices[d] * c
 
-            complex = complex.optimize_weights_metric()
+            # FIXME: is weighted complex compatible at all with simplicial fluids?
+            # complex = complex.optimize_weights_metric()
             print(complex.is_well_centered)
             if complex.is_well_centered:
                 break
@@ -357,7 +358,7 @@ if __name__ == "__main__":
     def advect(flux_d1, dt):
         return advector.advect_vorticity(flux_d1, dt)
 
-    from examples.flow.advection import BFECC
+    from examples.flow.advection import BFECC, MacCormack
 
     for i in save_animation(path, frames=200, overwrite=True):
         for r in range(4):

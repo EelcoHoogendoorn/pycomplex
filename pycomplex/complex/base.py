@@ -354,12 +354,16 @@ class BaseComplex(object):
         # FIXME: analogous computation would be normal of cube faces multiplied with their area
         gradients = euclidian.simplex_gradients(self.vertices[self.topology.elements[-1]])
         u, s, v = np.linalg.svd(gradients)
+        # FIXME: what about triangles in 3-space? number of relevant components is limited
+        # cant use np.linalg.pinv since it isnt a gufunc
+        n = self.topology.n_dim
+        s[:, n:] = np.inf
         s = 1 / s
         pinv = np.einsum('...ij,...j,...jk->...ki', u[..., :s.shape[-1]], s, v)
         # gradients.dot(velocity) = normal_flux
 
-        # solve using normal equations instead?
-        # grad.shape = 3, 2
+        # # solve using normal equations instead?
+        # # grad.shape = 3, 2
         # normal = np.einsum('...ji,...jk->...ik', gradients, gradients)
         # inv = np.linalg.inv(normal)
         # pinv = np.einsum('...ij,...kj->...ik', inv, gradients)

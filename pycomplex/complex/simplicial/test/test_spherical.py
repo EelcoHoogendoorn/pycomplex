@@ -302,3 +302,26 @@ def test_multigrid_form():
         plt.colorbar()
     plt.show()
 
+
+def test_flux_to_vector():
+    """Test if a constant gradient potential produces constant vectors"""
+    sphere = synthetic.optimal_delaunay_sphere(n_dim=3, n_points=200)
+    # potential that is a linear gradient
+    phi_p0 = sphere.primal_position[0][:, 0]
+
+    P01, P12 = sphere.topology.matrices
+    flux_p1 = P01.T * phi_p0
+    # check what happens to non-solenoidal components
+    # flux_p1 += np.random.randn(*flux_p1.shape) * 1e-2
+    flux_d1 = sphere.hodge_DP[1] * flux_p1
+    # add zero boundary terms
+    flux_d1 = sphere.topology.dual.selector[1].T * flux_d1
+    velocity_d0 = sphere.dual_flux_to_dual_velocity(flux_d1)
+
+    # npt.assert_allclose(velocity_d0, [[0, 1]]*len(velocity_d0), atol=1e-9, rtol=1)
+
+    sphere.plot(plot_dual=True, backface_culling=True)
+    p = sphere.primal_position[2]
+    mask = p[:, 2] > 0
+    plt.quiver(*p[mask, :2].T, *velocity_d0[mask, :2].T)
+    plt.show()
