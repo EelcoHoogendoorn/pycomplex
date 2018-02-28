@@ -14,12 +14,11 @@ from pycomplex.complex.simplicial.euclidian import ComplexTriangularEuclidian3, 
 def test_save_STL():
     sphere = synthetic.optimal_delaunay_sphere(200, 3).as_euclidian().as_2().as_3()
 
-
     sphere.save_STL('test.stl')
     sphere = ComplexTriangularEuclidian3.load_STL('test.stl')
     os.remove('test.stl')
 
-    sphere.plot_3d(backface_culling=True)
+    sphere.as_spherical().plot(backface_culling=True)
     plt.show()
 
 
@@ -79,7 +78,7 @@ def test_flux_to_vector():
     """Test if a constant gradient potential produces constant vectors"""
     quad = synthetic.delaunay_cube(n_dim=2, density=10)
     # potential that is a linear gradient
-    phi_p0 = quad.primal_position[0][:, 0]
+    phi_p0 = quad.primal_position[0][:, 0]# * quad.primal_position[0][:, 1]
 
     P01, P12 = quad.topology.matrices
     flux_p1 = P01.T * phi_p0
@@ -93,6 +92,5 @@ def test_flux_to_vector():
     npt.assert_allclose(velocity_d0, [[0, 1]]*len(velocity_d0), atol=1e-9, rtol=1)
 
     quad.plot(plot_dual=False)
-    p = quad.primal_position[2]
-    plt.quiver(p[:, 0], p[:, 1], velocity_d0[:, 0], velocity_d0[:, 1])
+    plt.quiver(*quad.primal_position[2].T, *velocity_d0.T)
     plt.show()

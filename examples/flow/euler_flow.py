@@ -40,8 +40,16 @@ from pycomplex.math import linalg
 
 
 class VorticityAdvector(Advector):
+    # FIXME: is there any point in the class dirivation?
 
     def __init__(self, complex, diffusion=None):
+        """
+
+        Parameters
+        ----------
+        complex : BaseComplex
+        diffusion : float, optional
+        """
         super(VorticityAdvector, self).__init__(complex)
         self.diffusion = diffusion
 
@@ -158,7 +166,7 @@ class VorticityAdvector(Advector):
         D01, D12 = self.complex.topology.dual.matrices_2
         D1D0 = D01.T
 
-        velocity_d0 = self.dual_flux_to_dual_velocity(flux_d1)
+        velocity_d0 = self.complex.dual_flux_to_dual_velocity(flux_d1)
 
 
         # advect the dual mesh
@@ -191,12 +199,12 @@ class VorticityAdvector(Advector):
         flux_d1_advected = linalg.dot(velocity_sampled_d1, advected_edge)        # this does not include flux around boundary edges; but currently all zero anyway
 
         if False:
+            # visualize flowfield after
             print(flux_d1_advected.min(), flux_d1_advected.max())
-            velocity_d0_ = self.dual_flux_to_dual_velocity(flux_d1_advected)
+            velocity_d0_ = self.complex.dual_flux_to_dual_velocity(flux_d1_advected)
             print(velocity_d0_.min(), velocity_d0_.max())
             plt.figure()
-            plt.quiver(self.complex.primal_position[2][:, 0], self.complex.primal_position[2][:, 1], velocity_d0_[:, 0],
-                       velocity_d0_[:, 1])
+            plt.quiver(*self.complex.primal_position[2].T, *velocity_d0_.T)
             plt.axis('equal')
             # plt.show()
 
@@ -214,11 +222,10 @@ class VorticityAdvector(Advector):
 
             if False:
                 print(F.min(), F.max())
-                velocity_d0_ = self.dual_flux_to_dual_velocity(F)
+                velocity_d0_ = self.complex.dual_flux_to_dual_velocity(F)
                 print(velocity_d0_.min(), velocity_d0_.max())
                 plt.figure()
-                plt.quiver(self.complex.primal_position[2][:, 0], self.complex.primal_position[2][:, 1], velocity_d0_[:, 0],
-                           velocity_d0_[:, 1])
+                plt.quiver(*self.complex.primal_position[2].T, velocity_d0_.T)
                 plt.axis('equal')
                 plt.show()
             return F

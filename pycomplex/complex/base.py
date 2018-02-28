@@ -349,7 +349,9 @@ class BaseComplex(object):
         # D1D0 = D01.T
 
         from pycomplex.geometry import euclidian
-        # FIXME: this only works for simplices; or can it be generalized to cubes too? seems like
+        # FIXME: this only works for simplices; or can it be generalized to cubes too? gradients are per vertex-opposing-face pair;
+        # FIXME can think of it as volume gradient of moving vertex, or gradient of moving opposing face
+        # FIXME: analogous computation would be normal of cube faces multiplied with their area
         gradients = euclidian.simplex_gradients(self.vertices[self.topology.elements[-1]])
         u, s, v = np.linalg.svd(gradients)
         s = 1 / s
