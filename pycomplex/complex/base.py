@@ -343,10 +343,7 @@ class BaseComplex(object):
         -----
         This is the docstring of the wrapped inner function
         """
-        # assert self.is_pairwise_delaunay    # required since we are dividing by dual edge lengths; does not work for cubes yet
-        # T01, T12 = self.complex.topology.matrices
-        # D01, D12 = self.topology.dual.matrices_2
-        # D1D0 = D01.T
+        assert self.is_pairwise_delaunay    # required since we are dividing by dual edge lengths; does not work for cubes yet
 
         from pycomplex.geometry import euclidian
         # FIXME: this only works for simplices; or can it be generalized to cubes too? gradients are per vertex-opposing-face pair;
@@ -354,30 +351,11 @@ class BaseComplex(object):
         # FIXME: analogous computation would be normal of cube faces multiplied with their area
         gradients = euclidian.simplex_gradients(self.vertices[self.topology.elements[-1]])
         u, s, v = np.linalg.svd(gradients)
-        # FIXME: what about triangles in 3-space? number of relevant components is limited
-        # cant use np.linalg.pinv since it isnt a gufunc
-        n = self.topology.n_dim
-        s[:, n:] = np.inf
+        # only retain components in the plane of the element
+        s[:, self.topology.n_dim:] = np.inf
         s = 1 / s
         pinv = np.einsum('...ij,...j,...jk->...ki', u[..., :s.shape[-1]], s, v)
         # gradients.dot(velocity) = normal_flux
-
-        # # solve using normal equations instead?
-        # # grad.shape = 3, 2
-        # normal = np.einsum('...ji,...jk->...ik', gradients, gradients)
-        # inv = np.linalg.inv(normal)
-        # pinv = np.einsum('...ij,...kj->...ik', inv, gradients)
-
-        # check = np.einsum('...ij,...jk->...ik', pinv, gradients)
-
-        # from pycomplex.geometry import euclidian
-        # gradients = euclidian.simplex_gradients(self.complex.vertices[self.complex.topology.elements[-1]])
-        # u, s, v = np.linalg.svd(gradients)
-        # s = 1 / s
-        # pinv = np.einsum('...ij,...j,...jk->...ki', u[..., :], s, v)
-        # # check = np.einsum('...ij,...jk->...ik', pinv, gradients)
-
-
 
         # # # for incompressible flows on simplicial topologies, there exists a 3-vector at the dual vertex,
         # # # which projected on the dual edges forms the dual fluxes. on a sphere the third component is not determined
@@ -387,23 +365,40 @@ class BaseComplex(object):
         O = self.topology._orientation[-1]
         B = B.reshape(len(B), -1)
         O = O.reshape(len(O), -1)
-        # # # tangent edges per primal n-element
-        # # # FIXME: need to enforce incompressibility constraint. more easily done using face normals
-        # dual_vertex = self.dual_position[0]
-        # dual_edge_vector = D1D0 * dual_vertex
-        # tangent_directions = (dual_edge_vector)[B] * O[..., None]
-        # # compute pseudoinverse, to quickly construct velocities at dual vertices
-        # # for a regular grid, this should be just an averaging operator in both dims
-        # u, s, v = np.linalg.svd(tangent_directions)
-        # s = 1 / s
-        # # s[:, self.complex.topology.n_dim:] = 0
-        # pinv = np.einsum('...ij,...j,...jk->...ki', u[..., :s.shape[-1]], s, v)
+
+        def block_diag(blocks):
+            b, r, c = np.indices(blocks.shape)
+            r = r + b * blocks.shape[1]
+            c = c + b * blocks.shape[2]
+            return scipy.sparse.coo_matrix((blocks.flatten(), (r.flatten(), c.flatten())))
+
+        def signed_selector(B, O):
+            c = B
+            r = np.arange(len(c))
+            return scipy.sparse.coo_matrix((O.flatten(), (r.flatten(), c.flatten())))
+
+        bpinv = block_diag(pinv)
+        s = signed_selector(B.flatten(), O.flatten())
+        pd1 = scipy.sparse.diags(self.hodge_PD[1])
+        core = (bpinv * s * pd1).tocsr()    # perhaps drop near-zero terms?
+        S = self.topology.dual.selector[1]
+        S2 = self.topology.dual.selector[-1]
+        def dual_flux_to_dual_velocity(flux_d1):
+            return S2.T * (core * (S * flux_d1)).reshape(self.topology.n_elements[-1], self.n_dim)
+        return dual_flux_to_dual_velocity
 
         def dual_flux_to_dual_velocity(flux_d1):
+            # cast away boundary fluxes
             flux_d1 = self.topology.dual.selector[1] * flux_d1
             # compute velocity component in the direction of the dual edge
             # tangent_velocity_component = (flux_d1 )[B] * O
-            normal_flux = (self.hodge_PD[1] * flux_d1)[B] * O
+            normal_flux = self.hodge_PD[1] * flux_d1
+            # grab flux and sign per element;
+            # reshape from [n_dual_edges] to [n_dual_vertices, n_corners]
+            # can this be represented as a sparse matrix? maps vector to matrix
+            # needs to be contracted with einsum below
+            # need to flatten first to use sparse matrix
+            normal_flux = normal_flux[B] * O
             # given these flows incident on the dual vertex, reconstruct the velocity vector there
             velocity_d0 = np.einsum('...ij,...j->...i', pinv, normal_flux)
 
