@@ -182,7 +182,7 @@ class VorticityAdvector(Advector):
             # self.complex.plot(plot_dual=False)
             # self.complex.copy(vertices=advected_p0).plot(plot_dual=False)
             plt.figure()
-            plt.quiver(self.complex.primal_position[2][:, 0], self.complex.primal_position[2][:, 1], velocity_d0[:, 0], velocity_d0[:, 1])
+            plt.quiver(*self.complex.primal_position[2].T[:2], *velocity_d0.T[:2])
             plt.axis('equal')
 
 
