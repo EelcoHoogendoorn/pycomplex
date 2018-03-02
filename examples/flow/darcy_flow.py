@@ -4,7 +4,7 @@
 """
 darcy flow:
     flow is divergence free
-    follows darcy's law; proportionality flux and the proudct of pressure gradient and permeability
+    follows darcy's law; proportionality flux and the product of pressure gradient and permeability
 
 [mu,  grad] [v] = [f]
 [div, 0   ] [P]   [0]

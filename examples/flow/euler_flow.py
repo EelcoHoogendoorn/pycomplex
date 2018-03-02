@@ -62,8 +62,9 @@ class VorticityAdvector(Advector):
         return laplacian
 
     def pressure_projection(self, flux_d1):
+        """Make a flow field solenoidal by projecting out its divergent component"""
         TnN = self.complex.topology.matrices[-1]
-        hodge = self.complex.hodge_PD[-2]
+        hodge = self.complex.hodge_PD[-2]   # maps dual 1-forms to their primals
 
         div = TnN.T * (hodge * flux_d1)
         laplacian = self.pressure_projection_precompute
@@ -114,13 +115,19 @@ class VorticityAdvector(Advector):
         flux_d1 : ndarray, [n_dual_edges], float
             dual 1-form, excluding values on the dual boundary
 
+        Returns
+        -------
+        flux_d1: ndarray, [n_dual_edges], float
+            solenoidal dual 1-form, excluding values on the dual boundary
+
         """
-        T01, T12 = self.complex.topology.matrices
+        # NOTE: naming is chosen based on 2d topology, but code should work for any dim
+        T01, T12 = self.complex.topology.matrices[-2:]
         P1P0 = T01.T
         D2D1 = T01
-        D1P1 = self.complex.hodge_DP[1]
-        D2P0 = self.complex.hodge_DP[0]
-        P0D2 = self.complex.hodge_PD[0]
+        D1P1 = self.complex.hodge_DP[-2]
+        D2P0 = self.complex.hodge_DP[-3]
+        P0D2 = self.complex.hodge_PD[-3]
 
         vorticity_d2 = D2D1 * flux_d1
         if self.diffusion:
@@ -204,7 +211,7 @@ class VorticityAdvector(Advector):
             velocity_d0_ = self.complex.dual_flux_to_dual_velocity(flux_d1_advected)
             print(velocity_d0_.min(), velocity_d0_.max())
             plt.figure()
-            plt.quiver(*self.complex.primal_position[2].T, *velocity_d0_.T)
+            plt.quiver(*self.complex.primal_position[2].T[:2], *velocity_d0_.T[:2])
             plt.axis('equal')
             # plt.show()
 
@@ -225,7 +232,7 @@ class VorticityAdvector(Advector):
                 velocity_d0_ = self.complex.dual_flux_to_dual_velocity(F)
                 print(velocity_d0_.min(), velocity_d0_.max())
                 plt.figure()
-                plt.quiver(*self.complex.primal_position[2].T, velocity_d0_.T)
+                plt.quiver(*self.complex.primal_position[2].T[:2], velocity_d0_.T[:2])
                 plt.axis('equal')
                 plt.show()
             return F

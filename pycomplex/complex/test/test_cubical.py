@@ -69,7 +69,7 @@ def test_triangulated_cube():
     surface = cube.boundary.as_23()
     # surface = surface.subdivide(smooth=True)
     surface = surface.subdivide_simplicial().smooth()
-    surface = surface.subdivide_cubical(smooth=True)
+    surface = surface.subdivide_cubical()
     # surface.plot_3d(backface_culling=True)
 
     # map back to quads again

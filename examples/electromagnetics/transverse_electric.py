@@ -44,6 +44,13 @@ class Transverse(object):
 
     @cached_property
     def operators(self):
+        T01 = self.complex.topology.matrices[0]
+        P1P0 = T01.T
+        D2D1 = T01
+
+        P0D2, P1D1, P2D0 = [scipy.sparse.diags(h) for h in self.complex.hodge_PD[:2]]
+        D2P0, D1P1, D0P2 = [scipy.sparse.diags(h) for h in self.complex.hodge_DP[:2]]
+
         dE = P1P0.multiply(self.step)
         dH = (P0D2 * D2D1 * D1P1).multiply(self.step)
         return dE.tocsr(), dH.tocsr()
@@ -79,16 +86,6 @@ if __name__ == "__main__":
     transverse = Transverse(complex)
 
 
-    T01, T12 = complex.topology.matrices
-    P1P0 = T01.T
-    D2D1 = T01
-    P2P1 = T12.T
-    D1D0 = T12
-
-    P0D2, P1D1, P2D0 = [scipy.sparse.diags(h) for h in complex.hodge_PD]
-    D2P0, D1P1, D0P2 = [scipy.sparse.diags(h) for h in complex.hodge_DP]
-
-
     H_p0 = complex.topology.form(0)
     E_p1 = complex.topology.form(1)
 
@@ -98,7 +95,7 @@ if __name__ == "__main__":
     H_p0[idx] = 1
 
     from examples.diffusion.explicit import Diffusor
-    H_p0 = Diffusor(complex).integrate_explicit_sigma(H_p0, sigma=0.02) * 5
+    H_p0 = Diffusor(complex).integrate_explicit_sigma(H_p0, sigma=0.05) * 5
     # H_p0 = complex.vertices[:, 0]
 
 

@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from pycomplex import synthetic
 from examples.harmonics import  *
 
-quad = synthetic.delaunay_cube(6, 2)
+quad = synthetic.delaunay_cube(density=6, n_dim=2)
 quad = quad.optimize_weights()
 quad = quad.as_2().as_2()
 print(quad.is_pairwise_delaunay)
