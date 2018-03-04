@@ -382,10 +382,11 @@ class BaseComplex(object):
         s = signed_selector(B.flatten(), O.flatten())
         pd1 = scipy.sparse.diags(self.hodge_PD[1])
         core = (bpinv * s * pd1).tocsr()    # perhaps drop near-zero terms?
-        S = self.topology.dual.selector[1]
-        S2 = self.topology.dual.selector[-1]
+        # NOTE: dual selectors are indexed by primal element order!
+        S = self.topology.dual.selector[-2]     # map from dual-1-elements to primal-n-1-elements; drop boundary fluxes
+        P = self.topology.dual.selector[-1].T   # map from primal-n-elements to dual-0-elements; pad boundary with zeros
         def dual_flux_to_dual_velocity(flux_d1):
-            return S2.T * (core * (S * flux_d1)).reshape(self.topology.n_elements[-1], self.n_dim)
+            return P * (core * (S * flux_d1)).reshape(self.topology.n_elements[-1], self.n_dim)
         return dual_flux_to_dual_velocity
 
         def dual_flux_to_dual_velocity(flux_d1):

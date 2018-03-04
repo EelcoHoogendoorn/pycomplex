@@ -23,7 +23,7 @@ class Advector(object):
         Parameters
         ----------
         complex: BaseComplex
-            must have a `sample_dual_0` method
+            must have a `sample_dual_0` and `dual_flux_to_dual_velocity` method
         """
         self.complex = complex
 
@@ -66,6 +66,33 @@ class Advector(object):
 
 
 def BFECC(advector, state, dt):
+    """Improve the accuracy and conservation properties of an advection operator,
+    by performing Backward and Forward Error Correction and Compensation
+
+    The motivating idea is that an advection equation should be time-reversible.
+    The extent to which any given scheme is not can be measured, and corrected for,
+    at the cost of invoking the advector multiple times
+
+    This is a conceptually simple method to raise the accuracy of
+    a simple 1-th order accurate integrator, to second-order accuracy
+
+    Parameters
+    ----------
+    advector : callable
+    state : ndarray, float
+        field to be advected
+    dt : float
+        timestep
+
+    Returns
+    -------
+    ndarray
+        advected field
+
+    References
+    ----------
+    http://physbam.stanford.edu/~fedkiw/papers/stanford2006-09.pdf
+    """
     remapped = advector(advector(state, dt), -dt)
     err = remapped - state
     final = advector(state - err / 2, dt)
