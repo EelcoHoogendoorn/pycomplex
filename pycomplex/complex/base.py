@@ -370,11 +370,12 @@ class BaseComplex(object):
             b, r, c = np.indices(blocks.shape)
             r = r + b * blocks.shape[1]
             c = c + b * blocks.shape[2]
+            # cast to bsr matrix? perhaps little point since only precomputation
             return scipy.sparse.coo_matrix((blocks.flatten(), (r.flatten(), c.flatten())))
 
         def signed_selector(B, O):
             c = B
-            r = np.arange(len(c))
+            r = np.arange(len(c), dtype=c.dtype)
             return scipy.sparse.coo_matrix((O.flatten(), (r.flatten(), c.flatten())))
 
         bpinv = block_diag(pinv)

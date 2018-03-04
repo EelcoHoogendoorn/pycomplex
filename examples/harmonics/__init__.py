@@ -6,7 +6,7 @@ import numpy as np
 import scipy.sparse
 
 
-def get_harmonics_0(complex2, zero_boundary=False):
+def get_harmonics_0(complex2, zero_boundary=False, amg=False, K=20):
     """primal 0-form harmonics with zero boundary"""
     # grab all the operators we will be needing
     S = complex2.topology.selector[0]
@@ -19,11 +19,25 @@ def get_harmonics_0(complex2, zero_boundary=False):
 
     # construct our laplacian
     laplacian = S * div * scipy.sparse.diags(complex2.hodge_DP[1]) * grad * S.T
-    # solve for some eigenvectors
-    w, v = scipy.sparse.linalg.eigsh(
-        laplacian.tocsc(), M=scipy.sparse.diags(mass).tocsc(), which='SA', k=20)
-    # print(w)
-    return S.T * v
+
+    tol = 1e-10
+    B = scipy.sparse.diags(mass).tocsc()
+    if not amg:
+        W, V = scipy.sparse.linalg.eigsh(
+            laplacian.tocsc(), M=B, which='SA', k=K, tol=tol)
+    else:
+        # create the AMG hierarchy
+        from pyamg import smoothed_aggregation_solver
+        ml = smoothed_aggregation_solver(laplacian)
+        # initial approximation to the K eigenvectors
+        X = scipy.rand(laplacian.shape[0], K)
+        # preconditioner based on ml
+        M = ml.aspreconditioner()
+        # compute eigenvalues and eigenvectors with LOBPCG
+        W, V = scipy.sparse.linalg.lobpcg(laplacian.tocsr(), X, B=B, tol=tol, M=M, largest=False)
+
+    print(W)
+    return S.T * V
 
 
 def get_harmonics_1(complex2):
@@ -44,7 +58,7 @@ def get_harmonics_1(complex2):
     return v
 
 
-def get_harmonics_2(complex2):
+def get_harmonics_2(complex2, amg=False, K=20):
     """Solve for dual-0-form harmonics. boundary implicitly zero for now"""
     # grab all the operators we will be needing
     T12 = complex2.topology.matrix(1, 2).T
@@ -54,9 +68,25 @@ def get_harmonics_2(complex2):
     mass = complex2.hodge_PD[n]
 
     # construct our laplacian
-    laplacian = div * scipy.sparse.diags(complex2.hodge_PD[n-1]) * grad
+    laplacian = (div * scipy.sparse.diags(complex2.hodge_PD[n-1]) * grad).tocsr()
+    scipy.sparse.diags(mass).tocsc()
+
     # solve for some eigenvectors
-    w, v = scipy.sparse.linalg.eigsh(laplacian, M=scipy.sparse.diags(mass), which='SA', k=20)
-    # print(w)
-    return v
+    tol = 1e-10
+    B = scipy.sparse.diags(mass).tocsc()
+    if not amg:
+        W, V = scipy.sparse.linalg.eigsh(laplacian, M=B, which='SA', k=20)
+    else:
+        # create the AMG hierarchy
+        from pyamg import smoothed_aggregation_solver
+        ml = smoothed_aggregation_solver(laplacian)
+        # initial approximation to the K eigenvectors
+        X = scipy.rand(laplacian.shape[0], K)
+        # preconditioner based on ml
+        M = ml.aspreconditioner()
+        # compute eigenvalues and eigenvectors with LOBPCG
+        W, V = scipy.sparse.linalg.lobpcg(laplacian.tocsr(), X, B=B, tol=tol, M=M, largest=False)
+
+    # print(W)
+    return V
 

@@ -4,7 +4,7 @@
 """
 darcy flow:
     flow is divergence free
-    follows darcy's law; proportionality flux and the proudct of pressure gradient and permeability
+    follows darcy's law; proportionality flux and the product of pressure gradient and permeability
 
 [mu,  grad] [v] = [f]
 [div, 0   ] [P]   [0]
@@ -25,6 +25,7 @@ Should we take the effort to make this symmetrical, including boundary condition
 The reduced condition number could be very valuable if variable mu renders the equations stiff
 
 Alternatively, we may eliminate flux and solve for pressure alone.
+this might help a lot with amg performance
 """
 
 from time import clock
@@ -145,6 +146,7 @@ if True:
     # high min/max mu ratios make the equations very stiff, but gives the coolest looking results
     # Solving the resulting equations may take a while; about a minute on my laptop
     # Efficiently solving these equations is a known hard problem.
+    # FIXME: try pyAMG here? curious to see what that would do
     from examples.diffusion.reaction_diffusion import ReactionDiffusion
     rd = ReactionDiffusion(mesh, key='labyrinth')
     rd.simulate(300)
@@ -164,14 +166,15 @@ else:
 
 # formulate darcy flow equations
 system = darcy_flow(mesh, mu)
-if False:
+if True:
     system.plot()
 
 # formulate normal equations and solve
 normal = system.normal_equations()
 t = clock()
 print('starting solving')
-solution, residual = normal.precondition().solve_minres(tol=1e-16)
+# FIXME: solve_amg only 20% faster than solve_minres
+solution, residual = normal.precondition().solve_amg(tol=1e-16)
 print('solving time: ', clock() - t)
 solution = [s / np.sqrt(d) for s, d in zip(solution, normal.diag())]
 flux, pressure = solution

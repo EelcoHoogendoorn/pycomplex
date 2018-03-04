@@ -58,17 +58,23 @@ class VorticityAdvector(Advector):
         # FIXME: this leaves all pressure boundary terms implicitly at zero. need control over bc's.
         TnN = self.complex.topology.matrices[-1]
         hodge = scipy.sparse.diags(self.complex.hodge_PD[-2])
-        laplacian = TnN.T * hodge * TnN
-        return laplacian
+        laplacian = (TnN.T * hodge * TnN).tocsr()
+        from pyamg import smoothed_aggregation_solver
+        M = smoothed_aggregation_solver(laplacian)#.aspreconditioner()
+        self.P_d0_cache = None
+        return laplacian, M
 
     def pressure_projection(self, flux_d1):
+        """Return solenoidal component of dual-1-form"""
         TnN = self.complex.topology.matrices[-1]
         hodge = self.complex.hodge_PD[-2]
 
         div = TnN.T * (hodge * flux_d1)
-        laplacian = self.pressure_projection_precompute
-        P_d0 = scipy.sparse.linalg.minres(laplacian, div, tol=1e-12)[0]
-
+        laplacian, M = self.pressure_projection_precompute
+        # P_d0 = scipy.sparse.linalg.minres(laplacian, div, x0=self.P_d0_cache, tol=1e-2)[0]
+        P_d0 = M.solve(div, x0=self.P_d0_cache, tol=1e-1)   #amg is slightly faster; error tolerance interpretation seems different
+        # FIXME: is this caching ok under BFECC?; think so since pressure is time reversible. seems to matter little to speed though; some improvement in AMG
+        self.P_d0_cache = P_d0
         return flux_d1 - TnN * P_d0
 
     @cached_property
@@ -145,7 +151,7 @@ class VorticityAdvector(Advector):
         Much more principles approach than either vorticity or pressure based step only
         """
 
-    def advect_vorticity(self, flux_d1, dt, force=None):
+    def advect_vorticity(self, flux_d1, dt, force=None, cache=None):
         """The main method of vorticity advection
 
         Parameters
@@ -156,12 +162,15 @@ class VorticityAdvector(Advector):
             timestep
         force : ndarray, [n_dual_edges], float, optional
             dual 1-form, including values on the dual boundary
+        cache, optional
+            for exploiting temporal coherence
 
         Returns
         ----------
         flux_d1 : ndarray, [n_dual_edges], float
             self-advected dual 1-form, including values on the dual boundary
-
+        cache
+            if passed in, return it
         """
         D01, D12 = self.complex.topology.dual.matrices_2
         D1D0 = D01.T

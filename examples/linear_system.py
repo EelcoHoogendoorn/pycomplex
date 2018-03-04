@@ -117,10 +117,39 @@ class BlockSystem(object):
         r = equations * x - knowns
         return self.split(x), r
 
-    def solve_minres(self, tol=1e-12):
+    def solve_minres(self, tol=1e-12, M=None):
         equations, knowns = self.concatenate()
-        x = scipy.sparse.linalg.minres(equations, knowns, tol=tol)[0]
+        x = scipy.sparse.linalg.minres(equations, knowns, tol=tol, M=M)[0]
         # x = scipy.sparse.linalg.minres(equations, knowns, x0=x, tol=1e-10)[0]
+        r = equations * x - knowns
+        return self.split(x), self.split(r, axis='rows')
+
+    def solve_amg(self, tol=1e-12):
+        """Interesting to experiment with AMG; slightly improves darcy flow solve but nothing spectacular yet"""
+        print('amg solve')
+        from pyamg import smoothed_aggregation_solver, ruge_stuben_solver, rootnode_solver
+        equations, knowns = self.concatenate()
+        equations = equations.tocsr()
+
+        from time import clock
+        t = clock()
+        options = []
+        options.append(('symmetric', {'theta': 0.0}))
+        options.append(('symmetric', {'theta': 0.25}))
+        options.append(('evolution', {'epsilon': 4.0}))
+        options.append(('algebraic_distance', {'theta': 1e-1, 'p': np.inf, 'R': 10, 'alpha': 0.5, 'k': 20}))
+        options.append(('algebraic_distance', {'theta': 1e-2, 'p': np.inf, 'R': 10, 'alpha': 0.5, 'k': 20}))
+        options.append(('algebraic_distance', {'theta': 1e-3, 'p': np.inf, 'R': 10, 'alpha': 0.5, 'k': 20}))
+        options.append(('algebraic_distance', {'theta': 1e-4, 'p': np.inf, 'R': 10, 'alpha': 0.5, 'k': 20}))
+
+        # M = smoothed_aggregation_solver(equations).aspreconditioner()
+        M = rootnode_solver(equations).aspreconditioner()
+        print('amg setup', clock() - t)
+        # x = M.solve(knowns, accel='minres', tol=tol)
+        # x = M.solve(knowns, x0=x, accel='minres', tol=tol)
+
+
+        x = scipy.sparse.linalg.minres(equations, knowns, tol=tol, M=M)[0]
         r = equations * x - knowns
         return self.split(x), self.split(r, axis='rows')
 
