@@ -146,7 +146,6 @@ if True:
     # high min/max mu ratios make the equations very stiff, but gives the coolest looking results
     # Solving the resulting equations may take a while; about a minute on my laptop
     # Efficiently solving these equations is a known hard problem.
-    # FIXME: try pyAMG here? curious to see what that would do
     from examples.diffusion.reaction_diffusion import ReactionDiffusion
     rd = ReactionDiffusion(mesh, key='labyrinth')
     rd.simulate(300)
@@ -166,7 +165,7 @@ else:
 
 # formulate darcy flow equations
 system = darcy_flow(mesh, mu)
-if True:
+if False:   # only set to true for small problem sizes
     system.plot()
 
 # formulate normal equations and solve
