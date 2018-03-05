@@ -368,25 +368,25 @@ class ComplexSpherical2(ComplexSpherical):
         return (center_transfer + corner_transfer).tocsr()
 
     @cached_property
-    def coarse_to_fine(self):
-        """
+    def coarse_to_fine(coarse):
+        """Maps primal-0-form on coarse to primal-0-form on fine
 
         Returns
         -------
         sparse matrix, [fine.n_vertices, coarse.n_vertices], float
         """
         from pycomplex.sparse import normalize_l1
-        return normalize_l1(self.multigrid_transfer_dual)
+        return normalize_l1(coarse.multigrid_transfer_dual)
     @cached_property
-    def fine_to_coarse(self):
-        """
+    def fine_to_coarse(coarse):
+        """Maps primal-0-form on fine to primal-0-form on coarse
 
         Returns
         -------
         sparse matrix, [coarse.n_vertices, fine.n_vertices], float
         """
         from pycomplex.sparse import normalize_l1
-        return normalize_l1(self.multigrid_transfer_dual.T)
+        return normalize_l1(coarse.multigrid_transfer_dual.T)
 
     # @cached_property
     # def stuff(self):
