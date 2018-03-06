@@ -52,19 +52,6 @@ def v_cycle(hierarchy, y, x=None):
     if len(hierarchy) == 1:
         return fine.solve(y)
 
-    # coarse = hierarchy[-2]
-
-    # def profile(func):
-    #     """debug output for intermediate steps"""
-    #     def inner(ix):
-    #         ox = func(ix)
-    #         err = np.linalg.norm(fine.residual(ix, rhs).ravel()) - \
-    #               np.linalg.norm(fine.residual(ox, rhs).ravel())
-    #         print('improvement', func.__name__)
-    #         print(err)
-    #         return ox
-    #     return inner
-
     # reduce error on the fine equation by overrelaxation
     knots = np.linspace(1, 4, 8, True)  # we need to zero out eigenvalues from largest to factor 4 smaller
 ##    knots = np.sqrt( (knots-1)) + 1
@@ -88,10 +75,10 @@ def v_cycle(hierarchy, y, x=None):
     # postsmooth   = (solve_iterate)
     # coarsesmooth = (coarsesmooth)
 
-##    x = presmooth(x, 5)
+    # x = presmooth(x, 5)
     x = solve_overrelax(x)
     x = coarsesmooth(x)
-##    x = postsmooth(x, 5)
+    # x = postsmooth(x, 5)
     x = solve_overrelax(x)
 
     return x
@@ -125,18 +112,17 @@ def solve_full_cycle(hierarchy, y, iterations=2):
     -------
     x : ndarray, float
     """
+
     fine = hierarchy[-1]
 
     # root level break
     if len(hierarchy) == 1:
         return fine.solve(y)
 
-    # coarse = hierarchy[-2]
-
     # get solution on coarser level first
-    x = fine.interpolate(solve_full_cycle(hierarchy[:-1], fine.restrict(y)))
+    x = fine.interpolate(solve_full_cycle(hierarchy[:-1], y=fine.restrict(y)))
 
     # do some V-cycles to correct residual error
-    x = solve_v_cycle(hierarchy, y, x, iterations=iterations)
+    x = solve_v_cycle(hierarchy, y=y, x=x, iterations=iterations)
 
     return x

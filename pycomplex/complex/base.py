@@ -345,6 +345,7 @@ class BaseComplex(object):
         """
         assert self.is_pairwise_delaunay    # required since we are dividing by dual edge lengths; does not work for cubes yet
 
+
         from pycomplex.geometry import euclidian
         # FIXME: this only works for simplices; or can it be generalized to cubes too? gradients are per vertex-opposing-face pair;
         # FIXME can think of it as volume gradient of moving vertex, or gradient of moving opposing face

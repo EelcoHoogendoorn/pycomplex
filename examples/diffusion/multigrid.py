@@ -1,5 +1,5 @@
-
-"""Notes: still a WIP"""
+"""Notes: This isnt multigrid;
+just a clever timestepping scheme that exploits frequency behavior of diffusion operator"""
 
 import numpy as np
 
@@ -39,7 +39,6 @@ class MultiDiffusor(object):
         return field
 
 
-
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
     kind = 'sphere'
@@ -51,8 +50,6 @@ if __name__ == '__main__':
         for l in range(7):
             complex = complex.subdivide_loop()
             hierarchy.append(complex)
-
-
 
     if True:
         field = np.random.rand(complex.topology.n_elements[0])

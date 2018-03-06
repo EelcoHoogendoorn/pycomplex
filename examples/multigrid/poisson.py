@@ -52,6 +52,10 @@ class Equation(object):
             largest eigenvalue of the linear equation
         """
         A, B, BI = self.operators
+        # X = scipy.rand(A.shape[0], 1)
+        # tol=1e-9
+        # v, V = scipy.sparse.linalg.lobpcg(A=A, B=B, X=X, tol=tol, largest=True)
+        # return v[0]
         return scipy.sparse.linalg.eigsh(A, M=B, k=1, which='LM', tol=1e-6, return_eigenvectors=False)[0]
 
     @cached_property
@@ -102,15 +106,15 @@ class Equation(object):
         usefull for for poisson and diffusion solver, and probably others too
         """
         V, v = self.complete_eigen_basis
-        x = np.einsum('vi,...i->v', V, y)
-        x = func(x, v)
-        x = np.einsum('vi,v...->i', V, x)
+        y = np.einsum('vi,i->v', V, y)
+        x = func(y, v)
+        x = np.einsum('vi,v->i', V, x)
         return x
 
-    def solve_minres(self, y, x0, tol=1e-6):
+    def solve_minres(self, y, x0=None, tol=1e-6):
         """Solve equation using minres"""
         A, B, BI = self.operators
-        return scipy.sparse.linalg.minres(A=A, b=B * y, x0=x0, tol=tol)
+        return scipy.sparse.linalg.minres(A=A, b=B * y, x0=x0, tol=tol)[0]
 
     def restrict(self, fine):
         raise NotImplementedError
@@ -200,7 +204,7 @@ class Poisson(Equation):
     def residual(self, x, y):
         """Computes residual; should BI be here?"""
         A, B, BI = self.operators
-        return BI * (B * y - A * x)
+        return BI * (A * x - B * y)
 
     def descent(self, x, y, relaxation=1):
         """alternative to jacobi iteration
@@ -213,7 +217,7 @@ class Poisson(Equation):
             if 1, stepsize is such that largest eigenvalue of the solution goes to zero in one step
             values > 1 denote overrelaxation
         """
-        return x + self.residual(x, y) * (relaxation / self.largest_eigenvalue / 2)
+        return x - self.residual(x, y) * (relaxation / self.largest_eigenvalue / 2)
 
     def overrelax(self, x, y, knots):
         """overrelax, forcing the eigencomponent to zero at the specified overrelaxation knots
@@ -225,8 +229,10 @@ class Poisson(Equation):
         knots : List[float]
             for interpretation, see self.descent
         """
+        # print('relax')
         for s in knots:
             x = self.descent(x, y, s)
+            # print(np.linalg.norm(self.residual(x, y)))
         return x
 
     def jacobi(self, x, rhs):
@@ -253,17 +259,22 @@ class Poisson(Equation):
 
     @cached_property
     def restrictor(self):
-        # FIXME: map this to primals?
-        return normalize_l1(self.transfer.T, axis=0)
+        A, B, BI = self.operators
+        # FIXME: need a link to parent equation; this is hacky. should be coarse.BI
+        coarse = scipy.sparse.diags(self.complex.parent.hodge_PD[0])
+        return coarse * normalize_l1(self.transfer.T, axis=0) * B
     def restrict(self, fine):
-        """Restrict dual n-forms"""
+        """Restrict solution from fine to coarse"""
         return self.restrictor * fine
     @cached_property
     def interpolator(self):
-        return normalize_l1(self.transfer, axis=0)
+        A, B, BI = self.operators
+        coarse = scipy.sparse.diags(self.complex.parent.hodge_DP[0])
+        return BI * normalize_l1(self.transfer, axis=0) * coarse
     def interpolate(self, coarse):
-        """Interpolate dual n-forms"""
+        """Interpolate solution from coarse to fine"""
         return self.interpolator * coarse
+
 
 class Stokes(Equation):
     pass
@@ -286,7 +297,7 @@ if __name__ == '__main__':
 
     sphere = synthetic.icosahedron().copy(radius=30)# .subdivide_fundamental()
     hierarchy = [sphere]
-    for i in range(4):
+    for i in range(6):
         hierarchy.append(hierarchy[-1].subdivide_loop())
     equations = [Poisson(l) for l in hierarchy]
 
@@ -304,12 +315,37 @@ if __name__ == '__main__':
 
     from examples.diffusion.perlin_noise import perlin_noise
     p0 = perlin_noise(hierarchy[-1])
+    p0 -= p0.mean()
+    # p0 = np.random.normal(size=p0.size)
     if False:
-        hierarchy[-1].as_euclidian().plot_primal_0_form(p0)
+        vmin, vmax = p0.min(),p0.max()
+        hierarchy[-1].as_euclidian().plot_primal_0_form(p0, vmin=vmin, vmax=vmax)
+
+        hierarchy[-2].as_euclidian().plot_primal_0_form(equations[-1].restrict(p0), vmin=vmin, vmax=vmax)
+        hierarchy[-1].as_euclidian().plot_primal_0_form(equations[-1].interpolate(equations[-1].restrict(p0)), vmin=vmin, vmax=vmax)
+
         plt.show()
 
 
-    from examples.multigrid.multigrid import solve_full_cycle
-    q = solve_full_cycle(equations, p0)
+    from examples.multigrid import multigrid
 
-    print(q)
+    from time import clock
+
+    x0 = np.zeros_like(p0)
+    print('initial res')
+    print(np.linalg.norm(equations[-1].residual(x0, p0)))
+
+    # warm up cache
+    x = multigrid.solve_full_cycle(equations, p0)
+    t = clock()
+    x = multigrid.solve_full_cycle(equations, p0)
+    print('full cycle time: ', clock() - t)
+    print('full resnorm', np.linalg.norm(equations[-1].residual(x, p0)))
+
+
+    t = clock()
+    x_minres = equations[-1].solve_minres(p0)
+    print('minres time: ', clock() - t)
+    print('minres resnorm', np.linalg.norm(equations[-1].residual(x_minres, p0)))
+    # x_eigen = equations[-1].solve(p0)
+    # print(np.linalg.norm(equations[-1].residual(x_eigen, p0)))
