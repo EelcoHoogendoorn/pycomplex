@@ -2,8 +2,12 @@
 Start with primal 0-form laplacian; but aim for more general framework
 Start by cleaning up escheresque solver
 
-Can we keep the mg code entirely agnostic about what complex or forms it is working with?
-that is the goal
+MG code should be entirely agnostic about what complex or forms it is working with;
+this should be encapsulated by the Equation object
+
+how to transfer boundary conditions in mg-setting is an interesting problem that i havnt given a lot of attention yet.
+Equation re-discretizes on each level; maybe need to make BC-setup scale-invariant callable as well?
+alternative is to apply petrov-galerkin coarening to the bcs instead
 """
 
 

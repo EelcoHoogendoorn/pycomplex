@@ -23,6 +23,11 @@ class BlockSystem(object):
     ----
     Add boundary condition terms
 
+    make seperate classes for dense block vectors?
+
+    need principled approach to doing things like elimination of equations, or preconditioning.
+    left/right multiply by block system, while retaining reference to parent?
+
     """
 
     def __init__(self, equations, knowns, unknowns):
@@ -54,6 +59,12 @@ class BlockSystem(object):
         return self.normal_equations(diag=diag)
 
     def normal_equations(self):
+        """Formulate normal equations by premultiplication of self with self.transpose
+
+        Returns
+        -------
+        BlockSystem
+        """
         output_shape = self.equations.shape[1], self.equations.shape[1]
         S = self.equations
         equations = np.zeros(output_shape, dtype=np.object)
@@ -164,7 +175,13 @@ class BlockSystem(object):
         return [self.equations[i, i].diagonal() for i in range(self.shape[0])]
 
     def precondition(self):
-        """Diagonal preconditioner that maintains symmetry and maps the diagonal to unity"""
+        """Diagonal preconditioner that maintains symmetry and maps the diagonal to unity
+
+        Returns
+        -------
+        BlockSystem
+            preconditioned
+        """
         diag = [scipy.sparse.diags(1 / np.sqrt(d)) for d in self.diag()]
         equations = [
             [diag[i] * self.equations[i, j] * diag[j]

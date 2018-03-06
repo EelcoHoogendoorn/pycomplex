@@ -2,9 +2,6 @@
 # -*- coding: utf-8 -*-
 
 """
-stokes lid driven cavity
-
-u = 1 at the top
 
 stokes in common second order form:
 [L,   grad] [v] = [f]
@@ -40,6 +37,23 @@ does not provably give us all possible consistent boundary conditions
 
 However, rather than making the first order equation symmetrical, we can simply solve the normal equations.
 This is at least conceptually even simpler
+
+
+Note that the equations discussed so far describe incompressible time-invariant stokes flow
+Compressible time-variant stokes flow would use every 'slot' available on the 2d chain complex,
+and has the highest complexity, as measured by the number of terms in our equations.
+However, since it is mathematically more diagonally dominant,
+and its physics more local, it should be numerically easier to solve, too.
+
+Furthermore, note that by reinterpreting the flux as a displacement,
+we can also use this as a model for isotropic linear elasticity
+
+defining the unknowns as:
+    [(s)hear, (d)isplacement, (c)ompression]
+and given lame parameters [μ, λ]
+[I,        curl, 0       ] [s]   [0]
+[curl * μ, 0,    grad * λ] [d] = [f]
+[0,        div,  I       ] [c]   [0]
 
 """
 
@@ -80,16 +94,7 @@ mesh, inlet, outlet, closed = concave()
 
 
 def stokes_flow(complex2):
-    """Formulate stokes flow over a 2-complex
-
-    Note that this is incompressible time-invariant stokes flow
-    Compressible time-variant stokes flow would use every 'slot'
-    available on the 2d chain complex, and has the highest complexity,
-    as measured by the number of terms in our equations.
-    However, since it is mathematically more diagonally dominant,
-    and its physics more local, it should be numerically easier to solve.
-
-    """
+    """Formulate stokes flow over a 2-complex"""
 
     # grab the chain complex
     primal = complex2.topology
