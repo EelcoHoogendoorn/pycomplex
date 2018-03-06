@@ -141,6 +141,7 @@ def darcy_flow(complex2, mu):
     return system
 
 
+# toggle the use of anisotropic permeability
 if True:
     # Use reaction-diffusion to set up an interesting permeability-pattern
     # high min/max mu ratios make the equations very stiff, but gives the coolest looking results
