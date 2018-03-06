@@ -250,12 +250,12 @@ def test_multigrid_tri():
 
 
 def test_multigrid_form():
-    sphere_0 = synthetic.icosahedron().subdivide_fundamental()
+    sphere_0 = synthetic.icosahedron().subdivide_fundamental()#.copy(radius=30)
     sphere_1 = sphere_0.subdivide_loop()
     sphere_2 = sphere_1.subdivide_loop()
     sphere_3 = sphere_2.subdivide_loop()
     sphere_4 = sphere_3.subdivide_loop()
-    fine, coarse = sphere_2, sphere_1
+    fine, coarse = sphere_4, sphere_3
 
     t = sphere_0.multigrid_transfer_dual(coarse, fine).T
 

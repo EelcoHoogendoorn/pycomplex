@@ -216,7 +216,7 @@ class ComplexSpherical2(ComplexSpherical):
         This is a loop-like subdivision
 
         """
-        return type(self)(
+        return self.copy(
             vertices=np.concatenate(self.primal_position[:2], axis=0),
             topology=self.topology.subdivide_loop()
         )
@@ -227,7 +227,7 @@ class ComplexSpherical2(ComplexSpherical):
         This is a loop-like subdivision
 
         """
-        return type(self)(
+        return self.copy(
             vertices=np.concatenate(self.primal_position[:2], axis=0),
             topology=self.topology.subdivide_loop_direct()
         )
@@ -263,8 +263,7 @@ class ComplexSpherical2(ComplexSpherical):
 
         """
 
-        assert fine.radius == 1
-        assert coarse.radius == 1
+        assert fine.radius == coarse.radius
         assert fine.is_well_centered
         assert coarse.is_well_centered
 
@@ -321,7 +320,7 @@ class ComplexSpherical2(ComplexSpherical):
         pl = +intersect_edges(p0[a, l], P2, p1[a, L], p2)   # right fine edge is left coarse edge / left fine vertex
         pr = -intersect_edges(p0[a, r], P2, p1[a, R], p2)   # left fine edge if right coarse edge / right fine vertex
 
-        if True:
+        if False:
             import matplotlib.pyplot as plt
             fig, ax = plt.subplots(1, 1)
             coarse.plot(ax=ax)
@@ -356,7 +355,7 @@ class ComplexSpherical2(ComplexSpherical):
         # square middle region; may compute as fine or coarse minus its flanking parts
         areas[a, m, m] = diamond_l + diamond_r
 
-        assert(np.all(areas >= 0))
+        assert(np.all(areas > -1e-13))
 
         # finally, we have the transfer matrix of the central fine triangles
         center_transfer = coo_matrix(

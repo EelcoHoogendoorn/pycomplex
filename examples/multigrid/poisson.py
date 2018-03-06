@@ -37,19 +37,22 @@ class Equation(object):
         """Solve system using dense linear algebra; for debugging purposes, mostly"""
         raise NotImplementedError
 
-    def residual(self, x, rhs):
+    def residual(self, x, y):
         raise NotImplementedError
 
     @cached_property
     def largest_eigenvalue(self):
         """Get largest eigenvalue for `A x = B x`
 
+        This is useful to compute the maximum effective stepsize for iterative procedures
+
         Returns
         -------
         float
+            largest eigenvalue of the linear equation
         """
         A, B, BI = self.operators
-        return scipy.sparse.linalg.eigsh(A, M=B, k=1, which='LM', tol=1e-6, return_eigenvectors=False)
+        return scipy.sparse.linalg.eigsh(A, M=B, k=1, which='LM', tol=1e-6, return_eigenvectors=False)[0]
 
     @cached_property
     def complete_eigen_basis(self):
@@ -62,10 +65,8 @@ class Equation(object):
         v : ndarray, [A.shape[0]]
             eigenvalues, sorted low to high
         """
-        return self.eigen_basis(K=)
         A, B, BI = self.operators
-        v, V = scipy.sparse.linalg.lobpcg(A=A, B=B, X=np.random.normal(size=A.shape))
-        return V, v
+        return self.eigen_basis(K=A.shape[0])
 
     def eigen_basis(self, K, amg=False, tol=1e-10):
         """Compute partial eigen decomposition for `A x = B x`
@@ -80,7 +81,9 @@ class Equation(object):
         A, B, BI = self.operators
 
         if not amg:
-            v, V = scipy.sparse.linalg.eigsh(A, M=B, which='SA', k=K, tol=tol)
+            X = scipy.rand(A.shape[0], K)
+            v, V = scipy.sparse.linalg.lobpcg(A=A, B=B, X=X, tol=tol, largest=False)
+            # v, V = scipy.sparse.linalg.eigsh(A, M=B, which='SA', k=K, tol=tol)
         else:
             # create the AMG hierarchy
             from pyamg import smoothed_aggregation_solver
@@ -93,21 +96,26 @@ class Equation(object):
             v, V = scipy.sparse.linalg.lobpcg(A=A, B=B, X=X, tol=tol, M=M, largest=False)
         return V, v
 
-    def _solve_eigen(self, x, func):
+    def _solve_eigen(self, y, func):
         """solve func in eigenspace
 
         usefull for for poisson and diffusion solver, and probably others too
         """
         V, v = self.complete_eigen_basis
-        y = np.einsum('vji,...ji->v', V, x)
-        y = func(y, v)
-        y = np.einsum('vji,v...->ji', V, y)
-        return y
+        x = np.einsum('vi,...i->v', V, y)
+        x = func(x, v)
+        x = np.einsum('vi,v...->i', V, x)
+        return x
 
     def solve_minres(self, y, x0, tol=1e-6):
         """Solve equation using minres"""
         A, B, BI = self.operators
         return scipy.sparse.linalg.minres(A=A, b=B * y, x0=x0, tol=tol)
+
+    def restrict(self, fine):
+        raise NotImplementedError
+    def interpolate(self, coarse):
+        raise NotImplementedError
 
 
 class Poisson(Equation):
@@ -168,39 +176,57 @@ class Poisson(Equation):
 
         return A.tocsr(), B.tocsc(), BI.tocsc()
 
-    def solve(self, rhs):
-        """solve poisson linear system in eigenbasis
+    def solve(self, y):
+        """Solve poisson linear system in eigenbasis
 
         Parameters
         ----------
-        rhs : dual n-form
+        y : ndarray
 
         Returns
         -------
-        primal 0-form
+        x : ndarray
         """
-
-        def poisson(x, v):
-            y = np.zeros_like(x)
-            y[1:] = x[1:] / v[1:]  # poisson linear solve is simple division in eigenspace. skip nullspace
-            return y
-
-        return self._solve_eigen(rhs, poisson)
-
-    def residual(self, x, rhs):
-        """Maps 0-form unkonwns to 0-form residual"""
         A, B, BI = self.operators
-        return BI * (rhs - A * x)
 
-    def descent(self, x, rhs):
-        """alternative to jacobi iteration"""
-        r = self.residual(x, rhs)
-        return x + r / (self.largest_eigenvalue * 0.9)  # no harm in a little overrelaxation
+        def poisson(y, v):
+            x = np.zeros_like(y)
+            # poisson linear solve is simple division in eigenspace. skip nullspace
+            x[1:] = y[1:] / v[1:]
+            return x
 
-    def overrelax(self, x, rhs, knots):
-        """overrelax, forcing the eigencomponent to zero at the specified overrelaxation knots"""
-        for s in knots / self.largest_eigenvalue:
-            x = x + self.residual(x, rhs) * s
+        return self._solve_eigen(B * y, poisson)
+
+    def residual(self, x, y):
+        """Computes residual; should BI be here?"""
+        A, B, BI = self.operators
+        return BI * (B * y - A * x)
+
+    def descent(self, x, y, relaxation=1):
+        """alternative to jacobi iteration
+
+        Parameters
+        ----------
+        x : ndarray
+        y : ndarray
+        relaxation : float
+            if 1, stepsize is such that largest eigenvalue of the solution goes to zero in one step
+            values > 1 denote overrelaxation
+        """
+        return x + self.residual(x, y) * (relaxation / self.largest_eigenvalue / 2)
+
+    def overrelax(self, x, y, knots):
+        """overrelax, forcing the eigencomponent to zero at the specified overrelaxation knots
+
+        Parameters
+        ----------
+        x : ndarray
+        y : ndarray
+        knots : List[float]
+            for interpretation, see self.descent
+        """
+        for s in knots:
+            x = self.descent(x, y, s)
         return x
 
     def jacobi(self, x, rhs):
@@ -226,14 +252,18 @@ class Poisson(Equation):
         return self.complex.multigrid_transfer_dual(coarse, fine).T
 
     @cached_property
-    def restrict(self):
-        f2c = normalize_l1(self.transfer.T, axis=0)
-        return f2c
+    def restrictor(self):
+        # FIXME: map this to primals?
+        return normalize_l1(self.transfer.T, axis=0)
+    def restrict(self, fine):
+        """Restrict dual n-forms"""
+        return self.restrictor * fine
     @cached_property
-    def interpolate(self):
-        c2f = normalize_l1(self.transfer, axis=0)
-        return c2f
-
+    def interpolator(self):
+        return normalize_l1(self.transfer, axis=0)
+    def interpolate(self, coarse):
+        """Interpolate dual n-forms"""
+        return self.interpolator * coarse
 
 class Stokes(Equation):
     pass
@@ -252,11 +282,34 @@ class GeometricMultiGrid(object):
 
 if __name__ == '__main__':
     from pycomplex import synthetic
+    import matplotlib.pyplot as plt
 
-    sphere = synthetic.icosahedron()# .subdivide_fundamental()
+    sphere = synthetic.icosahedron().copy(radius=30)# .subdivide_fundamental()
     hierarchy = [sphere]
-    for i in range(3):
+    for i in range(4):
         hierarchy.append(hierarchy[-1].subdivide_loop())
     equations = [Poisson(l) for l in hierarchy]
 
+    if False:
+        # test eigen solve; seems to work just fine
+        V, v = equations[-1].eigen_basis(K=10, amg=True)
+        print(equations[-1].largest_eigenvalue)
+        hierarchy[-1].as_euclidian().plot_primal_0_form(V[:, -1])
+        plt.show()
+
+    # now test multigrid; what is a good testcase?
+    # visually not that obvious; but we can focus on numbers first
+    # if we can solve poisson with perlin input using mg,
+    # we should be good, since it contains all frequency components
+
+    from examples.diffusion.perlin_noise import perlin_noise
+    p0 = perlin_noise(hierarchy[-1])
+    if False:
+        hierarchy[-1].as_euclidian().plot_primal_0_form(p0)
+        plt.show()
+
+
     from examples.multigrid.multigrid import solve_full_cycle
+    q = solve_full_cycle(equations, p0)
+
+    print(q)

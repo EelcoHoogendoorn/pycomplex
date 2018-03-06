@@ -5,6 +5,11 @@ Start by cleaning up escheresque solver
 MG code should be entirely agnostic about what complex or forms it is working with;
 this should be encapsulated by the Equation object
 
+currently only a single `-`, zeros_like and linalg.norm left;
+could easily be wrapped on equation object so we can work with block vectors and such
+
+
+
 how to transfer boundary conditions in mg-setting is an interesting problem that i havnt given a lot of attention yet.
 Equation re-discretizes on each level; maybe need to make BC-setup scale-invariant callable as well?
 alternative is to apply petrov-galerkin coarening to the bcs instead
@@ -14,21 +19,21 @@ alternative is to apply petrov-galerkin coarening to the bcs instead
 import numpy as np
 
 
-def v_cycle(hierarchy, rhs, x):
+def v_cycle(hierarchy, y, x=None):
     """Recursive solver V cycle using residual correction
 
     Parameters
     ----------
     hierarchy: List[Equation]
         discrete equations, from root to finest
-    rhs : ndarray, float
+    y : ndarray, float
         right hand side of equation on finest level
     x : ndarray, float
         current best guess at a solution on finest level
 
     Returns
     -------
-    ndarray, float
+    x : ndarray, float
         solution with improved error
 
     Notes
@@ -38,14 +43,16 @@ def v_cycle(hierarchy, rhs, x):
     preconditioned by a recursion to the coarse level
 
     """
+    if x is None:
+        x = np.zeros_like(y)
 
     fine = hierarchy[-1]
 
     # root level recursion break
     if len(hierarchy) == 1:
-        return fine.solve(rhs)
+        return fine.solve(y)
 
-    coarse = hierarchy[-2]
+    # coarse = hierarchy[-2]
 
     # def profile(func):
     #     """debug output for intermediate steps"""
@@ -62,23 +69,19 @@ def v_cycle(hierarchy, rhs, x):
     knots = np.linspace(1, 4, 8, True)  # we need to zero out eigenvalues from largest to factor 4 smaller
 ##    knots = np.sqrt( (knots-1)) + 1
     def solve_overrelax(x):
-        return fine.overrelax(x, rhs, knots)
+        return fine.overrelax(x, y, knots)
 
     def solve_iterate(x, iterations):
         for i in range(iterations):
 ##            x = fine.jacobi(x, rhs)
-            x = fine.descent(x, rhs)
+            x = fine.descent(x, y)
         return x
 
     def coarsesmooth(x):
-        fine_res = fine.residual(x, rhs)
-        coarse_res = coarse.restrict(fine_res)
-        coarse_error = v_cycle(
-            hierarchy[:-1],
-            rhs=coarse_res,
-            x=np.zeros_like(coarse_res),
-            )
-        fine_error = coarse.interpolate(coarse_error)
+        fine_res = fine.residual(x, y)
+        coarse_res = fine.restrict(fine_res)
+        coarse_error = v_cycle(hierarchy[:-1], y=coarse_res)
+        fine_error = fine.interpolate(coarse_error)
         return x - fine_error      # apply residual correction scheme
 
     # presmooth    = (solve_iterate)
@@ -94,51 +97,46 @@ def v_cycle(hierarchy, rhs, x):
     return x
 
 
-def solve_v_cycle(hierarchy, rhs, x0=None, iterations=10):
+def solve_v_cycle(hierarchy, y, x=None, iterations=10):
     """Repeated v-cycle multigrid solver.
 
     Not as efficient as full cycle but conceptually simpler
     """
-    if x0 is None:
-        x = np.zeros_like(rhs)
-
     for i in range(iterations):
-        # print(i, np.linalg.norm(equation.residual(x, rhs)))
-        x = v_cycle(hierarchy, rhs, x)
+        x = v_cycle(hierarchy, y, x)
     return x
 
 
-def solve_full_cycle(hierarchy, rhs):
-    """Full multigrid schema
+def solve_full_cycle(hierarchy, y, iterations=2):
+    """Full recursive multigrid schema
 
-    first restrict towards and solve on coarsest level
+    First restrict towards and solve on coarsest level
     then prolongate and do a single v-cycle on that level
 
     Parameters
     ----------
     hierarchy : List[Equation]
-    rhs : ndarray, float
+    y : ndarray, float
+        right hand side
+    iterations : int
+        number of v-cycles to correct coarse result
 
     Returns
     -------
-    ndarray, float
+    x : ndarray, float
     """
     fine = hierarchy[-1]
 
     # root level break
     if len(hierarchy) == 1:
-        return fine.solve(rhs)
+        return fine.solve(y)
 
-    coarse = hierarchy[-2]
+    # coarse = hierarchy[-2]
 
     # get solution on coarser level first
-    x = coarse.interpolate(solve_full_cycle(hierarchy[:-1], coarse.restrict(rhs)))
+    x = fine.interpolate(solve_full_cycle(hierarchy[:-1], fine.restrict(y)))
 
-    # do some V-cycles
-    for i in range(2):
-        x = v_cycle(hierarchy, rhs, x)
-
-    # print residual
-    print(np.linalg.norm(fine.residual(x, rhs)))
+    # do some V-cycles to correct residual error
+    x = solve_v_cycle(hierarchy, y, x, iterations=iterations)
 
     return x

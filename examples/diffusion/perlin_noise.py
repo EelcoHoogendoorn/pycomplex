@@ -15,7 +15,7 @@ from pycomplex import synthetic
 from pycomplex.math import linalg
 
 
-def perlin_noise(complex, octaves):
+def perlin_noise(complex, octaves=None):
     """Generate Perlin noise over the given complex
 
     Parameters
@@ -29,6 +29,15 @@ def perlin_noise(complex, octaves):
         primal 0-form
 
     """
+    if octaves is None:
+        octaves = [
+            (.5, .5),
+            (1, 1),
+            (2, 2),
+            (4, 4),
+            (8, 8),
+        ]
+
     diffusor = Diffusor(complex)
 
     def normalize(x):
