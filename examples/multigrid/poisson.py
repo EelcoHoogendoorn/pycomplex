@@ -24,6 +24,9 @@ class Equation(object):
     Generalizing to block systems can be done guided by stokes problem
     """
 
+    def __init__(self, complex):
+        self.complex = complex
+
     @cached_property
     def operators(self):
         """Return A, B and B.I"""
@@ -72,8 +75,24 @@ class Equation(object):
         A, B, BI = self.operators
         return self.eigen_basis(K=A.shape[0])
 
+    @cached_property
+    def amg_preconditioner(self):
+        """Get AMG preconditioner for the ation of A in isolation"""
+        # create the AMG hierarchy
+        from pyamg import smoothed_aggregation_solver
+        A, B, BI = self.operators
+        return smoothed_aggregation_solver(A).aspreconditioner()
+
     def eigen_basis(self, K, amg=False, tol=1e-10):
         """Compute partial eigen decomposition for `A x = B x`
+
+        Parameters
+        ----------
+        K : int
+            number of eigenvectors
+        amg : bool
+            if true, amg preconditioning is used
+        tol : float
 
         Returns
         -------
@@ -83,21 +102,9 @@ class Equation(object):
             eigenvalues, sorted low to high
         """
         A, B, BI = self.operators
-
-        if not amg:
-            X = scipy.rand(A.shape[0], K)
-            v, V = scipy.sparse.linalg.lobpcg(A=A, B=B, X=X, tol=tol, largest=False)
-            # v, V = scipy.sparse.linalg.eigsh(A, M=B, which='SA', k=K, tol=tol)
-        else:
-            # create the AMG hierarchy
-            from pyamg import smoothed_aggregation_solver
-            ml = smoothed_aggregation_solver(A)
-            # initial approximation to the K eigenvectors
-            X = scipy.rand(A.shape[0], K)
-            # preconditioner based on ml
-            M = ml.aspreconditioner()
-            # compute eigenvalues and eigenvectors with LOBPCG
-            v, V = scipy.sparse.linalg.lobpcg(A=A, B=B, X=X, tol=tol, M=M, largest=False)
+        X = scipy.rand(A.shape[0], K)
+        M = self.amg_preconditioner if amg else None
+        v, V = scipy.sparse.linalg.lobpcg(A=A, B=B, X=X, tol=tol, M=M, largest=False)
         return V, v
 
     def _solve_eigen(self, y, func):
@@ -106,20 +113,25 @@ class Equation(object):
         usefull for for poisson and diffusion solver, and probably others too
         """
         V, v = self.complete_eigen_basis
-        y = np.einsum('vi,i->v', V, y)
+        y = np.einsum('vi,i...->v...', V, y)
         x = func(y, v)
-        x = np.einsum('vi,v->i', V, x)
+        x = np.einsum('vi,v...->i...', V, x)
         return x
 
-    def solve_minres(self, y, x0=None, tol=1e-6):
+    def solve_minres(self, y, x0=None, amg=False, tol=1e-6):
         """Solve equation using minres"""
         A, B, BI = self.operators
-        return scipy.sparse.linalg.minres(A=A, b=B * y, x0=x0, tol=tol)[0]
+        M = self.amg_preconditioner if amg else None
+        return scipy.sparse.linalg.minres(A=A, b=B * y, M=M, x0=x0, tol=tol)[0]
 
     def restrict(self, fine):
         raise NotImplementedError
     def interpolate(self, coarse):
         raise NotImplementedError
+
+    def solve_mg(self, y):
+        from examples.multigrid import multigrid
+        multigrid.solve_full_cycle()
 
 
 class Poisson(Equation):
@@ -145,9 +157,6 @@ class Poisson(Equation):
     need to think of clear interface to extend this to multicomplex as well.
     what do we truly expect as interface from the complex that we bind to here?
     """
-
-    def __init__(self, complex):
-        self.complex = complex
 
     @cached_property
     def operators(self):
@@ -236,7 +245,7 @@ class Poisson(Equation):
         return x
 
     def jacobi(self, x, rhs):
-        """jacobi iteration"""
+        """Jacobi iteration. Potentially more efficient than our current iteration scheme"""
         raise NotImplementedError
 
 
@@ -289,6 +298,13 @@ class GeometricMultiGrid(object):
         self.equation = equation
 
 
+class Hierarchy(object):
+    def __index__(self, hierarchy, equation):
+        self.hierarchy = hierarchy
+        self.equations = [equation(l) for l in hierarchy]
+
+    def solve(self, y):
+        pass
 
 
 if __name__ == '__main__':
@@ -343,8 +359,9 @@ if __name__ == '__main__':
     print('full resnorm', np.linalg.norm(equations[-1].residual(x, p0)))
 
 
+    x_minres = equations[-1].solve_minres(p0, amg=True)
     t = clock()
-    x_minres = equations[-1].solve_minres(p0)
+    x_minres = equations[-1].solve_minres(p0, amg=True)
     print('minres time: ', clock() - t)
     print('minres resnorm', np.linalg.norm(equations[-1].residual(x_minres, p0)))
     # x_eigen = equations[-1].solve(p0)

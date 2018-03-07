@@ -55,6 +55,8 @@ and given lame parameters [μ, λ]
 [curl * μ, 0,    grad * λ] [d] = [f]
 [0,        div,  I       ] [c]   [0]
 
+if not purely incompressible, it is easy to rewrite this as equation of displacement alone
+
 """
 
 from pycomplex.topology import sign_dtype
