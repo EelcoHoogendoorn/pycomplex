@@ -56,6 +56,7 @@ and given lame parameters [μ, λ]
 [0,        div,  I       ] [c]   [0]
 
 if not purely incompressible (λ is finite), it is easy to rewrite this as equation of displacement alone
+infact, total equation is only minimally different from vector-laplacian
 
 for freely vibrating object, boundary conditions are such that s and c are zero on the boundary
 """

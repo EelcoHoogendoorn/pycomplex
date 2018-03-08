@@ -143,6 +143,7 @@ class ComplexCubical(BaseComplex):
         smoothness of the k-form under the k-laplacian.
         If this is appropriate is problem-specific
         """
+        # FIXME: is this really a property of the complex? maybe make it a free function in multigrid module
         fine = self
         coarse = self.parent
 
