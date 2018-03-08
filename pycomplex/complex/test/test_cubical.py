@@ -138,7 +138,7 @@ def test_transfer():
     n_dim = 2
     cube = n_cube(n_dim)
     hierarchy = [cube]
-    for i in range(4):
+    for i in range(2):
         hierarchy.append(hierarchy[-1].subdivide_cubical())
 
 

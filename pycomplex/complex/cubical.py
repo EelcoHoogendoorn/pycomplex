@@ -142,18 +142,19 @@ class ComplexCubical(BaseComplex):
         These are geometric multigrid transfers; their coefficients are derived from
         smoothness of the k-form under the k-laplacian.
         If this is appropriate is problem-specific
+
+
         """
         # FIXME: is this really a property of the complex? maybe make it a free function in multigrid module
+        # FIXME: This deals with primary elements only so far; can smoothing-based logic be extended to dual boundary as well?
         fine = self
         coarse = self.parent
 
         # compute the order and index of each fine cubes parent cube
         order, parent = coarse.topology.subdivide_cubical_relations(fine.topology)
 
-
         # we have this; only encodes direct ancestry so far
         TT = fine.topology.transfer_matrices
-        # L = fine.laplacian
 
 
         result = []
@@ -161,18 +162,27 @@ class ComplexCubical(BaseComplex):
             L = fine.laplacian(i)
             # seems to converge to 8 for all k for ndim=2
             l = scipy.sparse.linalg.eigsh((L * 1.0), k=1, which='LM', tol=1e-6, return_eigenvectors=False)[0]
-            S = 1 - (4/3/l) * L
+            I = scipy.sparse.identity(L.shape[0])
+            # construct smoother
+            S = I - (1/l) * L
             # element-order; what order of coarse cube a fine cube was inserted on
             eo = o.reshape(len(o), -1).min(axis=-1)
-            # compute powers of S
-            # accumulate
+            def smoothers(pre=0):
+                # lazily compute powers of S
+                SA = TM.T
+                for _ in range(pre):
+                    SA = SA * S
+                while True:
+                    yield SA
+                    SA = SA * S
 
             # create selection matrices, to pick out fine cubes of a given order
-            S = [scipy.sparse.diags(eo == i) for i in np.unique(eo)]
+            Select = [scipy.sparse.diags((eo == i) * 1) for i in np.unique(eo)]
 
             # add these smoother matrices together again
+            c = (smoother * select for select, smoother in zip(Select, smoothers()))
 
-            result.append(None)
+            result.append(sum(c))
         return result
 
 
