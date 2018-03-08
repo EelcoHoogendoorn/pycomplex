@@ -192,7 +192,7 @@ class BaseTopology(object):
         return npi.all_equal(self.relative_orientation())
 
     def check_chain(self):
-        """Some basic sanity checks on a topology matrix
+        """Some basic sanity checks on a topology matrix; check that topology is closed
 
         Should this be part of is_oriented check?
         """

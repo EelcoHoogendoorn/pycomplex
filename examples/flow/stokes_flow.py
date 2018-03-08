@@ -55,8 +55,9 @@ and given lame parameters [μ, λ]
 [curl * μ, 0,    grad * λ] [d] = [f]
 [0,        div,  I       ] [c]   [0]
 
-if not purely incompressible, it is easy to rewrite this as equation of displacement alone
+if not purely incompressible (λ is finite), it is easy to rewrite this as equation of displacement alone
 
+for freely vibrating object, boundary conditions are such that s and c are zero on the boundary
 """
 
 from pycomplex.topology import sign_dtype

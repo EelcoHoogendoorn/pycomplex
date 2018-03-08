@@ -11,7 +11,7 @@ from pycomplex.topology.cubical import TopologyCubical
 class ComplexCubical(BaseComplex):
     """Regular complex with euclidian embedding"""
 
-    def __init__(self, vertices, cubes=None, topology=None):
+    def __init__(self, vertices, cubes=None, topology=None, parent=None):
         """
 
         Parameters
@@ -19,8 +19,13 @@ class ComplexCubical(BaseComplex):
         vertices : ndarray, [n_vertices, n_dim], float
             vertex positions in euclidian space
         cubes : ndarray, [n_cubes, 2 ** n_dim], index_type, optional
+            if topology is not supplied
         topology : TopologyCubical object, optional
+            if cubes is not supplied
+        parent : BaseComplex, optional
+            reference to the complex this one is derived from; usually a subdivision relation
         """
+        self.parent = parent
         self.vertices = np.asarray(vertices)
         if topology is None:
             topology = TopologyCubical.from_cubes(cubes)
@@ -65,6 +70,7 @@ class ComplexCubical(BaseComplex):
             fine = fine.smooth(creases)
 
         # FIXME: implement subdivide_transfer for cubes
+        fine.parent = coarse
         return fine
 
     def subdivide_operator(coarse, creases=None, smooth=False):
@@ -96,6 +102,7 @@ class ComplexCubical(BaseComplex):
             transposed matrix product needs diagonal crease selector matrix inbetween
 
         """
+        # relationship between coarse and fine vertices
         coarse_averaging = scipy.sparse.vstack(coarse.topology.averaging_operators_0)
 
         if smooth:
@@ -113,6 +120,89 @@ class ComplexCubical(BaseComplex):
             operator = coarse_averaging
 
         return operator
+
+    def laplacian(self, k):
+        """Construct laplace-beltrami of order k"""
+        M = [0] + self.topology.matrices + [0]
+        L, R = M[k:k+2]
+        LT, RT = np.transpose(L), np.transpose(R)
+        return LT * L + R * RT
+
+    @cached_property
+    def multigrid_transfers(self):
+        """Multigrid transfer operators between the complex and its parent
+
+        Returns
+        -------
+        List[scipy.sparse[fine.n_elements, coarse.n_elements]]
+            n-th element in the list relates fine and coarse n-elements
+
+        Notes
+        -----
+        These are geometric multigrid transfers; their coefficients are derived from
+        smoothness of the k-form under the k-laplacian.
+        If this is appropriate is problem-specific
+        """
+        fine = self
+        coarse = self.parent
+
+        # compute the order and index of each fine cubes parent cube
+        order, parent = coarse.topology.subdivide_cubical_relations(fine.topology)
+
+
+        # we have this; only encodes direct ancestry so far
+        TT = fine.topology.transfer_matrices
+        # L = fine.laplacian
+
+
+        result = []
+        for i, (TM, o, p) in enumerate(zip(TT, order, parent)):
+            L = fine.laplacian(i)
+            # seems to converge to 8 for all k for ndim=2
+            l = scipy.sparse.linalg.eigsh((L * 1.0), k=1, which='LM', tol=1e-6, return_eigenvectors=False)[0]
+            S = 1 - (4/3/l) * L
+            # element-order; what order of coarse cube a fine cube was inserted on
+            eo = o.reshape(len(o), -1).min(axis=-1)
+            # compute powers of S
+            # accumulate
+
+            # create selection matrices, to pick out fine cubes of a given order
+            S = [scipy.sparse.diags(eo == i) for i in np.unique(eo)]
+
+            # add these smoother matrices together again
+
+            result.append(None)
+        return result
+
+
+
+        # NOTE: smooth and restrict fails for 0-forms.
+        # if we take vertex on quad, it does not reach any coarse verts
+        # same for central edges on cube.
+        # can we do repeated smoothing for n-elements generated on >n+1 elements?
+        # start with zero or one smooth step? the extra step does not seem to mess with sparsity too bad
+        # sounds plausible
+        # does it generalize to simplicial?
+        # seems like; this is essentially what happens in algebraic solvers
+        # http://amath.colorado.edu/pub/multigrid/aSAm.pdf
+        # suggests 4/3/lamda * L as a prolongation smoother
+
+        T = [t.T * L(i) for i, t in enumerate(TT)]
+        return T
+        T = [None] * fine.topology.n_dim
+
+        # this one is the same as used in the subdivision surfaces
+        T[0] = scipy.sparse.vstack(coarse.topology.averaging_operators_0)
+
+        # this one is easy too
+        T[-1] = TT[-1]
+
+        # the intermediate ones are harder; consider just edges
+        # some edges are direct children of parents; those are easy
+        # but what about edges in the middle?
+        # also, orientation can start playing a role here
+
+        return T
 
     def subdivide_fundamental(self):
         from pycomplex.complex.simplicial.euclidian import ComplexSimplicialEuclidian
@@ -217,7 +307,6 @@ class ComplexCubical(BaseComplex):
                 ax.scatter(*dual_vertices.T[:2], color=dual_color)
 
         ax.axis('equal')
-
 
 
 class ComplexCubical1(ComplexCubical):

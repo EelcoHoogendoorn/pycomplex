@@ -146,10 +146,12 @@ class TopologyCubical(PrimalTopology):
 
     @cached_property
     def cube_shape(self):
+        """Shape of a unit cube"""
         return (2, ) * self.n_dim
 
     @cached_property
     def cube_corners(self):
+        """Ndarray, [n_corners, n_dim], int"""
         return np.indices(self.cube_shape).reshape(self.n_dim, -1).T.astype(sign_dtype)
 
     @classmethod
@@ -257,8 +259,17 @@ class TopologyCubical(PrimalTopology):
         Notes
         -----
         currently, the transfer operators are set as a side effect of calling this function; not super happy with that
+        transfer operators still incomplete
+
+        note that the divided topology is created using from_cubes
+        this complicates relating vector-forms between fine and coarse,
+        since their relationship is implicit; all n-cubes are encoded by their vert-idx,
+        and related back into fine intermediate cubes in from_cubes
+
+        Perhaps implementing a subdivide_cubical_direct could mitigate those concerns
+        That isnt easy either though
         """
-        offset = np.cumsum([0] + self.n_elements)
+        offset = np.cumsum([0] + self.n_elements, dtype=index_dtype)
         new_cubes = self.cubical_domains().copy()
 
         # subdivision is essentially just remapping fundamental-domain n-cube indices to 0-cube indices
@@ -270,37 +281,98 @@ class TopologyCubical(PrimalTopology):
             idx = (slice(None), ) + tuple(c)
             for i, b in enumerate(c):
                 if b == 1:
-                    new_cubes[idx] = np.flip(new_cubes[idx], 1 + i)
+                    new_cubes[idx] = np.flip(new_cubes[idx], axis=1 + i)
 
         new_cubes = new_cubes.reshape((-1,) + self.cube_shape)
 
         sub = type(self).from_cubes(new_cubes)
+        sub.parent = self
 
-        sub.transfers = self.subdivide_cubical_transfers(sub, offset)
+        sub.transfers = self.subdivide_cubical_transfers(sub)
         sub.transfer_matrices = [transfer_matrix(*t, shape=(sub.n_elements[n], self.n_elements[n]))
                                  for n, t in enumerate(sub.transfers)]
-        sub.parent = self
 
         return sub
 
-    def subdivide_cubical_transfers(coarse, fine, O):
+    def subdivide_cubical_relations(coarse, fine):
+        """Find the relationship between subdivided cubes and their parents
+
+        This is mostly inverting computation in subdivide_cubical...
+        This function only assumes fine vertices were generated in accordance with `offsets`,
+        with vertices inserted on course 0-cubes followed by vertices on coarse 1-cubes, and so on
+
+        Returns
+        -------
+        List[ndarray, [], uint8]
+            list corresponding to each cube elements array
+            where the array encodes the order of the parent element
+        List[ndarray, [], index_dtype]
+            list corresponding to each cube elements array
+            where the array encodes the index of the parent element
+        """
+        offsets = np.cumsum([0] + coarse.n_elements, dtype=index_dtype)
+        order = []
+        parent = []
+        for e in fine.elements:
+            o = (e[..., None] >= offsets[1:]).sum(axis=-1, dtype=np.uint8)
+            order.append(o)
+            p = e - offsets[o]
+            parent.append(p)
+        return order, parent
+
+    def subdivide_cubical_transfers(coarse, fine):
         """build up transfer operators
+        These operators only encode relationships between purely coincident n-cubes;
+        only between those that share a direct ancestry relationship
+
+        Parameters
+        ----------
+        coarse : Complex
+        fine : Complex
 
         Returns
         -------
         transfers : list of tuple of arrays
             where each entry i is a tuple of ndarray, index_dtype, referencing (fine.elements[i], coarse.elements[i])
+
+        Notes
+        -----
+        from_cubes makes it hard to decode implicit relationships between n-cubes
+        can we cheat and use picking? not in topology class
+        alternative; set operations on connectivity
+        for middle edge, find fine edges connected via squares,
+        and remove all fine edges connected via fine verts
+        then look up corresponding coarse edges
+        3d case of edges suggests that it is n-cube connection rather than +1 connection we care about
+        works for faces too
+        so... do n-cube connectivity - 0-cube connectivity?
+        or do something akin to smoothed aggegation?
+        compute laplace-beltrami operator for each level
+        for interpolator by taking smooth operator on fine level,
+        and filtering nonzeros by fine's that have a direct relation to coarse parent
+        is this called prolongation smoothing?
         """
+        # FIXME: how to derive relative orientation? or do we not need to? is it inherited by construction?
+
+        order, parent = coarse.subdivide_cubical_relations(fine)
         transfers = []
-        for c, o in zip(fine.corners, O):
-            q = np.sort(c, axis=1)
-            # filter down e for those having connection with original vertices
-            idx = np.flatnonzero(q[:, 0] < coarse.n_elements[0])
-            q = q[idx]
-            # highest vertex; translate to corresponding n-cube on the coarse level
-            q = q[:, -1] - o
-            transfers.append((idx, q))
+        for n, (o, p) in enumerate(zip(order, parent)):
+            i = np.nonzero(o == 0)  # elements connected to coarse vertices
+            f = i[0]
+            j = np.nonzero(o[f] == n)  # connections to coarse n-elements
+            c = p[f][j]
+            transfers.append((f, c))
         return transfers
+        # for c, o in zip(fine.corners, offsets):
+        #     order = (np.min(c, axis=1)[:, None] >= offsets[1:]).sum(axis=1)
+        #     sc = np.sort(c, axis=1)     # sorted corners
+        #     # filter down elements for those having connection with original vertices
+        #     idx = np.flatnonzero(order == 0)
+        #     sc = sc[idx]
+        #     # highest vertex; translate to corresponding n-cube on the coarse level
+        #     sc = sc[:, -1] - o
+        #     transfers.append((idx, sc))
+        # return transfers
 
     def subdivide_octohedral(self):
         """Subdivision by inserting a new 0-cube at each n-cube, and creating a new 'octahedron'

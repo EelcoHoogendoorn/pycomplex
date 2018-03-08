@@ -20,7 +20,7 @@ import numpy as np
 
 
 def v_cycle(hierarchy, y, x=None):
-    """Recursive solver V cycle using residual correction
+    """Recursive V cycle using residual correction
 
     Parameters
     ----------
@@ -28,7 +28,7 @@ def v_cycle(hierarchy, y, x=None):
         discrete equations, from root to finest
     y : ndarray, float
         right hand side of equation on finest level
-    x : ndarray, float
+    x : ndarray, float, optional
         current best guess at a solution on finest level
 
     Returns
@@ -38,9 +38,10 @@ def v_cycle(hierarchy, y, x=None):
 
     Notes
     -----
-    currently uses jacobi relaxation
+    currently uses smoothing iteration
     can also create a variant where each layer uses minres,
     preconditioned by a recursion to the coarse level
+    basically; replace the simple descent we have now with a krylov-solver
 
     """
     if x is None:
@@ -52,18 +53,6 @@ def v_cycle(hierarchy, y, x=None):
     if len(hierarchy) == 1:
         return fine.solve(y)
 
-    # reduce error on the fine equation by overrelaxation
-    knots = np.linspace(1, 4, 8, True)  # we need to zero out eigenvalues from largest to factor 4 smaller
-##    knots = np.sqrt( (knots-1)) + 1
-    def solve_overrelax(x):
-        return fine.overrelax(x, y, knots)
-
-    def solve_iterate(x, iterations):
-        for i in range(iterations):
-##            x = fine.jacobi(x, rhs)
-            x = fine.descent(x, y)
-        return x
-
     def coarsesmooth(x):
         fine_res = fine.residual(x, y)
         coarse_res = fine.restrict(fine_res)
@@ -71,15 +60,9 @@ def v_cycle(hierarchy, y, x=None):
         fine_error = fine.interpolate(coarse_error)
         return x - fine_error      # apply residual correction scheme
 
-    # presmooth    = (solve_iterate)
-    # postsmooth   = (solve_iterate)
-    # coarsesmooth = (coarsesmooth)
-
-    # x = presmooth(x, 5)
-    x = solve_overrelax(x)
+    x = fine.smooth(x, y)       # presmooth
     x = coarsesmooth(x)
-    # x = postsmooth(x, 5)
-    x = solve_overrelax(x)
+    x = fine.smooth(x, y)       # postsmooth
 
     return x
 

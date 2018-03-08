@@ -40,9 +40,6 @@ class Equation(object):
         """Solve system using dense linear algebra; for debugging purposes, mostly"""
         raise NotImplementedError
 
-    def residual(self, x, y):
-        raise NotImplementedError
-
     @cached_property
     def largest_eigenvalue(self):
         """Get largest eigenvalue for `A x = B x`
@@ -76,12 +73,11 @@ class Equation(object):
         return self.eigen_basis(K=A.shape[0])
 
     @cached_property
-    def amg_preconditioner(self):
+    def amg_solver(self):
         """Get AMG preconditioner for the ation of A in isolation"""
-        # create the AMG hierarchy
         from pyamg import smoothed_aggregation_solver
         A, B, BI = self.operators
-        return smoothed_aggregation_solver(A).aspreconditioner()
+        return smoothed_aggregation_solver(A)
 
     def eigen_basis(self, K, amg=False, tol=1e-10):
         """Compute partial eigen decomposition for `A x = B x`
@@ -103,7 +99,7 @@ class Equation(object):
         """
         A, B, BI = self.operators
         X = scipy.rand(A.shape[0], K)
-        M = self.amg_preconditioner if amg else None
+        M = self.amg_solver.aspreconditioner() if amg else None
         v, V = scipy.sparse.linalg.lobpcg(A=A, B=B, X=X, tol=tol, M=M, largest=False)
         return V, v
 
@@ -121,7 +117,7 @@ class Equation(object):
     def solve_minres(self, y, x0=None, amg=False, tol=1e-6):
         """Solve equation using minres"""
         A, B, BI = self.operators
-        M = self.amg_preconditioner if amg else None
+        M = self.amg_solver.aspreconditioner() if amg else None
         return scipy.sparse.linalg.minres(A=A, b=B * y, M=M, x0=x0, tol=tol)[0]
 
     def restrict(self, fine):
@@ -130,8 +126,56 @@ class Equation(object):
         raise NotImplementedError
 
     def solve_mg(self, y):
+        raise NotImplementedError
         from examples.multigrid import multigrid
         multigrid.solve_full_cycle()
+
+    def solve_amg(self, y):
+        A, B, BI = self.operators
+        return self.amg_solver.solve(b=B * y)
+
+    def residual(self, x, y):
+        """Computes residual; should BI be here?"""
+        A, B, BI = self.operators
+        return BI * (A * x - B * y)
+
+    def descent(self, x, y, relaxation=1):
+        """Simple residual descent. Not a great overall solver, but a pretty decent smoother
+
+        This is also known as Richardson iteration
+
+        Parameters
+        ----------
+        x : ndarray
+        y : ndarray
+        relaxation : float
+            if 1, stepsize is such that largest eigenvalue of the solution goes to zero in one step
+            values > 1 denote overrelaxation
+        """
+        return x - self.residual(x, y) * (relaxation / self.largest_eigenvalue / 2)
+
+    def overrelax(self, x, y, knots):
+        """overrelax, forcing the eigencomponent to zero at the specified overrelaxation knots
+
+        Parameters
+        ----------
+        x : ndarray
+        y : ndarray
+        knots : List[float]
+            for interpretation, see self.descent
+        """
+        for s in knots:
+            x = self.descent(x, y, s)
+        return x
+
+    def smooth(self, x, y):
+        """Basic smoother; inspired by time integration of heat diffusion equation"""
+        knots = np.linspace(1, 4, 3, endpoint=True)
+        return self.overrelax(x, y, knots)
+
+    def jacobi(self, x, rhs):
+        """Jacobi iteration. Potentially more efficient than our current iteration scheme"""
+        raise NotImplementedError
 
 
 class Poisson(Equation):
@@ -139,19 +183,10 @@ class Poisson(Equation):
 
     Poisson logic for primal 0-forms, or 0-laplace-beltrami
 
-    Can look at equation in two ways;
-    B.I * A * x = y, or A * x = B * y
-    A and B both map primal-0-forms to dual-n-forms
-    We should think of Equation as encoding a 'generalized' linear equation
-    makes eigensolve a natural extension
-    B need not even be diagonal; but for all currently planned operations it will be trivially invertable
-
+    A * x = B * y, or laplacian(x) = mass(y)
 
     Notes
     -----
-    do we seek to use the 'midpoint' between primal and dual variable encoding as used in eschersque?
-    preferably we find a more orthodox solution. generalized linear equation may be just that
-
     currently sphericalTriangular complexes only; need to add MG operators for regular complexes, at least
 
     need to think of clear interface to extend this to multicomplex as well.
@@ -210,45 +245,7 @@ class Poisson(Equation):
 
         return self._solve_eigen(B * y, poisson)
 
-    def residual(self, x, y):
-        """Computes residual; should BI be here?"""
-        A, B, BI = self.operators
-        return BI * (A * x - B * y)
-
-    def descent(self, x, y, relaxation=1):
-        """alternative to jacobi iteration
-
-        Parameters
-        ----------
-        x : ndarray
-        y : ndarray
-        relaxation : float
-            if 1, stepsize is such that largest eigenvalue of the solution goes to zero in one step
-            values > 1 denote overrelaxation
-        """
-        return x - self.residual(x, y) * (relaxation / self.largest_eigenvalue / 2)
-
-    def overrelax(self, x, y, knots):
-        """overrelax, forcing the eigencomponent to zero at the specified overrelaxation knots
-
-        Parameters
-        ----------
-        x : ndarray
-        y : ndarray
-        knots : List[float]
-            for interpretation, see self.descent
-        """
-        # print('relax')
-        for s in knots:
-            x = self.descent(x, y, s)
-            # print(np.linalg.norm(self.residual(x, y)))
-        return x
-
-    def jacobi(self, x, rhs):
-        """Jacobi iteration. Potentially more efficient than our current iteration scheme"""
-        raise NotImplementedError
-
-
+    # FIXME: mg operators belong to the complexes themselves
     @cached_property
     def transfer(self):
         """
@@ -306,6 +303,9 @@ class Hierarchy(object):
     def solve(self, y):
         pass
 
+    def as_preconditioner(self):
+        pass
+
 
 if __name__ == '__main__':
     from pycomplex import synthetic
@@ -354,9 +354,9 @@ if __name__ == '__main__':
     # warm up cache
     x = multigrid.solve_full_cycle(equations, p0)
     t = clock()
-    x = multigrid.solve_full_cycle(equations, p0)
-    print('full cycle time: ', clock() - t)
-    print('full resnorm', np.linalg.norm(equations[-1].residual(x, p0)))
+    x = multigrid.solve_full_cycle(equations, p0, iterations=2)
+    print('mg full time: ', clock() - t)
+    print('mg full resnorm', np.linalg.norm(equations[-1].residual(x, p0)))
 
 
     x_minres = equations[-1].solve_minres(p0, amg=True)
@@ -364,5 +364,12 @@ if __name__ == '__main__':
     x_minres = equations[-1].solve_minres(p0, amg=True)
     print('minres time: ', clock() - t)
     print('minres resnorm', np.linalg.norm(equations[-1].residual(x_minres, p0)))
+
+
+    t = clock()
+    x_amg = equations[-1].solve_amg(p0)
+    print('amg time: ', clock() - t)
+    print('amg resnorm', np.linalg.norm(equations[-1].residual(x_amg, p0)))
+
     # x_eigen = equations[-1].solve(p0)
     # print(np.linalg.norm(equations[-1].residual(x_eigen, p0)))
