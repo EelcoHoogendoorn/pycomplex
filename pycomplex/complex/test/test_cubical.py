@@ -145,12 +145,15 @@ def test_transfer():
 
     if True:
         # test that directionality is inherited as expected
-        hierarchy[-2].plot(plot_dual=False, plot_arrow=True)
-        hierarchy[-1].plot(plot_dual=False, plot_arrow=True)
+        hierarchy[-2].plot(plot_dual=True, plot_arrow=True)
+        hierarchy[-1].plot(plot_dual=True, plot_arrow=True)
         plt.show()
 
+    DT = hierarchy[-1].topology.dual.transfer_matrices()
+
+    print(DT[0])
     T = hierarchy[-1].multigrid_transfers
     q = T[0].todense()
+    print(q)
     z = T[-1].todense()
     print()
-

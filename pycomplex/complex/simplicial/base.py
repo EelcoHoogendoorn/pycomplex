@@ -189,6 +189,7 @@ class BaseComplexSimplicial(BaseComplex):
         """
         assert self.weights is None
         parent = self.topology.parent
+        # FIXME: not sure why this check made sense? why cant parent by cubical?
         from pycomplex.topology.simplicial import TopologySimplicial
         assert isinstance(parent, TopologySimplicial)
 

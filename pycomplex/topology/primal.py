@@ -218,12 +218,12 @@ class PrimalTopology(BaseTopology):
         return idx
 
     def select_subset(self, n_chain):
-        """
+        """Select a subset of the topology
 
         Parameters
         ----------
         n_chain : ndarray, [n_elements[-1], sign_type
-            chain indicating which elements to select
+            boolean chain indicating which elements to select
 
         Returns
         -------
@@ -241,6 +241,7 @@ class PrimalTopology(BaseTopology):
         elements = inverse.reshape(elements.shape).astype(index_dtype)
 
         subset = type(self).from_elements(elements)
+        subset.parent = self
         subset.parent_idx = self.find_correspondence(subset, mapping)
         return subset
 
@@ -292,7 +293,7 @@ class PrimalTopology(BaseTopology):
 
         """
         n_components, labels = self.label_connections()
-        components = [self.select_subset(labels==i) for i in range(n_components)]
+        components = [self.select_subset(labels == i) for i in range(n_components)]
         return sorted(components, key=lambda c: -c.n_elements[-1])
 
     @cached_property

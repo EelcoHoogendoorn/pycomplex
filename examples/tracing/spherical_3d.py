@@ -138,7 +138,7 @@ if __name__ == '__main__':
     else:
         space = synthetic.hexacosichoron()
         space = space.copy(vertices=linalg.normalized(space.vertices + np.random.normal(scale=0.03, size=space.vertices.shape)))
-        space = space.optimize_weights()
+        # space = space.optimize_weights()
         assert space.is_well_centered
 
         stepsize = .2  # ray step size in degrees
@@ -153,7 +153,7 @@ if __name__ == '__main__':
         p, x, y, z = coordinate
         dx, dy, dz = [linalg.power(linalg.rotation_from_plane(p, d), 1. / 90) for d in [x, y, z]]
 
-        for i in save_animation(path, frames=360):
+        for i in save_animation(path, frames=360, overwrite=True):
             # make a step forward along the z axis
             coordinate = np.einsum('...ij,...j->...i', dz, coordinate)
-            render_frame(*coordinate, plot_primal=False)
+            render_frame(*coordinate, plot_primal=True)

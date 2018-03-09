@@ -23,6 +23,8 @@ not sure what is the cause of this; the euclidian approximations made on the sph
 means it should respond posiively to grid refinement and it does not seem to
 
 !! Seems to be a numerical unstability relating to pseudoinverse of dual velocity reconstruction
+nope; dual velocity is fine now, yet problem persists
+it may just be an interaction with BFECC infact
 """
 
 

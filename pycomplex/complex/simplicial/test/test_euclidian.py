@@ -64,12 +64,13 @@ def test_metric_2():
 def test_extrude():
     quad = synthetic.delaunay_cube(n_dim=2)
     from pycomplex.complex.simplicial.euclidian import ComplexTriangularEuclidian3
+    # add a z=0 coordinate
     quad = ComplexTriangularEuclidian3(
         vertices=np.concatenate((quad.vertices, quad.vertices[:,:1]*0), axis=1),
         topology=quad.topology.as_2()
     )
 
-    extruded = quad.extrude(quad.copy(vertices=quad.vertices + [[0, 0, 1]]))
+    extruded = quad.extrude(quad.copy(vertices=quad.vertices + [[0, 0, .1]]))
     extruded.transform(linalg.orthonormalize(np.random.randn(3, 3))).plot_3d(backface_culling=True)
     plt.show()
 

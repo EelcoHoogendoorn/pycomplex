@@ -78,7 +78,7 @@ class ReactionDiffusion(object):
         the state after a small timestep dt is taken to be the current state plus the time derivative times dt
         this approximation to the differential equations works well as long as dt is 'sufficiently small'
         """
-        for s,d in zip(self.state, derivative):
+        for s, d in zip(self.state, derivative):
             s += d * self.dt
         for s, mu in zip(self.state, self.mu):
             s[...] = self.diffusor.integrate_explicit(s, self.dt * mu)

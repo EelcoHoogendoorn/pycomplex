@@ -9,10 +9,14 @@ from pycomplex.math import linalg
 
 
 def test_subdivide_cubical():
-    simplex = synthetic.n_simplex(3)
-    simplex = simplex.transform(linalg.orthonormalize(np.random.randn(3, 3)))
+    n_dim = 3
+    simplex = synthetic.n_simplex(n_dim)
+    simplex = simplex.transform(linalg.orthonormalize(np.random.randn(n_dim, n_dim)))
 
-    cubes = simplex.subdivide_cubical()
+    cubes = simplex.subdivide_cubical().fix_orientation()
+    assert cubes.topology.is_oriented
+    # assert cubes.topology.is_connected
+    # assert cubes.topology.is_manifold
     cubes.plot(plot_dual=False)
     plt.show()
 
@@ -30,10 +34,11 @@ def test_subdivide_simplicial():
 
 def test_subdivide_cubical_many():
     # sphere = synthetic.hexacosichoron().as_euclidian()
-    sphere = synthetic.n_cube_dual(n_dim=4).as_euclidian()
-    sphere = sphere.transform(linalg.orthonormalize(np.random.randn(4, 4)))
+    n_dim = 3
+    sphere = synthetic.n_cube_dual(n_dim=n_dim).as_euclidian()
+    sphere = sphere.transform(linalg.orthonormalize(np.random.randn(n_dim, n_dim)))
 
-    cubes = sphere.subdivide_cubical().smooth()#.subdivide().smooth()
+    cubes = sphere.subdivide_cubical().smooth()#.subdivide_cubical().smooth()
     cubes.plot(plot_dual=False)
     plt.show()
 
@@ -93,7 +98,7 @@ def test_subdivided_triangle():
 def test_subdivided_mesh():
     surface = synthetic.n_cube(3).boundary.subdivide_fundamental().as_2().as_3()
     surface = surface.smooth()
-    for i in range(2):
+    for i in range(1):
         surface = surface.subdivide_loop(smooth=True)
 
     surface = surface.transform(linalg.orthonormalize(np.random.randn(3, 3)))
@@ -111,7 +116,7 @@ def test_power_dual():
     )
     print(tri.is_pairwise_delaunay)
     print(tri.is_well_centered)
-    tri = tri.optimize_weights()
+    tri = tri#.optimize_weights()
     tri.plot()
     fundamental = tri.subdivide_fundamental()
 

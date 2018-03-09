@@ -671,6 +671,6 @@ class ComplexTriangularEuclidian3(ComplexTriangularEuclidian):
         solid_points = np.concatenate((self.vertices, other.vertices))
         solid_tris   = np.concatenate((self_tris, other_tris, boundary_tris))
 
-        solid = self.copy(vertices=solid_points, triangles=solid_tris)
+        solid = self.copy(vertices=solid_points, triangles=solid_tris, topology=None)
         assert solid.topology.is_oriented
         return solid

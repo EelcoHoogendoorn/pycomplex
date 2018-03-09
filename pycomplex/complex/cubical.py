@@ -121,13 +121,6 @@ class ComplexCubical(BaseComplex):
 
         return operator
 
-    def laplacian(self, k):
-        """Construct laplace-beltrami of order k"""
-        M = [0] + self.topology.matrices + [0]
-        L, R = M[k:k+2]
-        LT, RT = np.transpose(L), np.transpose(R)
-        return LT * L + R * RT
-
     @cached_property
     def multigrid_transfers(self):
         """Multigrid transfer operators between the complex and its parent
@@ -135,7 +128,7 @@ class ComplexCubical(BaseComplex):
         Returns
         -------
         List[scipy.sparse[fine.n_elements, coarse.n_elements]]
-            n-th element in the list relates fine and coarse n-elements
+            n-th element in the list relates fine and coarse primal n-elements
 
         Notes
         -----
@@ -143,13 +136,13 @@ class ComplexCubical(BaseComplex):
         smoothness of the k-form under the k-laplacian.
         If this is appropriate or not is problem-specific
 
-
         """
         # FIXME: is this really a property of the complex? maybe make it a free function in multigrid module
         # FIXME: This deals with primary elements only so far; can smoothing-based logic be extended to dual boundary as well?
         # FIXME: seems like dual would work along same principles. add boundary block to transfer matrix, and decide on desired number of smoothing steps
-        # FIXME: pass in custom smoother?
+        # FIXME: pass in custom smoother? or even equation object itself?
         # FIXME: how to normalize? divide by metric, then normalize sum to one, and multiply with metric?
+        # FIXME: what about vector forms? absolute sum? remember; goal is to have exact mapping etween (near) null spaces. but constructing these is hard
         # FIXME: note that transfer depends on metric; which may include vertex weights
         # does it generalize to simplicial? I do think so
 
@@ -163,10 +156,15 @@ class ComplexCubical(BaseComplex):
         # could use these directly as coarsening operator, without the smoothing
         TT = fine.topology.transfer_matrices
 
+        def laplacian(self, k):
+            """Construct laplace-beltrami of order k on primal k-forms"""
+            M = [0] + self.topology.matrices + [0]
+            L, R = M[k:k + 2]
+            LT, RT = np.transpose(L), np.transpose(R)
+            return LT * L + R * RT
 
-        result = []
-        for i, (TM, o, p) in enumerate(zip(TT, order, parent)):
-            L = fine.laplacian(i)
+        def smoother(i):
+            L = laplacian(fine, i)
             # seems to converge to 8 for all k for ndim=2
             l = scipy.sparse.linalg.eigsh((L * 1.0), k=1, which='LM', tol=1e-6, return_eigenvectors=False)[0]
             I = scipy.sparse.identity(L.shape[0])
@@ -175,16 +173,21 @@ class ComplexCubical(BaseComplex):
             # cleaner to use the laplacian equation class here; another argument for moving this out of the complex
             # http://amath.colorado.edu/pub/multigrid/aSAm.pdf
             # suggests 4/3/lamda * L as a prolongation smoother
-            S = I - (1/l) * L
+            r = 1 # 4/3
+            S = I - (r/l) * L
+            return S
 
-            def smoothers(pre=0):
-                # lazily compute powers of S
-                SA = TM.T   # init with mapping onto coarse; reduce useless computation
-                for _ in range(pre):
-                    SA = SA * S
-                while True:
-                    yield SA
-                    SA = SA * S
+        def smoothers(S, pre=0):
+            # lazily compute powers of S
+            SA = TM.T   # init with mapping onto coarse; reduce useless computation
+            for _ in range(pre):
+                SA = SA * S
+            while True:
+                yield SA
+                SA = SA * S
+
+        result = []
+        for i, (TM, o, p) in enumerate(zip(TT, order, parent)):
 
             # element-order; what order of coarse cube a fine cube was inserted on
             eo = o.reshape(len(o), -1).min(axis=-1)
@@ -192,7 +195,7 @@ class ComplexCubical(BaseComplex):
             Select = (scipy.sparse.diags((eo == i) * 1) for i in np.unique(eo))
 
             # add these smoother matrices together again
-            R = sum(smoother * select for select, smoother in zip(Select, smoothers()))
+            R = sum(smoother * select for select, smoother in zip(Select, smoothers(smoother(i))))
 
             result.append(R.T)
         return result

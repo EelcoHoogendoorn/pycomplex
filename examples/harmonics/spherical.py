@@ -11,18 +11,18 @@ from examples.harmonics import get_harmonics_0, get_harmonics_2
 
 if __name__ == '__main__':
     # construct a spherical complex
-    sphere = pycomplex.synthetic.icosphere(refinement=6)
+    sphere = pycomplex.synthetic.icosphere(refinement=4)
     assert sphere.topology.is_oriented
 
     from time import clock
     t = clock()
-    v = get_harmonics_0(sphere, amg=True, K=200)
+    v = get_harmonics_0(sphere, amg=True, K=50)
     print(clock() - t)
 
     # plot a spherical harmonic
     sphere.as_euclidian().plot_primal_0_form(v[:, -1])
     t = clock()
-    v = get_harmonics_2(sphere, amg=True, K=200)
+    v = get_harmonics_2(sphere, amg=True, K=50)
     print(clock() - t)
     # plot a spherical harmonic
     sphere.as_euclidian().plot_primal_2_form(v[:, -1])

@@ -188,23 +188,25 @@ def hexacosichoron():
     -------
     ComplexSpherical3
     """
-    phi = (1 + np.sqrt(5)) / 2
+    def snub_24():
+        """Generate the vertices of a snub-24 complex"""
+        phi = (1 + np.sqrt(5)) / 2
 
-    b = [phi, 1, 1/phi, 0]
-    from pycomplex.math.combinatorial import permutations
-    par, perm = zip(*permutations(list(range(4))))
-    par, perm = np.array(par), np.array(perm)
-    perm = perm[par==0]     # get only even permutations
+        b = [phi, 1, 1/phi, 0]
+        from pycomplex.math.combinatorial import permutations
+        par, perm = zip(*permutations(list(range(4))))
+        par, perm = np.array(par), np.array(perm)
+        perm = perm[par == 0]     # get only even permutations
 
-    flips = np.indices((2,2,2,1)) - 0.5
-    flips = flips.T.reshape(-1, 4)
+        flips = np.indices((2, 2, 2, 1)) - 0.5
+        flips = flips.T.reshape(-1, 4)
 
-    snub_24 = np.asarray([(flip * b)[p] for flip in flips for p in perm])
+        return np.asarray([(flip * b)[p] for flip in flips for p in perm])
 
     vertices = np.concatenate([
         n_cube(4, centering=True).vertices,
         n_cube_dual(4).vertices,
-        snub_24
+        snub_24()
     ], axis=0)
 
     tets = scipy.spatial.ConvexHull(vertices).simplices

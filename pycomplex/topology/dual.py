@@ -111,6 +111,7 @@ class Dual(BaseTopology):
         -------
         array_like, [n_dim], sparse matrix
         """
+        # FIXME: come up with a descriptive name for this. call it matrices; and rename matrices to matrices_full?
         M = self.matrices    # [D0D1 ... DnDN]
         S = self.selector    # [P0DN ... PND0]
         return [m * s.T for m, s in zip(M, S[::-1][1:])]
@@ -138,7 +139,7 @@ class Dual(BaseTopology):
             selectors mapping dual forms to primal subset
             first element of this list is square; maps dual n-forms to primal 0-forms, which are one-to-one
         """
-
+        # FIXME: rename to interior_selector or somesuch? bit more descriptive
         def s(np, nd):
             return scipy.sparse.eye(np, nd)
 
@@ -146,7 +147,7 @@ class Dual(BaseTopology):
 
     @cached_property
     def matrices(self):
-        """Construct dual topology matrices
+        """Construct dual topology matrices, including the topology of the boundary, and its connection to the interior
 
         Returns
         -------
@@ -207,6 +208,37 @@ class Dual(BaseTopology):
         """Given that the topology matrices are really the thing of interest of our dual object,
         we make them easily accessible"""
         return self.matrices[item]
+
+    def transfer_matrices(self):
+        """Construct dual transfer matrices
+
+        Returns
+        -------
+        List[sparse]
+            n-th sparse matrix relates fine and coarse primal n-elements
+
+        Notes
+        -----
+        logic is similar to topology matrices; just copy the relevant block from the primal and concat
+        """
+        fine = self
+        coarse = self.primal.parent.dual
+        T = self.primal.transfer_matrices   # coarse to fine on the primal
+        fine_p = fine.primal.boundary.parent_idx
+        coarse_p = coarse.primal.boundary.parent_idx
+        result = []
+        for n, (t, bt, fp, cp) in enumerate(zip(T[::-1], T[:-1][::-1], fine_p[::-1], coarse_p[::-1])):
+            b = bt[fp, :][:, cp] # select relevant part of boundary transfer
+            blocks = [
+                [t, None],
+                [None, b]
+            ]
+            result.append(scipy.sparse.bmat(blocks))
+        result.append(T[0])  # dual of primal vertices do not have anything added to them
+        # little check
+        for r, c, f in zip(result, coarse.n_elements, fine.n_elements):
+            assert (r.shape == r, c)
+        return result
 
     # def form(self, n):
     #     """allocate a dual n-form. This is a block-vector"""

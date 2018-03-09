@@ -49,16 +49,17 @@ Furthermore, note that by reinterpreting the flux as a displacement,
 we can also use this as a model for isotropic linear elasticity
 
 defining the unknowns as:
-    [(s)hear, (d)isplacement, (c)ompression]
+    [(r)otation, (d)isplacement, (c)ompression]
 and given lame parameters [μ, λ]
-[I,        curl, 0       ] [s]   [0]
+[I,        curl, 0       ] [r]   [0]
 [curl * μ, 0,    grad * λ] [d] = [f]
 [0,        div,  I       ] [c]   [0]
 
 if not purely incompressible (λ is finite), it is easy to rewrite this as equation of displacement alone
 infact, total equation is only minimally different from vector-laplacian
 
-for freely vibrating object, boundary conditions are such that s and c are zero on the boundary
+for freely vibrating object, boundary conditions are such that r and c are zero on the boundary
+or are they?
 """
 
 from pycomplex.topology import sign_dtype

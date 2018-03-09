@@ -103,7 +103,7 @@ def solve_full_cycle(hierarchy, y, iterations=2):
         return fine.solve(y)
 
     # get solution on coarser level first
-    x = fine.interpolate(solve_full_cycle(hierarchy[:-1], y=fine.restrict(y)))
+    x = fine.interpolate(solve_full_cycle(hierarchy[:-1], y=fine.restrict(y), iterations=iterations))
 
     # do some V-cycles to correct residual error
     x = solve_v_cycle(hierarchy, y=y, x=x, iterations=iterations)
