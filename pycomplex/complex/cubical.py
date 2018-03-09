@@ -141,19 +141,26 @@ class ComplexCubical(BaseComplex):
         -----
         These are geometric multigrid transfers; their coefficients are derived from
         smoothness of the k-form under the k-laplacian.
-        If this is appropriate is problem-specific
+        If this is appropriate or not is problem-specific
 
 
         """
         # FIXME: is this really a property of the complex? maybe make it a free function in multigrid module
         # FIXME: This deals with primary elements only so far; can smoothing-based logic be extended to dual boundary as well?
+        # FIXME: seems like dual would work along same principles. add boundary block to transfer matrix, and decide on desired number of smoothing steps
+        # FIXME: pass in custom smoother?
+        # FIXME: how to normalize? divide by metric, then normalize sum to one, and multiply with metric?
+        # FIXME: note that transfer depends on metric; which may include vertex weights
+        # does it generalize to simplicial? I do think so
+
         fine = self
         coarse = self.parent
 
         # compute the order and index of each fine cubes parent cube
         order, parent = coarse.topology.subdivide_cubical_relations(fine.topology)
 
-        # we have this; only encodes direct ancestry so far
+        # these encode only direct ancestry relationships
+        # could use these directly as coarsening operator, without the smoothing
         TT = fine.topology.transfer_matrices
 
 
@@ -164,56 +171,33 @@ class ComplexCubical(BaseComplex):
             l = scipy.sparse.linalg.eigsh((L * 1.0), k=1, which='LM', tol=1e-6, return_eigenvectors=False)[0]
             I = scipy.sparse.identity(L.shape[0])
             # construct smoother
+            # FIXME: add mass term? not needed for cube; but at boundary?
+            # cleaner to use the laplacian equation class here; another argument for moving this out of the complex
+            # http://amath.colorado.edu/pub/multigrid/aSAm.pdf
+            # suggests 4/3/lamda * L as a prolongation smoother
             S = I - (1/l) * L
-            # element-order; what order of coarse cube a fine cube was inserted on
-            eo = o.reshape(len(o), -1).min(axis=-1)
+
             def smoothers(pre=0):
                 # lazily compute powers of S
-                SA = TM.T
+                SA = TM.T   # init with mapping onto coarse; reduce useless computation
                 for _ in range(pre):
                     SA = SA * S
                 while True:
                     yield SA
                     SA = SA * S
 
+            # element-order; what order of coarse cube a fine cube was inserted on
+            eo = o.reshape(len(o), -1).min(axis=-1)
             # create selection matrices, to pick out fine cubes of a given order
-            Select = [scipy.sparse.diags((eo == i) * 1) for i in np.unique(eo)]
+            Select = (scipy.sparse.diags((eo == i) * 1) for i in np.unique(eo))
 
             # add these smoother matrices together again
-            c = (smoother * select for select, smoother in zip(Select, smoothers()))
+            R = sum(smoother * select for select, smoother in zip(Select, smoothers()))
 
-            result.append(sum(c))
+            result.append(R.T)
         return result
-
-
-
-        # NOTE: smooth and restrict fails for 0-forms.
-        # if we take vertex on quad, it does not reach any coarse verts
-        # same for central edges on cube.
-        # can we do repeated smoothing for n-elements generated on >n+1 elements?
-        # start with zero or one smooth step? the extra step does not seem to mess with sparsity too bad
-        # sounds plausible
-        # does it generalize to simplicial?
-        # seems like; this is essentially what happens in algebraic solvers
-        # http://amath.colorado.edu/pub/multigrid/aSAm.pdf
-        # suggests 4/3/lamda * L as a prolongation smoother
-
-        T = [t.T * L(i) for i, t in enumerate(TT)]
-        return T
-        T = [None] * fine.topology.n_dim
-
-        # this one is the same as used in the subdivision surfaces
-        T[0] = scipy.sparse.vstack(coarse.topology.averaging_operators_0)
-
-        # this one is easy too
-        T[-1] = TT[-1]
-
-        # the intermediate ones are harder; consider just edges
-        # some edges are direct children of parents; those are easy
-        # but what about edges in the middle?
-        # also, orientation can start playing a role here
-
-        return T
+        # # this one is the same as used in the subdivision surfaces
+        # T[0] = scipy.sparse.vstack(coarse.topology.averaging_operators_0)
 
     def subdivide_fundamental(self):
         from pycomplex.complex.simplicial.euclidian import ComplexSimplicialEuclidian
@@ -282,7 +266,7 @@ class ComplexCubical(BaseComplex):
             raise TypeError('invalid cast')
         return ComplexCubical4Euclidian4(vertices=self.vertices, topology=self.topology)
 
-    def plot(self, plot_dual=True, plot_vertices=False, ax=None, primal_color='b', dual_color='r'):
+    def plot(self, plot_dual=True, plot_vertices=False, plot_arrow=False, ax=None, primal_color='b', dual_color='r'):
         """Generic 2d projected plotting of primal and dual lines and edges"""
         import matplotlib.pyplot as plt
         import matplotlib.collections
@@ -297,6 +281,10 @@ class ComplexCubical(BaseComplex):
         ax.add_collection(lc)
         if plot_vertices:
             ax.scatter(*self.vertices.T[:2], color=primal_color)
+        if plot_arrow:
+            for edge in e[..., :2]:
+                ax.arrow(*edge[0], *(edge[1]-edge[0]),
+                         head_width=0.05, head_length=-0.1, fc='k', ec='k')
 
         # plot dual cells
         if plot_dual:

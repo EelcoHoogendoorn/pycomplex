@@ -321,7 +321,7 @@ class TopologyCubical(PrimalTopology):
         return order, parent
 
     def subdivide_cubical_transfers(coarse, fine):
-        """build up transfer operators
+        """Build up transfer operators
         These operators only encode relationships between purely coincident n-cubes;
         only between those that share a direct ancestry relationship
 
@@ -334,25 +334,8 @@ class TopologyCubical(PrimalTopology):
         -------
         transfers : list of tuple of arrays
             where each entry i is a tuple of ndarray, index_dtype, referencing (fine.elements[i], coarse.elements[i])
-
-        Notes
-        -----
-        from_cubes makes it hard to decode implicit relationships between n-cubes
-        can we cheat and use picking? not in topology class
-        alternative; set operations on connectivity
-        for middle edge, find fine edges connected via squares,
-        and remove all fine edges connected via fine verts
-        then look up corresponding coarse edges
-        3d case of edges suggests that it is n-cube connection rather than +1 connection we care about
-        works for faces too
-        so... do n-cube connectivity - 0-cube connectivity?
-        or do something akin to smoothed aggegation?
-        compute laplace-beltrami operator for each level
-        for interpolator by taking smooth operator on fine level,
-        and filtering nonzeros by fine's that have a direct relation to coarse parent
-        is this called prolongation smoothing?
         """
-        # FIXME: how to derive relative orientation? or do we not need to? is it inherited by construction?
+        # FIXME: how to derive relative orientation? or do we not need to? is it inherited by construction? test suggests so
 
         order, parent = coarse.subdivide_cubical_relations(fine)
         transfers = []
@@ -363,16 +346,6 @@ class TopologyCubical(PrimalTopology):
             c = p[f][j]
             transfers.append((f, c))
         return transfers
-        # for c, o in zip(fine.corners, offsets):
-        #     order = (np.min(c, axis=1)[:, None] >= offsets[1:]).sum(axis=1)
-        #     sc = np.sort(c, axis=1)     # sorted corners
-        #     # filter down elements for those having connection with original vertices
-        #     idx = np.flatnonzero(order == 0)
-        #     sc = sc[idx]
-        #     # highest vertex; translate to corresponding n-cube on the coarse level
-        #     sc = sc[:, -1] - o
-        #     transfers.append((idx, sc))
-        # return transfers
 
     def subdivide_octohedral(self):
         """Subdivision by inserting a new 0-cube at each n-cube, and creating a new 'octahedron'

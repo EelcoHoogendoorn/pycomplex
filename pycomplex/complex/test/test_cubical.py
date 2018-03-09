@@ -137,16 +137,20 @@ def test_n_cube():
 def test_transfer():
     n_dim = 2
     cube = n_cube(n_dim)
+    cube = cube.transform(linalg.orthonormalize(np.random.randn(n_dim, n_dim)))
+
     hierarchy = [cube]
     for i in range(2):
         hierarchy.append(hierarchy[-1].subdivide_cubical())
 
+    if True:
+        # test that directionality is inherited as expected
+        hierarchy[-2].plot(plot_dual=False, plot_arrow=True)
+        hierarchy[-1].plot(plot_dual=False, plot_arrow=True)
+        plt.show()
 
-    L = hierarchy[-1].laplacian(2)
     T = hierarchy[-1].multigrid_transfers
     q = T[0].todense()
     z = T[-1].todense()
     print()
-    hierarchy[-1].plot(plot_dual=True)
-    plt.show()
 

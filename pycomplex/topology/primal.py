@@ -254,7 +254,8 @@ class PrimalTopology(BaseTopology):
             Boundary topology, with attribute parent_idx referring back to the parent elements
         """
         # FIXME: rather than using from_elements, a direct subset selection would be preferable
-        # should be too hard; just find chains on all elements, select subsets, and remap vertex indices
+        # shouldnt be too hard; just find chains on all elements, select subsets, and remap vertex indices
+        # FIXME: not sure boundary orientation is even preserved in current implementation
         if not self.is_oriented:
             raise ValueError('Cannot get the boundary of a non-oriented manifold')
 
