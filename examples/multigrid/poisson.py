@@ -29,7 +29,7 @@ class Poisson(Equation):
         complex : BaseComplex
         k : int
             laplace order
-            
+
         """
         self.complex = complex
         self.k = k
