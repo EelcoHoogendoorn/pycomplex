@@ -132,9 +132,21 @@ class PoissonDual(Equation):
 
     """
 
-    def __init__(self, complex, k):
+    def __init__(self, complex, k, dual=True):
+        """
+
+        Parameters
+        ----------
+        complex : BaseComplex
+        k : int
+            degree of the laplacian
+        dual : bool
+            if true, dual boundary terms are included
+            if false, these are implicitly zero and only primal topology is used
+        """
         self.complex = complex
         self.k = k
+        self.dual = dual
 
     @cached_property
     def operators(self):
@@ -154,8 +166,13 @@ class PoissonDual(Equation):
         k = self.k
         DPl, DPm, DPr = ([0] + self.complex.hodge_DP + [0])[k:][:3]
         PDl, PDm, PDr = ([0] + self.complex.hodge_PD + [0])[k:][:3]
-        Dl, Dr = ([0] + self.complex.topology.dual.matrices_2 + [0])[k:][:2]
-        Pl, Pr = np.transpose(Dl), np.transpose(Dr)
+        if self.dual:
+            Dl, Dr = ([0] + self.complex.topology.dual.matrices_2 + [0])[k:][:2]
+            Pl, Pr = np.transpose(Dl), np.transpose(Dr)
+        else:
+            Pl, Pr = ([0] + self.complex.topology.matrices + [0])[k:][:2]
+            Dl, Dr = np.transpose(Pl), np.transpose(Pr)
+
         A = Pl * PDl * Dl + PDm * Dr * DPr * Pr * PDm
 
         # FIXME: is mass just hodge for non-scalar forms?
@@ -221,11 +238,6 @@ class PoissonDual(Equation):
         """Interpolate solution from coarse to fine"""
         return self.interpolator * coarse
 
-
-class Stokes(Equation):
-    pass
-class Elasticity(Equation):
-    pass
 
 
 class GeometricMultiGrid(object):

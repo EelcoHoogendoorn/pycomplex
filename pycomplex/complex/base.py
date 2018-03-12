@@ -337,7 +337,7 @@ class BaseComplex(object):
         Returns
         -------
         velocity_d0 : ndarray, [n_vertices, n_dim], float
-            velocity vector in the embedding space at each
+            velocity vector in the embedding space at each dual vertex
 
         Notes
         -----
@@ -345,12 +345,19 @@ class BaseComplex(object):
         """
         assert self.is_pairwise_delaunay    # required since we are dividing by dual edge lengths; does not work for cubes yet
 
+        from pycomplex.complex.simplicial.euclidian import ComplexSimplicialEuclidian
+        if isinstance(self, ComplexSimplicialEuclidian):
+            from pycomplex.geometry import euclidian
+            # FIXME: this only works for simplices; or can it be generalized to cubes too? gradients are per vertex-opposing-face pair;
+            # FIXME can think of it as volume gradient of moving vertex, or gradient of moving opposing face
+            # FIXME: analogous computation would be normal of cube faces multiplied with their area
+            gradients = euclidian.simplex_gradients(self.vertices[self.topology.elements[-1]])
+        else:
+            q = self.vertices[self.topology.corners[-1]]
+            q -= q.mean(axis=1, keepdims=True)
+            # FIXME: this only is true for square cubes
+            gradients = q
 
-        from pycomplex.geometry import euclidian
-        # FIXME: this only works for simplices; or can it be generalized to cubes too? gradients are per vertex-opposing-face pair;
-        # FIXME can think of it as volume gradient of moving vertex, or gradient of moving opposing face
-        # FIXME: analogous computation would be normal of cube faces multiplied with their area
-        gradients = euclidian.simplex_gradients(self.vertices[self.topology.elements[-1]])
         u, s, v = np.linalg.svd(gradients)
         # only retain components in the plane of the element
         s[:, self.topology.n_dim:] = np.inf
