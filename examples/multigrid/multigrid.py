@@ -42,6 +42,9 @@ def v_cycle(hierarchy, y, x=None):
     can also create a variant where each layer uses minres,
     preconditioned by a recursion to the coarse level
     basically; replace the simple descent we have now with a krylov-solver
+    this might have quite some benefit when lower layers start shear locking for instance;
+    instead of applying the coarse refinement directly; treat them as suggested directions
+    and apply them more nuanced in the context of the fine problem
 
     """
     if x is None:

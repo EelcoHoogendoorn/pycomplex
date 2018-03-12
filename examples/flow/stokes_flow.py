@@ -27,7 +27,7 @@ this makes bc's easiest to see; each dual boundary element introduces a new unkn
 [[0, 0], [d, I, 0], [0, 0]] [Pi]   [si] source/sink
 [[0, 0], [0, _, 0], [0, _]] [Pd]   [_]
 
-This implies a relation between [vp, Pd] and [ωp, vd] if se week to restore symmetry to the system
+This implies a relation between [vp, Pd] and [ωp, vd] if we seek to restore symmetry to the system
 
 normalize bcs with potential infs on the diag
 drop the infs by giving them prescribed values
@@ -48,18 +48,6 @@ and its physics more local, it should be numerically easier to solve, too.
 Furthermore, note that by reinterpreting the flux as a displacement,
 we can also use this as a model for isotropic linear elasticity
 
-defining the unknowns as:
-    [(r)otation, (d)isplacement, (c)ompression]
-and given lame parameters [μ, λ]
-[I,        curl, 0       ] [r]   [0]
-[curl * μ, 0,    grad * λ] [d] = [f]
-[0,        div,  I       ] [c]   [0]
-
-if not purely incompressible (λ is finite), it is easy to rewrite this as equation of displacement alone
-infact, total equation is only minimally different from vector-laplacian
-
-for freely vibrating object, boundary conditions are such that r and c are zero on the boundary
-or are they?
 """
 
 from pycomplex.topology import sign_dtype
@@ -135,7 +123,7 @@ def stokes_flow(complex2):
     # NOTE: could model divergence as a seperate 2-form; would that give more control over the numerical structure of the vector laplacian?
     vorticity  = [P0D2       , P0D2 * D2D1       , P0D0_0       ]
     momentum   = [P1P0 * P0D2, P1D1_0            , P1D1 * D1D0  ]
-    continuity = [P2D2_0     , P2P1 * P1D1 * S[1], P2D0_0       ]
+    continuity = [P2D2_0     , P2P1 * P1D1 * S[1], P2D0_0       ]   # the S[1] is there to add the boundary equations to the primal operator
 
     # set up boundary equations
     continuity_bc = [sparse_zeros((B0, d)) for d in dual.n_elements[::-1]]
