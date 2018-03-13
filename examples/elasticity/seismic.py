@@ -41,9 +41,10 @@ class Elastic(object):
         self.m = m
         self.l = l
         self.r = r
-        self.laplacian, self.mass, self.inverse_mass_operator = self.laplacian()
+        self.laplacian, self.mass, self.inverse_mass_operator = self.operators
 
-    def laplacian(self):
+    @cached_property
+    def operators(self):
         """Laplacian acting on dual 1-forms"""
         complex = self.complex
         m, l, r = self.m, self.l, self.r
@@ -70,6 +71,37 @@ class Elastic(object):
             self.laplacian,
             M=self.mass,
             k=1, which='LM', tol=1e-6, return_eigenvectors=False)
+
+    @cached_property
+    def amg_solver(self):
+        """Get AMG preconditioner for the action of A in isolation"""
+        from pyamg import smoothed_aggregation_solver
+        A, B, BI = self.operators
+        return smoothed_aggregation_solver(A)
+
+    def eigen_basis(self, K, amg=False, tol=1e-14):
+        """Compute partial eigen decomposition for `A x = B x`
+
+        Parameters
+        ----------
+        K : int
+            number of eigenvectors
+        amg : bool
+            if true, amg preconditioning is used
+        tol : float
+
+        Returns
+        -------
+        V : ndarray, [A.shape, K]
+            n-th column is n-th eigenvector
+        v : ndarray, [K]
+            eigenvalues, sorted low to high
+        """
+        A, B, BI = self.operators
+        X = scipy.rand(A.shape[0], K)
+        M = self.amg_solver.aspreconditioner() if amg else None
+        v, V = scipy.sparse.linalg.lobpcg(A=A, B=B, X=X, tol=tol, M=M, largest=False)
+        return V, v
 
     def operate(self, x):
         return (self.inverse_mass_operator * (self.laplacian * x))
@@ -173,21 +205,41 @@ if __name__ == '__main__':
 
 
 
-    path = r'../output/seismic_0'
-    from examples.util import save_animation
-    for i in save_animation(path, frames=200, overwrite=True):
-        for i in range(3):
-            p, v = equation.explicit_step(p, v, 1)
+    if True:
+        path = r'../output/seismic_modes_0'
+        from examples.util import save_animation
+        V, v = equation.eigen_basis(K=50, amg=True)
+        for i in save_animation(path, frames=len(v), overwrite=True):
 
-        if kind == 'regular':
-            complex.plot_dual_flux(p * r)
+            if kind == 'regular':
+                complex.plot_dual_flux(V[:, i] * r / 5e3)
 
-        ax = plt.gca()
+            ax = plt.gca()
 
-        a = np.linspace(0, np.pi*2, endpoint=True)
-        c = np.array([np.cos(a), np.sin(a)]) * 0.4
-        plt.plot(*c)
+            a = np.linspace(0, np.pi*2, endpoint=True)
+            c = np.array([np.cos(a), np.sin(a)]) * 0.4
+            plt.plot(*c)
 
-        ax.set_xlim(*complex.box[:, 0])
-        ax.set_ylim(*complex.box[:, 1])
-        plt.axis('off')
+            ax.set_xlim(*complex.box[:, 0])
+            ax.set_ylim(*complex.box[:, 1])
+            plt.axis('off')
+
+    else:
+        path = r'../output/seismic_0'
+        from examples.util import save_animation
+        for i in save_animation(path, frames=200, overwrite=True):
+            for i in range(3):
+                p, v = equation.explicit_step(p, v, 1)
+
+            if kind == 'regular':
+                complex.plot_dual_flux(p * r)
+
+            ax = plt.gca()
+
+            a = np.linspace(0, np.pi*2, endpoint=True)
+            c = np.array([np.cos(a), np.sin(a)]) * 0.4
+            plt.plot(*c)
+
+            ax.set_xlim(*complex.box[:, 0])
+            ax.set_ylim(*complex.box[:, 1])
+            plt.axis('off')
