@@ -120,7 +120,23 @@ but if we drive tangent to zero closeby this is likely to have some effect
 yet we do not want infill at fine levels from coarse
 infact, same could be said of interior; only care for refinement near boundary,
 since interior is smooth for all we care
-bit of an optimization though; can worry about it later
+how would we do the transfer between subset and supersets though?
+note that unkknown density would be a zigzag across the hierarchy; expand to finer cubes,
+then trim down to cubes close to the surface.
+on the top level, we are solving a problem only at the boundary; so how is the interior accounted for?
+in essence, because we (selectively) allow topological changes on the coarser level;
+if these opposing surfaces are actually connected
+note that we are relying on the properties of the solver to obtain the resulting behavior of interest here;
+the actual linear system describing the fine cubes will not have the eigenvectors we are looking for
+it is not all that obvious that our eigensolver of choice will be very happy about this
+and if our choice of connectivity on the coarse grid defines rather than guides our fine solver,
+being correct about it becomes all the more important
+either way, should start with a baseline implementation
+perhaps writing optimized finite difference operators is more important in the end
+this would preclude AMG or smart coarsened geometric multigrid though, and also, memory is likely the dominant concern
+100^3 grid equals 4mb for 4byte float. if we want 50 eigenvectors thats 200mb.
+including all other mem usage thats likely a rough upper limit for fully dense simulation
+1mm res for a 10cm cube; 0.5mm voxel thickness analyzer more often than not times out at 300s, so that does not bode well
 
 bcs; all hodges are dual-to-primal; 3 generations of hodges are used.
 modulating each of these gives perhaps more degrees of freedom than material parameters?
@@ -130,6 +146,21 @@ however, modulating them in a consistent way with a single scaling might be bene
 no wait is it more subtle? lambda mu rho all appear  with mutliplication in momentum equation
 however, laplace-beltrami contains hodges in both directions, after rewriting
 with different scalings for volume, area or line elements tho; maybe this cancels out?
+
+does it make sense to coarsen by just averaging the material parameters over their cells?
+physically it seems ok; half filled cell has half the mass and stiffness;
+but what about closing gaps?
+it only makes sense in the tangential direction of the surface really;
+there the properties act and add in parallel
+in the normal direction the materials are linked in series; higher compliance in the fine cells
+ought to dominate the response of the coarse cell
+so the question can be phrased as: should we average compliances or stiffnesses?
+most likely there isnt a correct answer
+how much this matters probably also depends on the smoother and other aspects of MG
+if restriction/prolongation is based on smoothing on fine level, it should compensate for this effect somewhat
+also, integration coarse correction in a more nuanced way than just subtracting;
+treating it as a direction on the fine grid and rescaling it there for optimum effect should help;
+maybe it would even be enough to solve the topology change problem? doubtfull of that
 """
 
 from pycomplex.topology import sign_dtype

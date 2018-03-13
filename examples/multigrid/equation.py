@@ -14,7 +14,7 @@ class Equation(object):
     Seems like there is overlap in intention with BlockSystem;
     not sure yet what the cleanest conceptual breakup is
     BlockSystem manages blocks;
-    this defines the core operation (self.poisson),
+    this defines the core operation (self.operators),
     and provides methods aimed at interfacing with mg-solver
     defining the operation is prob better left to the Block class
 
@@ -72,7 +72,7 @@ class Equation(object):
 
     @cached_property
     def amg_solver(self):
-        """Get AMG preconditioner for the ation of A in isolation"""
+        """Get AMG preconditioner for the action of A in isolation"""
         from pyamg import smoothed_aggregation_solver
         A, B, BI = self.operators
         return smoothed_aggregation_solver(A)
