@@ -56,9 +56,9 @@ class Elastic(object):
 
         # FIXME: is mass just hodge for non-scalar forms? dont think so...; more like product of primal/dual metric
         P, D = complex.metric
-        mass = P[::-1][1] * D[1]
-        B = scipy.sparse.diags(mass * r)
-        BI = scipy.sparse.diags(mass / r)
+        mass = (P[::-1][1] * D[1]) * r
+        B = scipy.sparse.diags(mass)
+        BI = scipy.sparse.diags(1/mass)
 
         return A.tocsr(), B.tocsc(), BI.tocsc()
 
@@ -70,6 +70,8 @@ class Elastic(object):
             M=self.mass,
             k=1, which='LM', tol=1e-6, return_eigenvectors=False)
 
+    def operate(self, x):
+        return (self.inverse_mass_operator * (self.laplacian * x))
     def explicit_step(self, p, v, fraction=1):
         """Forward Euler timestep
 
@@ -89,7 +91,7 @@ class Elastic(object):
             primal 0-form
         """
         p = p + v
-        v = v - (self.inverse_mass_operator * (self.laplacian * p)) * 1e-1#(fraction / self.largest_eigenvalue)
+        v = v - self.operate(p) * (fraction / self.largest_eigenvalue)
         return p, v
 
     def integrate_explicit(self, field, dt):
@@ -134,10 +136,14 @@ if __name__ == '__main__':
             return scipy.special.erfc((np.linalg.norm(p, axis=1) - radius) / sigma) / 2
         pp = complex.primal_position[0]
         d = circle(pp, sigma=complex.metric[1][1].mean() / 8) + 0.01
-        m, r, l = [np.ones_like(o * d) for o in complex.topology.averaging_operators_0[-3:]]
+        d = np.ones_like(d)
+        m, r, l = [(o * d) for o in complex.topology.averaging_operators_0[-3:]]
         # r = np.ones_like(r)
-        l *= 0.1
+        m *= .4
 
+
+    equation = Elastic(complex, m, l, r)
+    print(equation.largest_eigenvalue)
 
     if False:
         field = np.random.rand(complex.topology.n_elements[0])
@@ -148,16 +154,16 @@ if __name__ == '__main__':
         idx = 0
         idx = np.argmin(np.linalg.norm(complex.vertices - [0, 0], axis=1))
         p[idx] = .02
+        for i in range(30):
+            p = p - equation.operate(p) / equation.largest_eigenvalue
 
-    equation = Elastic(complex, m, l, r)
-    print(equation.largest_eigenvalue)
 
 
     path = r'../output/seismic_0'
     from examples.util import save_animation
     for i in save_animation(path, frames=200, overwrite=True):
-        for i in range(1):
-            p, v = equation.explicit_step(p, v, 6e6)
+        for i in range(3):
+            p, v = equation.explicit_step(p, v, 1)
 
         if kind == 'regular':
             # map flux to primal velocity; kinda ugly
@@ -165,7 +171,7 @@ if __name__ == '__main__':
             dp = S[-1] * complex.dual_flux_to_dual_velocity(S[1].T * p)
             dp = complex.topology.averaging_operators_N[0] * dp
             # plot warped mesh
-            complex.copy(vertices=complex.primal_position[0] + dp).plot(plot_dual=False)
+            complex.copy(vertices=complex.primal_position[0] + dp * d[:, None]).plot(plot_dual=False)
 
 
         plt.axis('off')
