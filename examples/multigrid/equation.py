@@ -96,9 +96,11 @@ class Equation(object):
             eigenvalues, sorted low to high
         """
         A, B, BI = self.operators
-        X = scipy.rand(A.shape[0], K)
         M = self.amg_solver.aspreconditioner() if amg else None
+
+        X = scipy.rand(A.shape[0], K)
         v, V = scipy.sparse.linalg.lobpcg(A=A, B=B, X=X, tol=tol, M=M, largest=False)
+
         return V, v
 
     def _solve_eigen(self, y, func):

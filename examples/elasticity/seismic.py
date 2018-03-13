@@ -155,7 +155,7 @@ if __name__ == '__main__':
     powers = 1.1, 1., 1.1
     m, r, l = [(o * np.power(d, p)) for o, p in zip(complex.topology.averaging_operators_0[-3:], powers)]
     # r = np.ones_like(r)
-    m *= 1     # mu is shear stiffness
+    m *= 0.4     # mu is shear stiffness
     if False:
         complex.plot_primal_0_form(d, cmap='jet', plot_contour=False)
         plt.show()
@@ -172,15 +172,16 @@ if __name__ == '__main__':
         idx = np.argmin(np.linalg.norm(complex.dual_position[1] - [0.05, 0.35 + 0.05], axis=1))
         p[idx] = .03
         # smooth impulse a little since the high frequency components are visually distracting
-        for i in range(10):
+        for i in range(30):
             p = p - equation.operate(p) / equation.largest_eigenvalue
 
 
     # toggle between eigenmodes or time stepping
-    if False:
+    if True:
+        # output eigenmodes
         path = r'../output/seismic_modes_0'
         from examples.util import save_animation
-        V, v = equation.eigen_basis(K=50, amg=True)
+        V, v = equation.eigen_basis(K=80, amg=True)
         print(v)
         for i in save_animation(path, frames=len(v), overwrite=True):
 
@@ -193,6 +194,7 @@ if __name__ == '__main__':
             plt.axis('off')
 
     elif False:
+        # time integration using explicit integration
         path = r'../output/seismic_0'
         from examples.util import save_animation
         for i in save_animation(path, frames=200, overwrite=True):
