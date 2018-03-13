@@ -269,7 +269,7 @@ class ComplexCubical(BaseComplex):
             raise TypeError('invalid cast')
         return ComplexCubical4Euclidian4(vertices=self.vertices, topology=self.topology)
 
-    def plot(self, plot_dual=True, plot_vertices=False, plot_arrow=False, ax=None, primal_color='b', dual_color='r'):
+    def plot(self, plot_dual=True, plot_vertices=False, plot_arrow=False, ax=None, primal_color='b', dual_color='r', **kwargs):
         """Generic 2d projected plotting of primal and dual lines and edges"""
         import matplotlib.pyplot as plt
         import matplotlib.collections

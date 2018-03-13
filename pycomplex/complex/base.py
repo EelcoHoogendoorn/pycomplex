@@ -459,3 +459,15 @@ class BaseComplex(object):
     @abstractmethod
     def multigrid_transfers(self):
         raise NotImplementedError
+
+    def plot_dual_flux(self, d1, **kwargs):
+        """Visualize a dual 1-form flux by warping the complex in accordance with said flux"""
+        defaults = dict(plot_dual=False, plot_vertices=False, plot_lines=False)
+        defaults.update(kwargs)
+
+        # map dual flux to primal velocity; kinda ugly
+        S = self.topology.dual.selector
+        d0 = S[-1] * self.dual_flux_to_dual_velocity(S[1].T * d1)
+        p0 = self.topology.averaging_operators_N[0] * d0
+        # plot warped mesh
+        return self.copy(vertices=self.primal_position[0] + p0).plot(**defaults)

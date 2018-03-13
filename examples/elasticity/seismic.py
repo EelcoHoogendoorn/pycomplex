@@ -29,12 +29,13 @@ class Elastic(object):
         Parameters
         ----------
         complex : Complex
+            Complex to simulate over
         m : n-2-chain
-            shear modulus
+            shear modulus field
         l : n-chain
-            compressive modulus
+            compressive modulus field
         r : n-1 chain
-            density
+            density field
         """
         self.complex = complex
         self.m = m
@@ -72,6 +73,7 @@ class Elastic(object):
 
     def operate(self, x):
         return (self.inverse_mass_operator * (self.laplacian * x))
+
     def explicit_step(self, p, v, fraction=1):
         """Forward Euler timestep
 
@@ -163,7 +165,7 @@ if __name__ == '__main__':
         p = complex.topology.chain(1, dtype=np.float)
         v = complex.topology.chain(1, dtype=np.float)
         idx = 0
-        idx = np.argmin(np.linalg.norm(complex.dual_position[1] - [0.35, 0], axis=1))
+        idx = np.argmin(np.linalg.norm(complex.dual_position[1] - [0.05, 0.35 + 0.05], axis=1))
         p[idx] = .01
         # smooth impulse a little since the high frequency components are visually distracting
         for i in range(10):
@@ -178,12 +180,7 @@ if __name__ == '__main__':
             p, v = equation.explicit_step(p, v, 1)
 
         if kind == 'regular':
-            # map dual flux to primal velocity; kinda ugly
-            S = complex.topology.dual.selector
-            dp = S[-1] * complex.dual_flux_to_dual_velocity(S[1].T * p)
-            dp = complex.topology.averaging_operators_N[0] * dp
-            # plot warped mesh
-            complex.copy(vertices=complex.primal_position[0] + dp * d[:, None]).plot(plot_dual=False)
+            complex.plot_dual_flux(p * r)
 
         ax = plt.gca()
 
