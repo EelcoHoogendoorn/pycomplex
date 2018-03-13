@@ -19,8 +19,10 @@ from cached_property import cached_property
 import numpy as np
 import scipy.sparse
 
+from examples.multigrid.equation import Equation
 
-class Elastic(object):
+
+class Elastic(Equation):
     """Object to manage second order vectorial wave equation over dual 1-forms"""
 
     def __init__(self, complex, m, l, r):
@@ -41,7 +43,7 @@ class Elastic(object):
         self.m = m
         self.l = l
         self.r = r
-        self.laplacian, self.mass, self.inverse_mass_operator = self.operators
+        self.laplacian, self.mass, self.inverse_mass = self.operators
 
     @cached_property
     def operators(self):
@@ -56,7 +58,7 @@ class Elastic(object):
 
         A = Pl * PDl * m * Dl + PDm * Dr * DPr * l * Pr * PDm
 
-        # FIXME: is mass just hodge for non-scalar forms? dont think so...; more like product of primal/dual metric
+        # FIXME: is product of primal/dual metric a good mass term?
         P, D = complex.metric
         mass = (P[::-1][1] * D[1]) * r
         B = scipy.sparse.diags(mass)
@@ -64,47 +66,8 @@ class Elastic(object):
 
         return A.tocsr(), B.tocsc(), BI.tocsc()
 
-    @cached_property
-    def largest_eigenvalue(self):
-        # compute largest eigenvalue, for optimally scaled explicit timestepping
-        return scipy.sparse.linalg.eigsh(
-            self.laplacian,
-            M=self.mass,
-            k=1, which='LM', tol=1e-6, return_eigenvectors=False)
-
-    @cached_property
-    def amg_solver(self):
-        """Get AMG preconditioner for the action of A in isolation"""
-        from pyamg import smoothed_aggregation_solver
-        A, B, BI = self.operators
-        return smoothed_aggregation_solver(A)
-
-    def eigen_basis(self, K, amg=False, tol=1e-14):
-        """Compute partial eigen decomposition for `A x = B x`
-
-        Parameters
-        ----------
-        K : int
-            number of eigenvectors
-        amg : bool
-            if true, amg preconditioning is used
-        tol : float
-
-        Returns
-        -------
-        V : ndarray, [A.shape, K]
-            n-th column is n-th eigenvector
-        v : ndarray, [K]
-            eigenvalues, sorted low to high
-        """
-        A, B, BI = self.operators
-        X = scipy.rand(A.shape[0], K)
-        M = self.amg_solver.aspreconditioner() if amg else None
-        v, V = scipy.sparse.linalg.lobpcg(A=A, B=B, X=X, tol=tol, M=M, largest=False)
-        return V, v
-
     def operate(self, x):
-        return (self.inverse_mass_operator * (self.laplacian * x))
+        return (self.inverse_mass * (self.laplacian * x))
 
     def explicit_step(self, p, v, fraction=1):
         """Forward Euler timestep
@@ -124,32 +87,32 @@ class Elastic(object):
         field : ndarray, [n_vertices], float
             primal 0-form
         """
-        p = p + v
+        p = p + v * fraction
         v = v - self.operate(p) * (fraction / self.largest_eigenvalue)
         return p, v
 
-    def integrate_explicit(self, field, dt):
-        """Integrate diffusion equation over a timestep dt
-
-        Parameters
-        ----------
-        field : ndarray, [n_vertices], float
-            primal 0-form
-        dt : float
-            timestep
-
-        Returns
-        -------
-        field : ndarray, [n_vertices], float
-            diffused primal 0-form
-
-        """
-        distance = self.largest_eigenvalue * dt
+    def integrate_explicit(self, p, v, dt):
+        distance = dt * 2 * np.pi
         steps = int(np.ceil(distance))
         fraction = distance / steps
         for i in range(steps):
-            field = self.explicit_step(field, fraction)
-        return field
+            p, v = self.explicit_step(p, v, fraction)
+        return p, v
+
+    @cached_property
+    def integrate_eigen_precompute(self):
+        return self.eigen_basis(K=80, amg=True)
+    def integrate_eigen(self, p, v, dt):
+        V, eigs = self.integrate_eigen_precompute
+        pe = np.dot(V.T, self.mass * p) #/ eigs
+        ve = np.dot(V.T, self.mass * v) #/ eigs
+
+        c = pe + ve * 1j
+        c = c * np.exp(np.pi * 2j * np.sqrt(eigs) / np.sqrt(self.largest_eigenvalue) * dt)
+        pe = np.real(c)
+        ve = np.imag(c)
+
+        return np.dot(V, pe), np.dot(V, ve)
 
 
 if __name__ == '__main__':
@@ -172,31 +135,32 @@ if __name__ == '__main__':
         for i in range(6):
             complex = complex.subdivide_cubical()
 
-    # set of circular domain; everything outside the circle are 'air cells'
-    def circle(p, sigma, radius=0.4):
+    # set up circular domain; everything outside the circle are 'air cells'
+    def circle(p, sigma=0.5, radius=0.4):
+        sigma = sigma * complex.metric[1][1].mean()
         return scipy.special.erfc((np.linalg.norm(p, axis=1) - radius) / sigma) / 2
-    pp = complex.primal_position[0]
-    def step(p, sigma, pos=[0, 0], dir=[-1, 0]):
+    def step(p, sigma=0.5, pos=[0, 0], dir=[-1, 0]):
+        sigma = sigma * complex.metric[1][1].mean()
         return scipy.special.erfc(np.dot(p - pos, dir) / sigma) / 2
-    def rect(p, s):
-        """"""
+    def rect(p, s=0.5):
         return step(p, s, pos=[0.4, 0], dir=[1, 0]) * step(p, s, pos=[-0.4, 0], dir=[-1, 0]) * \
                step(p, s, pos=[0, 0.05], dir=[0, 1]) * step(p, s, pos=[0, -0.05], dir=[0, -1])
 
 
     # set up scenario
-    # d = circle(pp, sigma=complex.metric[1][1].mean() / 2) + 0.01
-    d = rect(pp, complex.metric[1][1].mean() / 2) + 0.01
+    pp = complex.primal_position[0]
+    d = circle(pp) + 0.01
+    # d = rect(pp) + 0.01
     # d = np.ones_like(d)
     powers = 1.1, 1., 1.1
     m, r, l = [(o * np.power(d, p)) for o, p in zip(complex.topology.averaging_operators_0[-3:], powers)]
     # r = np.ones_like(r)
-    m *= .4     # mu is shear stiffness
+    m *= 1     # mu is shear stiffness
     if False:
         complex.plot_primal_0_form(d, cmap='jet', plot_contour=False)
         plt.show()
 
-    equation = Elastic(complex, m, l, r)
+    equation = Elastic(complex, m=m, l=l, r=r)
     print(equation.largest_eigenvalue)
 
     if True:
@@ -206,14 +170,14 @@ if __name__ == '__main__':
         v = complex.topology.chain(1, dtype=np.float)
         idx = 0
         idx = np.argmin(np.linalg.norm(complex.dual_position[1] - [0.05, 0.35 + 0.05], axis=1))
-        p[idx] = .01
+        p[idx] = .03
         # smooth impulse a little since the high frequency components are visually distracting
         for i in range(10):
             p = p - equation.operate(p) / equation.largest_eigenvalue
 
 
     # toggle between eigenmodes or time stepping
-    if True:
+    if False:
         path = r'../output/seismic_modes_0'
         from examples.util import save_animation
         V, v = equation.eigen_basis(K=50, amg=True)
@@ -228,12 +192,25 @@ if __name__ == '__main__':
             ax.set_ylim(*complex.box[:, 1])
             plt.axis('off')
 
-    else:
+    elif False:
         path = r'../output/seismic_0'
         from examples.util import save_animation
         for i in save_animation(path, frames=200, overwrite=True):
-            for i in range(5):
-                p, v = equation.explicit_step(p, v, 1)
+            p, v = equation.integrate_explicit(p, v, 1)
+
+            complex.plot_primal_0_form(m - 0.5, levels=3, cmap=None)
+            ax = plt.gca()
+            complex.plot_dual_flux(p * r, plot_lines=True, ax=ax)
+
+            ax.set_xlim(*complex.box[:, 0])
+            ax.set_ylim(*complex.box[:, 1])
+            plt.axis('off')
+    else:
+        # time integration using eigen basis
+        path = r'../output/seismic_1'
+        from examples.util import save_animation
+        for i in save_animation(path, frames=200, overwrite=True):
+            p, v = equation.integrate_eigen(p, v, 1)
 
             complex.plot_primal_0_form(m - 0.5, levels=3, cmap=None)
             ax = plt.gca()

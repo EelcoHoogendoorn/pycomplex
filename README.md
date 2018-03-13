@@ -10,7 +10,7 @@ although the terms discrete differential geometry, discrete topology, subdivisio
 Applications
 ------------
 This library provides useful functionality in a wide range of computational and graphical modelling contexts
-- Computational modelling, such as fluid dynamics and electromagnetics
+- Computational modelling, such as fluid dynamics, electromagnetics or elasticity
 - Surface modelling, subdivision curves, and other geometric manipulations
 
 The examples folder contains a comprehensive set of brief but illustrative use cases.
@@ -48,10 +48,7 @@ Todo
 ----
 - Add 3d electrodynamics example
 - Multigrid support
-    - Add hierarchy class, to manage all transfers across levels
-    - Black box multigrid (at least for 0-forms)
-    - Multigrid eigen solver
-- Implement geometric elasticity (http://imechanica.org/files/Geometry_Elasticity.pdf)
+    - Black box multigrid on simplicial and regular meshes, for all k-forms
 - Clean up boundary condition handling in examples
 - Replace ugly casting system with some more automagic dynamic dispatch
 
@@ -59,4 +56,3 @@ Speculative todo
 ----------------
 - Cylindrical coordinates and corresponding metric calculations
 - Hybrid triangle-quad meshes
-- Some basic support for FEM
