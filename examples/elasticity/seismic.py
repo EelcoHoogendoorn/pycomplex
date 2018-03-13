@@ -185,12 +185,13 @@ if __name__ == '__main__':
 
 
     # set up scenario
-    d = circle(pp, sigma=complex.metric[1][1].mean() / 2) + 0.01
-    # d = rect(pp, complex.metric[1][1].mean() / 2) + 0.01
+    # d = circle(pp, sigma=complex.metric[1][1].mean() / 2) + 0.01
+    d = rect(pp, complex.metric[1][1].mean() / 2) + 0.01
     # d = np.ones_like(d)
-    m, r, l = [(o * d) for o in complex.topology.averaging_operators_0[-3:]]
+    powers = 1.1, 1., 1.1
+    m, r, l = [(o * np.power(d, p)) for o, p in zip(complex.topology.averaging_operators_0[-3:], powers)]
     # r = np.ones_like(r)
-    m *= .9     # mu is shear stiffness
+    m *= .4     # mu is shear stiffness
     if False:
         complex.plot_primal_0_form(d, cmap='jet', plot_contour=False)
         plt.show()
