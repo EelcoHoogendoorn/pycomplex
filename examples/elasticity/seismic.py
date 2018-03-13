@@ -140,11 +140,11 @@ if __name__ == '__main__':
         def step(p, sigma, pos=[0, 0], dir=[-1, 0]):
             return scipy.special.erfc(np.dot(p - pos, dir) / sigma) / 2
 
-        d = step(pp, sigma=complex.metric[1][1].mean() / 2) + 0.01
+        d = circle(pp, sigma=complex.metric[1][1].mean() / 2) + 0.01
         # d = np.ones_like(d)
         m, r, l = [(o * d) for o in complex.topology.averaging_operators_0[-3:]]
         # r = np.ones_like(r)
-        m *= .4
+        m *= .4     # mu is shear stiffness
         if False:
             tris = complex.subdivide_simplicial()
             field = tris.topology.transfer_operators[0] * d
@@ -163,7 +163,7 @@ if __name__ == '__main__':
         p = complex.topology.chain(1, dtype=np.float)
         v = complex.topology.chain(1, dtype=np.float)
         idx = 0
-        idx = np.argmin(np.linalg.norm(complex.dual_position[1] - [0.1, 0], axis=1))
+        idx = np.argmin(np.linalg.norm(complex.dual_position[1] - [0.35, 0], axis=1))
         p[idx] = .01
         # smooth impulse a little since the high frequency components are visually distracting
         for i in range(10):
@@ -186,6 +186,11 @@ if __name__ == '__main__':
             complex.copy(vertices=complex.primal_position[0] + dp * d[:, None]).plot(plot_dual=False)
 
         ax = plt.gca()
+
+        a = np.linspace(0, np.pi*2, endpoint=True)
+        c = np.array([np.cos(a), np.sin(a)]) * 0.4
+        plt.plot(*c)
+
         ax.set_xlim(*complex.box[:, 0])
         ax.set_ylim(*complex.box[:, 1])
         plt.axis('off')

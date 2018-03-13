@@ -344,19 +344,28 @@ class BaseComplex(object):
         This is the docstring of the wrapped inner function
         """
         assert self.is_pairwise_delaunay    # required since we are dividing by dual edge lengths; does not work for cubes yet
+        B = self.topology._boundary[-1]
+        O = self.topology._orientation[-1]
+        B = B.reshape(len(B), -1)
+        O = O.reshape(len(O), -1)
 
         from pycomplex.complex.simplicial.euclidian import ComplexSimplicialEuclidian
+        from pycomplex.complex.regular import ComplexRegularMixin
         if isinstance(self, ComplexSimplicialEuclidian):
             from pycomplex.geometry import euclidian
             # FIXME: this only works for simplices; or can it be generalized to cubes too? gradients are per vertex-opposing-face pair;
             # FIXME can think of it as volume gradient of moving vertex, or gradient of moving opposing face
             # FIXME: analogous computation would be normal of cube faces multiplied with their area
             gradients = euclidian.simplex_gradients(self.vertices[self.topology.elements[-1]])
-        else:
-            q = self.vertices[self.topology.corners[-1]]
-            q -= q.mean(axis=1, keepdims=True)
-            # FIXME: this only is true for square cubes
-            gradients = q
+
+        elif isinstance(self, ComplexRegularMixin):
+            pp = self.primal_position
+            gradients = pp[-2][B] - pp[-1][:, None, :]
+            # gradients -= gradients.mean(axis=1, keepdims=True)
+
+            gradients = linalg.normalized(gradients)
+            gradients *= self.primal_metric[-2][B][..., None]
+
 
         u, s, v = np.linalg.svd(gradients)
         # only retain components in the plane of the element
@@ -369,10 +378,6 @@ class BaseComplex(object):
         # # # which projected on the dual edges forms the dual fluxes. on a sphere the third component is not determined
         # # # approximate inverse would still make sense in cubical topology however
         # # # tangent_directions.dot(velocity) = tangent_velocity_component
-        B = self.topology._boundary[-1]
-        O = self.topology._orientation[-1]
-        B = B.reshape(len(B), -1)
-        O = O.reshape(len(O), -1)
 
         def block_diag(blocks):
             b, r, c = np.indices(blocks.shape)
@@ -387,7 +392,7 @@ class BaseComplex(object):
             return scipy.sparse.coo_matrix((O.flatten(), (r.flatten(), c.flatten())))
 
         bpinv = block_diag(pinv)
-        s = signed_selector(B.flatten(), O.flatten())
+        s = signed_selector(B.flatten(), O.flatten())       # this assembles all fluxes of each n-cube in 2*n rows per n_cube
         pd1 = scipy.sparse.diags(self.hodge_PD[1])
         core = (bpinv * s * pd1).tocsr()    # perhaps drop near-zero terms?
         # NOTE: dual selectors are indexed by primal element order!
