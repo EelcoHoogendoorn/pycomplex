@@ -161,29 +161,43 @@ if __name__ == '__main__':
     #     from pycomplex import synthetic
     #     complex = synthetic.icosphere(refinement=6)
     #     complex = complex.copy(radius=16)
+
+    if kind == 'simplicial':
+        from pycomplex import synthetic
+        complex = synthetic.delaunay_cube(density=20)
+        # for i in range(6):
+        #     complex = complex.subdivide_cubical()
+
+
     if kind == 'regular':
         from pycomplex import synthetic
         complex = synthetic.n_cube_grid((1, 1)).as_22().as_regular()
         for i in range(6):
             complex = complex.subdivide_cubical()
 
-        # set of circular domain; everything outside the circle are 'air cells'
-        def circle(p, sigma, radius=0.4):
-            return scipy.special.erfc((np.linalg.norm(p, axis=1) - radius) / sigma) / 2
-        pp = complex.primal_position[0]
-        def step(p, sigma, pos=[0, 0], dir=[-1, 0]):
-            return scipy.special.erfc(np.dot(p - pos, dir) / sigma) / 2
+    # set of circular domain; everything outside the circle are 'air cells'
+    def circle(p, sigma, radius=0.4):
+        return scipy.special.erfc((np.linalg.norm(p, axis=1) - radius) / sigma) / 2
+    pp = complex.primal_position[0]
+    def step(p, sigma, pos=[0, 0], dir=[-1, 0]):
+        return scipy.special.erfc(np.dot(p - pos, dir) / sigma) / 2
+    def rect(p, s):
+        """"""
+        return step(p, s, pos=[0.4, 0], dir=[1, 0]) * step(p, s, pos=[-0.4, 0], dir=[-1, 0]) * \
+               step(p, s, pos=[0, 0.05], dir=[0, 1]) * step(p, s, pos=[0, -0.05], dir=[0, -1])
 
-        d = circle(pp, sigma=complex.metric[1][1].mean() / 2) + 0.01
-        # d = np.ones_like(d)
-        m, r, l = [(o * d) for o in complex.topology.averaging_operators_0[-3:]]
-        # r = np.ones_like(r)
-        m *= .4     # mu is shear stiffness
-        if False:
-            tris = complex.subdivide_simplicial()
-            field = tris.topology.transfer_operators[0] * d
-            tris.as_2().plot_primal_0_form(field, cmap='jet', plot_contour=False)
-            plt.show()
+
+    # d = circle(pp, sigma=complex.metric[1][1].mean() / 2) + 0.01
+    d = rect(pp, complex.metric[1][1].mean() / 2) + 0.01
+    # d = np.ones_like(d)
+    m, r, l = [(o * d) for o in complex.topology.averaging_operators_0[-3:]]
+    # r = np.ones_like(r)
+    m *= .4     # mu is shear stiffness
+    if True:
+        tris = complex.subdivide_simplicial()
+        field = tris.topology.transfer_operators[0] * d
+        tris.as_2().plot_primal_0_form(field, cmap='jet', plot_contour=False)
+        plt.show()
 
 
     equation = Elastic(complex, m, l, r)
@@ -209,6 +223,7 @@ if __name__ == '__main__':
         path = r'../output/seismic_modes_0'
         from examples.util import save_animation
         V, v = equation.eigen_basis(K=50, amg=True)
+        print(v)
         for i in save_animation(path, frames=len(v), overwrite=True):
 
             if kind == 'regular':
@@ -216,9 +231,9 @@ if __name__ == '__main__':
 
             ax = plt.gca()
 
-            a = np.linspace(0, np.pi*2, endpoint=True)
-            c = np.array([np.cos(a), np.sin(a)]) * 0.4
-            plt.plot(*c)
+            # a = np.linspace(0, np.pi*2, endpoint=True)
+            # c = np.array([np.cos(a), np.sin(a)]) * 0.4
+            # plt.plot(*c)
 
             ax.set_xlim(*complex.box[:, 0])
             ax.set_ylim(*complex.box[:, 1])
@@ -236,9 +251,9 @@ if __name__ == '__main__':
 
             ax = plt.gca()
 
-            a = np.linspace(0, np.pi*2, endpoint=True)
-            c = np.array([np.cos(a), np.sin(a)]) * 0.4
-            plt.plot(*c)
+            # a = np.linspace(0, np.pi*2, endpoint=True)
+            # c = np.array([np.cos(a), np.sin(a)]) * 0.4
+            # plt.plot(*c)
 
             ax.set_xlim(*complex.box[:, 0])
             ax.set_ylim(*complex.box[:, 1])
