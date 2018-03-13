@@ -132,14 +132,24 @@ if __name__ == '__main__':
         complex = synthetic.n_cube_grid((1, 1)).as_22().as_regular()
         for i in range(6):
             complex = complex.subdivide_cubical()
+
+        # set of circular domain; everything outside the circle are 'air cells'
         def circle(p, sigma, radius=0.4):
             return scipy.special.erfc((np.linalg.norm(p, axis=1) - radius) / sigma) / 2
         pp = complex.primal_position[0]
-        d = circle(pp, sigma=complex.metric[1][1].mean() / 8) + 0.01
-        d = np.ones_like(d)
+        def step(p, sigma, pos=[0, 0], dir=[-1, 0]):
+            return scipy.special.erfc(np.dot(p - pos, dir) / sigma) / 2
+
+        d = step(pp, sigma=complex.metric[1][1].mean() / 2) + 0.01
+        # d = np.ones_like(d)
         m, r, l = [(o * d) for o in complex.topology.averaging_operators_0[-3:]]
         # r = np.ones_like(r)
         m *= .4
+        if False:
+            tris = complex.subdivide_simplicial()
+            field = tris.topology.transfer_operators[0] * d
+            tris.as_2().plot_primal_0_form(field, cmap='jet', plot_contour=False)
+            plt.show()
 
 
     equation = Elastic(complex, m, l, r)
@@ -148,13 +158,15 @@ if __name__ == '__main__':
     if False:
         field = np.random.rand(complex.topology.n_elements[0])
     else:
+        # set up impulse; do in velocity space? need to add velocity to flux mapping
         print(complex.box)
         p = complex.topology.chain(1, dtype=np.float)
         v = complex.topology.chain(1, dtype=np.float)
         idx = 0
-        idx = np.argmin(np.linalg.norm(complex.vertices - [0, 0], axis=1))
-        p[idx] = .02
-        for i in range(30):
+        idx = np.argmin(np.linalg.norm(complex.dual_position[1] - [0.1, 0], axis=1))
+        p[idx] = .01
+        # smooth impulse a little since the high frequency components are visually distracting
+        for i in range(10):
             p = p - equation.operate(p) / equation.largest_eigenvalue
 
 
@@ -166,12 +178,14 @@ if __name__ == '__main__':
             p, v = equation.explicit_step(p, v, 1)
 
         if kind == 'regular':
-            # map flux to primal velocity; kinda ugly
+            # map dual flux to primal velocity; kinda ugly
             S = complex.topology.dual.selector
             dp = S[-1] * complex.dual_flux_to_dual_velocity(S[1].T * p)
             dp = complex.topology.averaging_operators_N[0] * dp
             # plot warped mesh
             complex.copy(vertices=complex.primal_position[0] + dp * d[:, None]).plot(plot_dual=False)
 
-
+        ax = plt.gca()
+        ax.set_xlim(*complex.box[:, 0])
+        ax.set_ylim(*complex.box[:, 1])
         plt.axis('off')
