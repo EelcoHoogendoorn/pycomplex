@@ -152,7 +152,6 @@ class Elastic(object):
         return field
 
 
-
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
     kind = 'regular'
@@ -164,10 +163,8 @@ if __name__ == '__main__':
 
     if kind == 'simplicial':
         from pycomplex import synthetic
-        complex = synthetic.delaunay_cube(density=20)
-        # for i in range(6):
-        #     complex = complex.subdivide_cubical()
-
+        complex = synthetic.delaunay_cube(density=64, n_dim=2)
+        complex = complex.copy(vertices=complex.vertices - 0.5).optimize_weights().as_2().as_2()
 
     if kind == 'regular':
         from pycomplex import synthetic
@@ -187,25 +184,21 @@ if __name__ == '__main__':
                step(p, s, pos=[0, 0.05], dir=[0, 1]) * step(p, s, pos=[0, -0.05], dir=[0, -1])
 
 
-    # d = circle(pp, sigma=complex.metric[1][1].mean() / 2) + 0.01
-    d = rect(pp, complex.metric[1][1].mean() / 2) + 0.01
+    # set up scenario
+    d = circle(pp, sigma=complex.metric[1][1].mean() / 2) + 0.01
+    # d = rect(pp, complex.metric[1][1].mean() / 2) + 0.01
     # d = np.ones_like(d)
     m, r, l = [(o * d) for o in complex.topology.averaging_operators_0[-3:]]
     # r = np.ones_like(r)
-    m *= .4     # mu is shear stiffness
-    if True:
-        tris = complex.subdivide_simplicial()
-        field = tris.topology.transfer_operators[0] * d
-        tris.as_2().plot_primal_0_form(field, cmap='jet', plot_contour=False)
+    m *= .9     # mu is shear stiffness
+    if False:
+        complex.plot_primal_0_form(d, cmap='jet', plot_contour=False)
         plt.show()
-
 
     equation = Elastic(complex, m, l, r)
     print(equation.largest_eigenvalue)
 
-    if False:
-        field = np.random.rand(complex.topology.n_elements[0])
-    else:
+    if True:
         # set up impulse; do in velocity space? need to add velocity to flux mapping
         print(complex.box)
         p = complex.topology.chain(1, dtype=np.float)
@@ -218,7 +211,7 @@ if __name__ == '__main__':
             p = p - equation.operate(p) / equation.largest_eigenvalue
 
 
-
+    # toggle between eigenmodes or time stepping
     if True:
         path = r'../output/seismic_modes_0'
         from examples.util import save_animation
@@ -226,14 +219,9 @@ if __name__ == '__main__':
         print(v)
         for i in save_animation(path, frames=len(v), overwrite=True):
 
-            if kind == 'regular':
-                complex.plot_dual_flux(V[:, i] * r / 5e3)
-
+            complex.plot_primal_0_form(m - 0.5, levels=3, cmap=None)
             ax = plt.gca()
-
-            # a = np.linspace(0, np.pi*2, endpoint=True)
-            # c = np.array([np.cos(a), np.sin(a)]) * 0.4
-            # plt.plot(*c)
+            complex.plot_dual_flux(V[:, i] * r / 5e3, plot_lines=True, ax=ax)
 
             ax.set_xlim(*complex.box[:, 0])
             ax.set_ylim(*complex.box[:, 1])
@@ -243,17 +231,12 @@ if __name__ == '__main__':
         path = r'../output/seismic_0'
         from examples.util import save_animation
         for i in save_animation(path, frames=200, overwrite=True):
-            for i in range(3):
+            for i in range(5):
                 p, v = equation.explicit_step(p, v, 1)
 
-            if kind == 'regular':
-                complex.plot_dual_flux(p * r)
-
+            complex.plot_primal_0_form(m - 0.5, levels=3, cmap=None)
             ax = plt.gca()
-
-            # a = np.linspace(0, np.pi*2, endpoint=True)
-            # c = np.array([np.cos(a), np.sin(a)]) * 0.4
-            # plt.plot(*c)
+            complex.plot_dual_flux(p * r, plot_lines=True, ax=ax)
 
             ax.set_xlim(*complex.box[:, 0])
             ax.set_ylim(*complex.box[:, 1])

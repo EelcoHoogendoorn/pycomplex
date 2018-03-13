@@ -372,8 +372,9 @@ class ComplexTriangularEuclidian2(ComplexTriangularEuclidian):
             fig, ax = plt.subplots(1, 1)
 
         if plot_contour:
-            levels = np.linspace(c0.min(), c0.max(), kwargs.get('levels', 20), endpoint=True)
-            ax.tricontourf(triang, c0, cmap=cmap, levels=levels)
+            levels = np.linspace(c0.min()-1e-6, c0.max()+1e-6, kwargs.get('levels', 20), endpoint=True)
+            if cmap:
+                ax.tricontourf(triang, c0, cmap=cmap, levels=levels)
             ax.tricontour(triang, c0, colors='k', levels=levels)
         else:
             ax.tripcolor(triang, c0, cmap=cmap, **kwargs)
