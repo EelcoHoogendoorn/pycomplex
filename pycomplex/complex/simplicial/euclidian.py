@@ -375,7 +375,8 @@ class ComplexTriangularEuclidian2(ComplexTriangularEuclidian):
             levels = np.linspace(c0.min()-1e-6, c0.max()+1e-6, kwargs.get('levels', 20), endpoint=True)
             if cmap:
                 ax.tricontourf(triang, c0, cmap=cmap, levels=levels)
-            ax.tricontour(triang, c0, colors='k', levels=levels)
+            c = ax.tricontour(triang, c0, colors='k', levels=levels)
+            # contour = c.allsegs[0][0]  # this is how a single contour can be extracted
         else:
             ax.tripcolor(triang, c0, cmap=cmap, **kwargs)
 

@@ -366,13 +366,17 @@ class ComplexRegular1(ComplexRegularMixin, ComplexCubical1Euclidian1):
 class ComplexRegular2(ComplexRegularMixin, ComplexCubical2Euclidian2):
     """Regular cubical 2-complex"""
     def plot_primal_0_form(self, c0, **kwargs):
-        """plot a primal 0-form
+        """Plot a primal 0-form
 
         Parameters
         ----------
         c0 : ndarray, [n_vertices], float
             a primal 0-form
 
+        Notes
+        -----
+        This functionality is built on top of the primal 0-form plotting of a triangular complex
+        If this function is to be called repeatedly it is much preferrable to cache this subdivision
         """
         tris = self.subdivide_simplicial()
         tris.as_2().plot_primal_0_form(tris.topology.transfer_operators[0] * c0, **kwargs)

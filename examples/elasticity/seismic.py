@@ -151,11 +151,11 @@ if __name__ == '__main__':
     # set up scenario
     pp = complex.primal_position[0]
     if True:
-        d = circle(pp) + 0.01
+        d = circle(pp) + 0.001
     else:
-        d = rect(pp) + 0.01
+        d = rect(pp) + 0.001
     # d = np.ones_like(d)
-    powers = 1.1, 1., 1.1
+    powers = 1., 1., 1.
     m, r, l = [(o * np.power(d, p)) for o, p in zip(complex.topology.averaging_operators_0[-3:], powers)]
     # r = np.ones_like(r)
     m *= 0.4     # mu is shear stiffness
@@ -179,6 +179,16 @@ if __name__ == '__main__':
             p = p - equation.operate(p) / equation.largest_eigenvalue
 
 
+    def plot_flux(fd1):
+        complex.plot_primal_0_form(m - 0.5, levels=3, cmap=None)
+        ax = plt.gca()
+        complex.plot_dual_flux(fd1, plot_lines=True, ax=ax)
+
+        ax.set_xlim(*complex.box[:, 0])
+        ax.set_ylim(*complex.box[:, 1])
+        plt.axis('off')
+
+
     # toggle between eigenmodes or time stepping
     if False:
         # output eigenmodes
@@ -187,40 +197,19 @@ if __name__ == '__main__':
         V, v = equation.eigen_basis(K=150, amg=True, tol=1e-14)
         print(v)
         for i in save_animation(path, frames=len(v), overwrite=True):
+            plot_flux(V[:, i] * r / 1e2)
 
-            complex.plot_primal_0_form(m - 0.5, levels=3, cmap=None)
-            ax = plt.gca()
-            complex.plot_dual_flux(V[:, i] * r / 1e2, plot_lines=True, ax=ax)
-
-            ax.set_xlim(*complex.box[:, 0])
-            ax.set_ylim(*complex.box[:, 1])
-            plt.axis('off')
-
-    elif False:
+    elif True:
         # time integration using explicit integration
         path = r'../output/seismic_0'
         from examples.util import save_animation
         for i in save_animation(path, frames=200, overwrite=True):
             p, v = equation.integrate_explicit(p, v, 1)
-
-            complex.plot_primal_0_form(m - 0.5, levels=3, cmap=None)
-            ax = plt.gca()
-            complex.plot_dual_flux(p * r, plot_lines=True, ax=ax)
-
-            ax.set_xlim(*complex.box[:, 0])
-            ax.set_ylim(*complex.box[:, 1])
-            plt.axis('off')
+            plot_flux(p * r)
     else:
         # time integration using eigen basis
         path = r'../output/seismic_1'
         from examples.util import save_animation
         for i in save_animation(path, frames=200, overwrite=True):
             p, v = equation.integrate_eigen(p, v, 1)
-
-            complex.plot_primal_0_form(m - 0.5, levels=3, cmap=None)
-            ax = plt.gca()
-            complex.plot_dual_flux(p * r, plot_lines=True, ax=ax)
-
-            ax.set_xlim(*complex.box[:, 0])
-            ax.set_ylim(*complex.box[:, 1])
-            plt.axis('off')
+            plot_flux(p * r)

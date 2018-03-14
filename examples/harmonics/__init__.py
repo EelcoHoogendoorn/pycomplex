@@ -1,6 +1,7 @@
 """Generate harmonic functions"""
 
 # FIXME: generalize this to full nd
+# FIXME: merge with other code bases; like Equation object
 
 import numpy as np
 import scipy.sparse
