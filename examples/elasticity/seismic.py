@@ -150,7 +150,7 @@ if __name__ == '__main__':
 
     # set up scenario
     pp = complex.primal_position[0]
-    if True:
+    if False:
         d = circle(pp) + 0.001
     else:
         d = rect(pp) + 0.001
@@ -178,6 +178,31 @@ if __name__ == '__main__':
         for i in range(30):
             p = p - equation.operate(p) / equation.largest_eigenvalue
 
+    def segment(levelset, value=None):
+        if value is None:
+            value = (levelset.min() + levelset.max()) / 2
+
+        tris = complex.subdivide_simplicial()
+        c0 = tris.topology.transfer_operators[0] * (levelset - value)
+        import matplotlib.pyplot as plt
+        import matplotlib.tri as tri
+
+        triang = tri.Triangulation(*tris.vertices[:, :2].T, triangles=tris.topology.triangles)
+
+        fig, ax = plt.subplots(1, 1)
+
+        levels = np.linspace(c0.min()-1e-6, c0.max()+1e-6, 3, endpoint=True)
+        c = ax.tricontour(triang, c0, colors='k', levels=levels)
+        contour = c.allsegs[0][0][:-1]  # this is how a single contour can be extracted
+        plt.close()
+
+        from pycomplex.complex.simplicial.euclidian import ComplexSimplicialEuclidian
+
+        vidx = np.arange(len(contour))
+        edges = np.array([vidx, np.roll(vidx, 1)]).T
+        surface = ComplexSimplicialEuclidian(vertices=contour, simplices=edges)
+        return surface
+
 
     def plot_flux(fd1):
         complex.plot_primal_0_form(m - 0.5, levels=3, cmap=None)
@@ -199,17 +224,72 @@ if __name__ == '__main__':
         for i in save_animation(path, frames=len(v), overwrite=True):
             plot_flux(V[:, i] * r / 1e2)
 
-    elif True:
+    elif False:
         # time integration using explicit integration
         path = r'../output/seismic_0'
         from examples.util import save_animation
         for i in save_animation(path, frames=200, overwrite=True):
             p, v = equation.integrate_explicit(p, v, 1)
             plot_flux(p * r)
-    else:
+    elif False:
         # time integration using eigen basis
         path = r'../output/seismic_1'
         from examples.util import save_animation
         for i in save_animation(path, frames=200, overwrite=True):
             p, v = equation.integrate_eigen(p, v, 1)
             plot_flux(p * r)
+    else:
+        # perform animation by mapping displacements back to surface
+        V, v = equation.eigen_basis(K=50, amg=True, tol=1e-14)
+        M = equation.mass * np.ones(len(V))
+        V = V * np.sqrt(M)[:, None]
+        # np.dot(V.T, V) == I
+        vn = v / equation.largest_eigenvalue
+
+        surface = segment(m)
+
+        # map eigen solution to the surface
+        S = complex.topology.dual.selector[-2]
+        Vs = []
+        for i in range(len(v)):
+            velocity = complex.dual_flux_to_dual_velocity(S.T * V[:, i])
+            displacements = complex.sample_dual_0(velocity, surface.vertices)
+            Vs.append(displacements)
+        # shape K x verts x 2
+        Vs = np.array(Vs)
+
+
+        d = np.zeros_like(Vs[0])
+        d[len(d)//4, 1] = 1e-2
+        v = np.zeros_like(d)
+
+        Q = np.linalg.inv(np.einsum('kvn, lvn', Vs, Vs))
+
+        def integrate_eigen(d, v, dt):
+            # FIXME: need to add d/v mass multiplication; does current scheme of moving it to vectors work?
+            # FIXME: vectors are no longer orthonormal in Vs matrix
+            # FIXME: therefore, this mapping isnt identity when dt=0; need explicit invert of reduced matrix?
+            # NOTE: seems to work alright, but not sure if it is correct
+            pe = np.einsum('kvn, vn -> k', Vs, d)  # / eigs
+            ve = np.einsum('kvn, vn -> k', Vs, v)  # / eigs
+
+            pe = np.dot(Q, pe)
+            ve = np.dot(Q, ve)
+            c = pe + ve * 1j
+            c = c * np.exp(np.pi * 2j * np.sqrt(vn) * dt) #* np.exp(-vn * 100)
+            pe = np.real(c)
+            ve = np.imag(c)
+
+            return np.einsum('kvn, k -> vn', Vs, pe), np.einsum('kvn, k -> vn', Vs, ve)
+
+
+        path = r'../output/seismic_surf_0'
+        from examples.util import save_animation
+        for i in save_animation(path, frames=200, overwrite=True):
+            d, v = integrate_eigen(d, v, 10)
+            print(np.linalg.norm(d))
+            surface.copy(vertices=surface.vertices + d).plot(plot_dual=False)
+            # plt.show()
+            ax = plt.gca()
+            ax.set_xlim(*complex.box[:, 0])
+            ax.set_ylim(*complex.box[:, 1])
