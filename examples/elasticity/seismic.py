@@ -12,14 +12,20 @@ We can let material properties go to small values to simulate free boundary,
 or to large values to simulate fixed boundary
 
 https://authors.library.caltech.edu/62269/2/LMHTD15.pdf
-In this paper fixed boundaries are simulated by hodge going to zero
+In this paper fixed boundaries are simulated by primal metrics going to zero
+
 """
+
 from cached_property import cached_property
 
 import numpy as np
 import scipy.sparse
 
 from examples.multigrid.equation import Equation
+
+
+def inv_diag(d):
+    return scipy.sparse.diags(1 / (d * np.ones(d.shape[1])))
 
 
 class Elastic(Equation):
@@ -57,14 +63,18 @@ class Elastic(Equation):
 
         A = Pl * PDl * m * Dl + PDm * Dr * DPr * l * Pr * PDm
 
+        # # experimental gravity; not a success
+        # G = PDm * Dr * DPr * self.l   # l is density at primal n-cubes; G gradient of density
+        # G = scipy.sparse.diags(G * -1e-4)
+        # A = A + G
+
         # FIXME: is product of primal/dual metric a good mass term?
         # or is plain hodge the way to go?
         # P, D = complex.metric
         # mass = (P[::-1][1] * D[1]) * r
         mass = PDm * r
         B = mass
-        BI = scipy.sparse.diags(1/(mass*complex.topology.chain(-2, 1, np.float))) # scipy.sparse.diags(1/mass)
-        # BI = scipy.sparse.linalg.inv(B)
+        BI = inv_diag(mass)
         return A.tocsr(), B.tocsc(), BI.tocsc()
 
     def operate(self, x):
@@ -150,15 +160,15 @@ if __name__ == '__main__':
 
     # set up scenario
     pp = complex.primal_position[0]
-    if False:
-        d = circle(pp) + 0.001
+    if True:
+        d = circle(pp) + 0.01
     else:
-        d = rect(pp) + 0.001
+        d = rect(pp) + 0.01
     # d = np.ones_like(d)
     powers = 1., 1., 1.
     m, r, l = [(o * np.power(d, p)) for o, p in zip(complex.topology.averaging_operators_0[-3:], powers)]
     # r = np.ones_like(r)
-    m *= 0.4     # mu is shear stiffness
+    m *= 0.4     # mu is shear stiffness. low values impact stability of eigensolve
     if False:
         complex.plot_primal_0_form(d, cmap='jet', plot_contour=False)
         plt.show()
@@ -215,16 +225,16 @@ if __name__ == '__main__':
 
 
     # toggle between eigenmodes or time stepping
-    if False:
+    if True:
         # output eigenmodes
         path = r'../output/seismic_modes_0'
         from examples.util import save_animation
-        V, v = equation.eigen_basis(K=150, amg=True, tol=1e-14)
+        V, v = equation.eigen_basis(K=50, amg=True, tol=1e-14)
         print(v)
         for i in save_animation(path, frames=len(v), overwrite=True):
             plot_flux(V[:, i] * r / 1e2)
 
-    elif False:
+    elif True:
         # time integration using explicit integration
         path = r'../output/seismic_0'
         from examples.util import save_animation
@@ -238,12 +248,27 @@ if __name__ == '__main__':
         for i in save_animation(path, frames=200, overwrite=True):
             p, v = equation.integrate_eigen(p, v, 1)
             plot_flux(p * r)
+    elif True:
+        # traveling wave;
+        # note that 18+19 on the sphere have prograde motion;
+        # is this a bug, a consequence of sphere geometry,
+        # or due to the gradient boundary rather than sharp edge?
+        path = r'../output/seismic_travel_0'
+        from examples.util import save_animation
+        t = np.linspace(0, 2*np.pi, 50)
+        V, v = equation.eigen_basis(K=50, amg=True, tol=1e-14)
+        c = V[:, 18] + 1j * V[:, 19]
+
+        for i in save_animation(path, frames=len(t), overwrite=True):
+            p = c * np.exp(1j * t[i])
+            plot_flux(p.real * r / 1e2)
+
     else:
         # perform animation by mapping displacements back to surface
         V, v = equation.eigen_basis(K=50, amg=True, tol=1e-14)
         M = equation.mass * np.ones(len(V))
         V = V * np.sqrt(M)[:, None]
-        # np.dot(V.T, V) == I
+        # np.dot(V.T, V) == I, after this division by sqrt(M)
         vn = v / equation.largest_eigenvalue
 
         surface = segment(m)
