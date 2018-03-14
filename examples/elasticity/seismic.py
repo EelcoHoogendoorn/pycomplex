@@ -49,8 +49,7 @@ class Elastic(Equation):
     def operators(self):
         """Laplacian acting on dual 1-forms"""
         complex = self.complex
-        m, l, r = self.m, self.l, self.r
-        m, l = scipy.sparse.diags(m), scipy.sparse.diags(l)
+        m, l, r = [scipy.sparse.diags(p) for p in [self.m, self.l, self.r]]
         DPl, DPm, DPr = [scipy.sparse.diags(h) for h in complex.hodge_DP[-3:]]
         PDl, PDm, PDr = [scipy.sparse.diags(h) for h in complex.hodge_PD[-3:]]
         Pl, Pr = [t.T for t in complex.topology.matrices[-2:]]
@@ -59,11 +58,13 @@ class Elastic(Equation):
         A = Pl * PDl * m * Dl + PDm * Dr * DPr * l * Pr * PDm
 
         # FIXME: is product of primal/dual metric a good mass term?
-        P, D = complex.metric
-        mass = (P[::-1][1] * D[1]) * r
-        B = scipy.sparse.diags(mass)
-        BI = scipy.sparse.diags(1/mass)
-
+        # or is plain hodge the way to go?
+        # P, D = complex.metric
+        # mass = (P[::-1][1] * D[1]) * r
+        mass = PDm * r
+        B = mass
+        BI = scipy.sparse.diags(1/(mass*complex.topology.chain(-2, 1, np.float))) # scipy.sparse.diags(1/mass)
+        # BI = scipy.sparse.linalg.inv(B)
         return A.tocsr(), B.tocsc(), BI.tocsc()
 
     def operate(self, x):
@@ -101,7 +102,7 @@ class Elastic(Equation):
 
     @cached_property
     def integrate_eigen_precompute(self):
-        return self.eigen_basis(K=80, amg=True)
+        return self.eigen_basis(K=150, amg=True, tol=1e-14)
     def integrate_eigen(self, p, v, dt):
         V, eigs = self.integrate_eigen_precompute
         pe = np.dot(V.T, self.mass * p) #/ eigs
@@ -149,8 +150,10 @@ if __name__ == '__main__':
 
     # set up scenario
     pp = complex.primal_position[0]
-    d = circle(pp) + 0.01
-    # d = rect(pp) + 0.01
+    if True:
+        d = circle(pp) + 0.01
+    else:
+        d = rect(pp) + 0.01
     # d = np.ones_like(d)
     powers = 1.1, 1., 1.1
     m, r, l = [(o * np.power(d, p)) for o, p in zip(complex.topology.averaging_operators_0[-3:], powers)]
@@ -177,17 +180,17 @@ if __name__ == '__main__':
 
 
     # toggle between eigenmodes or time stepping
-    if True:
+    if False:
         # output eigenmodes
         path = r'../output/seismic_modes_0'
         from examples.util import save_animation
-        V, v = equation.eigen_basis(K=80, amg=True)
+        V, v = equation.eigen_basis(K=150, amg=True, tol=1e-14)
         print(v)
         for i in save_animation(path, frames=len(v), overwrite=True):
 
             complex.plot_primal_0_form(m - 0.5, levels=3, cmap=None)
             ax = plt.gca()
-            complex.plot_dual_flux(V[:, i] * r / 5e3, plot_lines=True, ax=ax)
+            complex.plot_dual_flux(V[:, i] * r / 1e2, plot_lines=True, ax=ax)
 
             ax.set_xlim(*complex.box[:, 0])
             ax.set_ylim(*complex.box[:, 1])
