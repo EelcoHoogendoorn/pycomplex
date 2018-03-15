@@ -25,7 +25,7 @@ from examples.multigrid.equation import Equation
 
 
 def inv_diag(d):
-    return scipy.sparse.diags(1 / (d * np.ones(d.shape[1])))
+    return scipy.sparse.diags(1 / (d * np.ones(d.shape[1], d.dtype)))
 
 
 class Elastic(Equation):
@@ -63,10 +63,11 @@ class Elastic(Equation):
 
         A = Pl * PDl * m * Dl + PDm * Dr * DPr * l * Pr * PDm
 
-        # # experimental gravity; not a success
-        # G = PDm * Dr * DPr * self.l   # l is density at primal n-cubes; G gradient of density
-        # G = scipy.sparse.diags(G * -1e-4)
-        # A = A + G
+        if False:
+            # experimental gravity wave term; not a success
+            G = r * PDm * Dr * DPr * self.l   # l is density at primal n-cubes; G gradient of density
+            G = scipy.sparse.diags(G * -1e-3)
+            A = A + G
 
         # FIXME: is product of primal/dual metric a good mass term?
         # or is plain hodge the way to go?
@@ -160,10 +161,10 @@ if __name__ == '__main__':
 
     # set up scenario
     pp = complex.primal_position[0]
-    if True:
-        d = circle(pp) + 0.01
+    if False:
+        d = circle(pp) + 0.001
     else:
-        d = rect(pp) + 0.01
+        d = rect(pp) + 0.001
     # d = np.ones_like(d)
     powers = 1., 1., 1.
     m, r, l = [(o * np.power(d, p)) for o, p in zip(complex.topology.averaging_operators_0[-3:], powers)]
@@ -189,6 +190,7 @@ if __name__ == '__main__':
             p = p - equation.operate(p) / equation.largest_eigenvalue
 
     def segment(levelset, value=None):
+        """Segment levelset == value"""
         if value is None:
             value = (levelset.min() + levelset.max()) / 2
 
@@ -224,31 +226,32 @@ if __name__ == '__main__':
         plt.axis('off')
 
 
-    # toggle between eigenmodes or time stepping
-    if True:
+    # toggle between different outputs
+    output = 'surface'
+    if output == 'modes':
         # output eigenmodes
         path = r'../output/seismic_modes_0'
         from examples.util import save_animation
         V, v = equation.eigen_basis(K=50, amg=True, tol=1e-14)
         print(v)
         for i in save_animation(path, frames=len(v), overwrite=True):
-            plot_flux(V[:, i] * r / 1e2)
+            plot_flux(V[:, i] * r * 1e-2)
 
-    elif True:
+    elif output == 'explicit_integration':
         # time integration using explicit integration
         path = r'../output/seismic_0'
         from examples.util import save_animation
         for i in save_animation(path, frames=200, overwrite=True):
             p, v = equation.integrate_explicit(p, v, 1)
             plot_flux(p * r)
-    elif False:
+    elif output == 'eigen_integration':
         # time integration using eigen basis
         path = r'../output/seismic_1'
         from examples.util import save_animation
         for i in save_animation(path, frames=200, overwrite=True):
             p, v = equation.integrate_eigen(p, v, 1)
             plot_flux(p * r)
-    elif True:
+    elif output == 'travelling':
         # traveling wave;
         # note that 18+19 on the sphere have prograde motion;
         # is this a bug, a consequence of sphere geometry,
@@ -263,8 +266,10 @@ if __name__ == '__main__':
             p = c * np.exp(1j * t[i])
             plot_flux(p.real * r / 1e2)
 
-    else:
-        # perform animation by mapping displacements back to surface
+    elif output == 'surface':
+        # perform animation by mapping eigenvectors back to surface
+        # FIXME: counterintuitive influence of air-density. at higher density, we get oscilation of planet
+        # probably since below certain treshold, pseudorigid body motions are numerically-null-space?
         V, v = equation.eigen_basis(K=50, amg=True, tol=1e-14)
         M = equation.mass * np.ones(len(V))
         V = V * np.sqrt(M)[:, None]
@@ -273,39 +278,33 @@ if __name__ == '__main__':
 
         surface = segment(m)
 
-        # map eigen solution to the surface
+        # # map eigen solution to the surface
         S = complex.topology.dual.selector[-2]
-        Vs = []
-        for i in range(len(v)):
-            velocity = complex.dual_flux_to_dual_velocity(S.T * V[:, i])
-            displacements = complex.sample_dual_0(velocity, surface.vertices)
-            Vs.append(displacements)
-        # shape K x verts x 2
-        Vs = np.array(Vs)
+        Vs = complex.sample_dual_0(complex.dual_flux_to_dual_velocity(S.T * V), surface.vertices)
 
-
-        d = np.zeros_like(Vs[0])
-        d[len(d)//4, 1] = 1e-2
+        d = np.zeros_like(Vs[..., 0])
+        d[len(d)//4, 0] = 1e-2
+        # d[0, 0] = 1e-0
         v = np.zeros_like(d)
 
-        Q = np.linalg.inv(np.einsum('kvn, lvn', Vs, Vs))
+        Q = np.linalg.inv(np.einsum('vnk, vnl', Vs, Vs))
 
-        def integrate_eigen(d, v, dt):
+        def integrate_eigen(d, v, dt, damping=10):
             # FIXME: need to add d/v mass multiplication; does current scheme of moving it to vectors work?
             # FIXME: vectors are no longer orthonormal in Vs matrix
             # FIXME: therefore, this mapping isnt identity when dt=0; need explicit invert of reduced matrix?
             # NOTE: seems to work alright, but not sure if it is correct
-            pe = np.einsum('kvn, vn -> k', Vs, d)  # / eigs
-            ve = np.einsum('kvn, vn -> k', Vs, v)  # / eigs
+            pe = np.einsum('vnk, vn -> k', Vs, d)  # / eigs
+            ve = np.einsum('vnk, vn -> k', Vs, v)  # / eigs
 
             pe = np.dot(Q, pe)
             ve = np.dot(Q, ve)
             c = pe + ve * 1j
-            c = c * np.exp(np.pi * 2j * np.sqrt(vn) * dt) #* np.exp(-vn * 100)
+            c = c * np.exp(np.pi * 2j * np.sqrt(vn) * dt) * np.exp(-vn * damping * dt)
             pe = np.real(c)
             ve = np.imag(c)
 
-            return np.einsum('kvn, k -> vn', Vs, pe), np.einsum('kvn, k -> vn', Vs, ve)
+            return np.einsum('vnk, k -> vn', Vs, pe), np.einsum('vnk, k -> vn', Vs, ve)
 
 
         path = r'../output/seismic_surf_0'
