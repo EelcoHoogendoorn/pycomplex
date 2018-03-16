@@ -14,6 +14,9 @@ or to large values to simulate fixed boundary
 https://authors.library.caltech.edu/62269/2/LMHTD15.pdf
 In this paper fixed boundaries are simulated by primal metrics going to zero
 
+Note that with air-cell type method, we do not get `pure` null space vectors
+This is ok for physical reasons, but eigensolver stability is a bit concerning.
+Perhaps feeding it the idealized null space explicitly would help?
 """
 
 from cached_property import cached_property
@@ -25,7 +28,9 @@ from examples.multigrid.equation import Equation
 
 
 def inv_diag(d):
-    return scipy.sparse.diags(1 / (d * np.ones(d.shape[1], d.dtype)))
+    assert isinstance(d, scipy.sparse.dia_matrix)
+    assert np.array_equal(d.offsets, [0])
+    return scipy.sparse.diags(1 / d.data[0])
 
 
 class Elastic(Equation):
@@ -39,11 +44,11 @@ class Elastic(Equation):
         complex : Complex
             Complex to simulate over
         m : n-2-chain
-            shear modulus field
+            shear modulus field (mu, G)
         l : n-chain
-            compressive modulus field
+            compressive modulus field (lambda)
         r : n-1 chain
-            density field
+            density field (rho)
         """
         self.complex = complex
         self.m = m
@@ -53,7 +58,11 @@ class Elastic(Equation):
 
     @cached_property
     def operators(self):
-        """Laplacian acting on dual 1-forms"""
+        """Laplacian acting on dual 1-forms
+
+        Note that for simulating free boundaries, domain bc where vorticity rather than tangent flux
+        is zero will likely converge faster. However the current formulation with dual-boundary==0 is the simplest.
+        """
         complex = self.complex
         m, l, r = [scipy.sparse.diags(p) for p in [self.m, self.l, self.r]]
         DPl, DPm, DPr = [scipy.sparse.diags(h) for h in complex.hodge_DP[-3:]]
@@ -74,8 +83,8 @@ class Elastic(Equation):
         # P, D = complex.metric
         # mass = (P[::-1][1] * D[1]) * r
         mass = PDm * r
-        B = mass
-        BI = inv_diag(mass)
+        B = mass.todia()
+        BI = inv_diag(B)
         return A.tocsr(), B.tocsc(), BI.tocsc()
 
     def operate(self, x):
@@ -161,14 +170,19 @@ if __name__ == '__main__':
 
     # set up scenario
     pp = complex.primal_position[0]
+    air_density = 1e-3      # mode calculation gets numerical problems with lower densities
     if False:
-        d = circle(pp) + 0.001
+        d = circle(pp) + air_density
     else:
-        d = rect(pp) + 0.001
+        d = rect(pp) + air_density
     # d = np.ones_like(d)
     powers = 1., 1., 1.
     m, r, l = [(o * np.power(d, p)) for o, p in zip(complex.topology.averaging_operators_0[-3:], powers)]
     # r = np.ones_like(r)
+    # m += 1e-4     # different stiffness/density ratios in air dont seem to help much either
+    # r += 1e-1
+    # l += 1e-4
+
     m *= 0.4     # mu is shear stiffness. low values impact stability of eigensolve
     if False:
         complex.plot_primal_0_form(d, cmap='jet', plot_contour=False)
@@ -228,15 +242,15 @@ if __name__ == '__main__':
 
 
     # toggle between different outputs
-    output = 'surface'
+    output = 'modes'
     if output == 'modes':
         # output eigenmodes
         path = r'../output/seismic_modes_0'
         from examples.util import save_animation
-        V, v = equation.eigen_basis(K=50, amg=True, tol=1e-14)
+        V, v = equation.eigen_basis(K=50, amg=True, tol=1e-16)
         print(v)
         for i in save_animation(path, frames=len(v), overwrite=True):
-            plot_flux(V[:, i] * r * 1e-2)
+            plot_flux(V[:, i] * (r**2) * 1e-2)
 
     elif output == 'explicit_integration':
         # time integration using explicit integration
@@ -286,8 +300,10 @@ if __name__ == '__main__':
         # set up on grid too, so we can diffuse?
         d = np.zeros_like(Vs[..., 0])
         v = np.zeros_like(d)
-        v[len(d)//4-30:len(d)//4+30, 0] = 1e-3
+        # v[len(d)//4-30:len(d)//4+30, 0] = 1e-3
+        d = Vs[..., 0:12].sum(axis=-1) * 2e-3   # excited a number of lower modes
         # d[0, 0] = 1e-0
+
 
         Q = np.linalg.inv(np.einsum('vnk, vnl', Vs, Vs))
 
@@ -312,10 +328,11 @@ if __name__ == '__main__':
         path = r'../output/seismic_surf_0'
         from examples.util import save_animation
         for i in save_animation(path, frames=200, overwrite=True):
-            d, v = integrate_eigen(d, v, 10)
+            d, v = integrate_eigen(d, v, 50)
             print(np.linalg.norm(d))
             surface.copy(vertices=surface.vertices + d).plot(plot_dual=False)
             # plt.show()
             ax = plt.gca()
             ax.set_xlim(*complex.box[:, 0])
             ax.set_ylim(*complex.box[:, 1])
+            plt.axis('off')
