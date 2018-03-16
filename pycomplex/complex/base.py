@@ -402,8 +402,9 @@ class BaseComplex(object):
         def dual_flux_to_dual_velocity(flux_d1):
             # lots of reshaping to support gufunc dimensions
             gu = flux_d1.shape[1:]
-            s1 = len(flux_d1), np.prod(gu)
-            s2 = self.topology.n_elements[-1], self.n_dim * np.prod(gu)
+            gun = np.prod(gu, dtype=int)
+            s1 = len(flux_d1), gun
+            s2 = self.topology.n_elements[-1], self.n_dim * gun
             s3 = (self.topology.dual.n_elements[0], self.n_dim) + gu
             return (P * (core * (S * flux_d1.reshape(s1))).reshape(s2)).reshape(s3)
         return dual_flux_to_dual_velocity

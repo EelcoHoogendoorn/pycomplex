@@ -113,7 +113,7 @@ class Elastic(Equation):
 
     @cached_property
     def integrate_eigen_precompute(self):
-        return self.eigen_basis(K=150, amg=True, tol=1e-14)
+        return self.eigen_basis(K=80, amg=True, tol=1e-14)
     def integrate_eigen(self, p, v, dt):
         V, eigs = self.integrate_eigen_precompute
         pe = np.dot(V.T, self.mass * p) #/ eigs
@@ -180,14 +180,15 @@ if __name__ == '__main__':
     if True:
         # set up impulse; do in velocity space? need to add velocity to flux mapping
         print(complex.box)
-        p = complex.topology.chain(1, dtype=np.float)
-        v = complex.topology.chain(1, dtype=np.float)
+        p = complex.topology.chain(-2, dtype=np.float)
+        v = complex.topology.chain(-2, dtype=np.float)
         idx = 0
-        idx = np.argmin(np.linalg.norm(complex.dual_position[1] - [0.05, 0.35 + 0.05], axis=1))
-        p[idx] = .03
+        # idx = np.argmin(np.linalg.norm(complex.dual_position[1] - [0.05, 0.35 + 0.05], axis=1))
+        idx = np.argmin(np.linalg.norm(complex.primal_position[-2] - [0.015, 0.05], axis=1))
+        v[idx] = .03
         # smooth impulse a little since the high frequency components are visually distracting
-        for i in range(30):
-            p = p - equation.operate(p) / equation.largest_eigenvalue
+        for i in range(300):
+            v = v - equation.operate(p) / equation.largest_eigenvalue
 
     def segment(levelset, value=None):
         """Segment levelset == value"""
@@ -282,10 +283,11 @@ if __name__ == '__main__':
         S = complex.topology.dual.selector[-2]
         Vs = complex.sample_dual_0(complex.dual_flux_to_dual_velocity(S.T * V), surface.vertices)
 
+        # set up on grid too, so we can diffuse?
         d = np.zeros_like(Vs[..., 0])
-        d[len(d)//4, 0] = 1e-2
-        # d[0, 0] = 1e-0
         v = np.zeros_like(d)
+        v[len(d)//4-30:len(d)//4+30, 0] = 1e-3
+        # d[0, 0] = 1e-0
 
         Q = np.linalg.inv(np.einsum('vnk, vnl', Vs, Vs))
 

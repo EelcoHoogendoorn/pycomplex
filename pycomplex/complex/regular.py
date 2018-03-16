@@ -234,7 +234,7 @@ class ComplexRegularMixin(object):
         """
         # extend dual 0 form to all other dual elements by averaging
         gu = d0.shape[1:]
-        dual_forms = self.average_dual(d0.reshape(len(d0), np.prod(gu)))[::-1]
+        dual_forms = self.average_dual(d0.reshape(len(d0), -1))[::-1]
         domain, bary = self.pick_fundamental(points)
         # no extrapolation
         bary = np.clip(bary, 0, 1)
