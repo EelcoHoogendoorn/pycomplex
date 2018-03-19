@@ -157,7 +157,7 @@ if __name__ == '__main__':
             complex = complex.subdivide_cubical()
 
     # set up circular domain; everything outside the circle are 'air cells'
-    def circle(p, sigma=0.5, radius=0.4):
+    def circle(p, sigma=1.0, radius=0.4):
         sigma = sigma * complex.metric[1][1].mean()
         return scipy.special.erfc((np.linalg.norm(p, axis=1) - radius) / sigma) / 2
     def step(p, sigma=0.5, pos=[0, 0], dir=[-1, 0]):
@@ -171,7 +171,11 @@ if __name__ == '__main__':
     # set up scenario
     pp = complex.primal_position[0]
     air_density = 1e-3      # mode calculation gets numerical problems with lower densities
-    if False:
+    # FIXME: investigate how much the choice of sigma, or boundary layer really matters. does it influence the spectrum, for instance?
+    # sigma 0.5->0.2 messes badly with the rotational symmetry of our circle
+    # sigma 0.5 -> 1.0 takes rotation mode from 37 to 29
+    # hard to imagine a significant impact on body modes, but surface modes are probably affected
+    if True:
         d = circle(pp) + air_density
     else:
         d = rect(pp) + air_density
@@ -183,7 +187,7 @@ if __name__ == '__main__':
     # r += 1e-1
     # l += 1e-4
 
-    m *= 0.4     # mu is shear stiffness. low values impact stability of eigensolve
+    # m *= 0.4     # mu is shear stiffness. low values impact stability of eigensolve
     if False:
         complex.plot_primal_0_form(d, cmap='jet', plot_contour=False)
         plt.show()
@@ -247,10 +251,10 @@ if __name__ == '__main__':
         # output eigenmodes
         path = r'../output/seismic_modes_0'
         from examples.util import save_animation
-        V, v = equation.eigen_basis(K=50, amg=True, tol=1e-16)
+        V, v = equation.eigen_basis(K=80, amg=True, tol=1e-16)
         print(v)
         for i in save_animation(path, frames=len(v), overwrite=True):
-            plot_flux(V[:, i] * (r**2) * 1e-2)
+            plot_flux(V[:, i] * (r**1) * 1e-2)
 
     elif output == 'explicit_integration':
         # time integration using explicit integration
@@ -271,11 +275,12 @@ if __name__ == '__main__':
         # note that 18+19 on the sphere have prograde motion;
         # is this a bug, a consequence of sphere geometry,
         # or due to the gradient boundary rather than sharp edge?
-        path = r'../output/seismic_travel_0'
+        path = r'../output/seismic_travel_1'
         from examples.util import save_animation
         t = np.linspace(0, 2*np.pi, 50)
-        V, v = equation.eigen_basis(K=50, amg=True, tol=1e-14)
+        V, v = equation.eigen_basis(K=80, amg=True, tol=1e-16)
         c = V[:, 18] + 1j * V[:, 19]
+        # c = V[:, 5] + 1j * V[:, 4]
 
         for i in save_animation(path, frames=len(t), overwrite=True):
             p = c * np.exp(1j * t[i])
