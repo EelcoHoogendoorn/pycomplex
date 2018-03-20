@@ -17,6 +17,23 @@ In this paper fixed boundaries are simulated by primal metrics going to zero
 Note that with air-cell type method, we do not get `pure` null space vectors
 This is ok for physical reasons, but eigensolver stability is a bit concerning.
 Perhaps feeding it the idealized null space explicitly would help?
+or would geometric multigrid render this a non-issue?
+
+think more about implications of air-elements on the micro-level
+if we had a hard boundary coinciding with primal elements, what would happen?
+alternation of primal-metric only makes result undefined, actually. edge has to be either out or in.
+if it is just in, flux through it should be equal to opposing boundary;
+which indeed it will be, considering all orthogonal fluxes wil be forced to zero
+
+is this a benefit of going to zero though? what about shear on a free boundary?
+is behavior continuous under such discontinuous jumps?
+
+symmetric setup right now is strange; we modify the rotation at each vertex, which has no physical analogue
+would be more natural to multiply with density-like factor on edges at the end of the shear force calculation.
+making this symmetric requires a similar term (division by density-like term) in the rotation-definition.
+this means defacto that we are modelling momentum rather than displacement;
+might be good for numerical stability? small unknown magnitude in air; directs solver attention better
+
 """
 
 from cached_property import cached_property
@@ -25,12 +42,7 @@ import numpy as np
 import scipy.sparse
 
 from examples.multigrid.equation import Equation
-
-
-def inv_diag(d):
-    assert isinstance(d, scipy.sparse.dia_matrix)
-    assert np.array_equal(d.offsets, [0])
-    return scipy.sparse.diags(1 / d.data[0])
+import pycomplex
 
 
 class Elastic(Equation):
@@ -51,9 +63,9 @@ class Elastic(Equation):
             density field (rho)
         """
         self.complex = complex
-        self.m = m
-        self.l = l
-        self.r = r
+        self.mu = m
+        self.lamb = l
+        self.rho = r
         self.laplacian, self.mass, self.inverse_mass = self.operators
 
     @cached_property
@@ -64,27 +76,35 @@ class Elastic(Equation):
         is zero will likely converge faster. However the current formulation with dual-boundary==0 is the simplest.
         """
         complex = self.complex
-        m, l, r = [scipy.sparse.diags(p) for p in [self.m, self.l, self.r]]
+        l, m, r = [scipy.sparse.diags(p) for p in [self.mu, self.rho, self.lamb]] # NOTE: maps physical variaables to left-mid-right scheme
+        li, mi, ri = [pycomplex.sparse.inv_diag(p) for p in [l, m, r]]
         DPl, DPm, DPr = [scipy.sparse.diags(h) for h in complex.hodge_DP[-3:]]
         PDl, PDm, PDr = [scipy.sparse.diags(h) for h in complex.hodge_PD[-3:]]
         Pl, Pr = [t.T for t in complex.topology.matrices[-2:]]
         Dl, Dr = np.transpose(Pl), np.transpose(Pr)
 
-        A = Pl * PDl * m * Dl + PDm * Dr * DPr * l * Pr * PDm
+        # left term is shear, right term is pressure
+        A = m * Pl * PDl * l * Dl * mi + \
+            m * PDm * Dr * DPr * r * Pr * PDm * mi
+
+        A = Pl * PDl * l * Dl + \
+            PDm * Dr * DPr * r * Pr * PDm
 
         if False:
             # experimental gravity wave term; not a success
-            G = r * PDm * Dr * DPr * self.l   # l is density at primal n-cubes; G gradient of density
+            G = r * PDm * Dr * DPr * self.lamb   # l is density at primal n-cubes; G gradient of density
             G = scipy.sparse.diags(G * -1e-3)
             A = A + G
 
         # FIXME: is product of primal/dual metric a good mass term?
         # or is plain hodge the way to go?
+        # seems like plain hodge is superior as judged on triangles;
+        # this suggests we shouldnt think of this term as 'mass' alone
         # P, D = complex.metric
         # mass = (P[::-1][1] * D[1]) * r
-        mass = PDm * r
+        mass = PDm * m
         B = mass.todia()
-        BI = inv_diag(B)
+        BI = pycomplex.sparse.inv_diag(B)
         return A.tocsr(), B.tocsc(), BI.tocsc()
 
     def operate(self, x):
@@ -170,7 +190,7 @@ if __name__ == '__main__':
 
     # set up scenario
     pp = complex.primal_position[0]
-    air_density = 1e-3      # mode calculation gets numerical problems with lower densities
+    air_density = 1e-2      # mode calculation gets numerical problems with lower densities
     # FIXME: investigate how much the choice of sigma, or boundary layer really matters. does it influence the spectrum, for instance?
     # sigma 0.5->0.2 messes badly with the rotational symmetry of our circle
     # sigma 0.5 -> 1.0 takes rotation mode from 37 to 29
@@ -180,6 +200,7 @@ if __name__ == '__main__':
     else:
         d = rect(pp) + air_density
     # d = np.ones_like(d)
+    d = np.ones_like(d)
     powers = 1., 1., 1.
     m, r, l = [(o * np.power(d, p)) for o, p in zip(complex.topology.averaging_operators_0[-3:], powers)]
     # r = np.ones_like(r)

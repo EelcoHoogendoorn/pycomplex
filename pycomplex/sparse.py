@@ -9,6 +9,7 @@ could generalize this into an ndsparse type; thatd be awesome
 import numpy as np
 import numpy_indexed as npi
 import scipy
+import scipy.sparse
 from cached_property import cached_property
 
 
@@ -215,3 +216,8 @@ class Sparse(object):
         mask = condition(self.data)
         return Sparse([a[mask] for a in self.axes], self.data[mask])
 
+
+def inv_diag(d):
+    assert isinstance(d, scipy.sparse.dia_matrix)
+    assert np.array_equal(d.offsets, [0])
+    return scipy.sparse.diags(1 / d.data[0])
