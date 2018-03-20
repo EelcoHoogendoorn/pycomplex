@@ -14,6 +14,7 @@ from cached_property import cached_property
 
 
 def ones_like(a):
+    """Return a sparse matrix with the same sparsity pattern, but all nonzeros set to one"""
     a = a.copy()
     a.data = np.ones_like(a.data)
     return a
@@ -27,6 +28,12 @@ def normalize_l1(A, axis=1):
     elif axis == 1:
         return D * A
 
+
+def inv_diag(d):
+    """Invert a true diagonal matrix"""
+    assert isinstance(d, scipy.sparse.dia_matrix)
+    assert np.array_equal(d.offsets, [0])
+    return scipy.sparse.diags(1 / d.data[0])
 
 # class Diagonal(object):
 #     def __init__(self, diagonal):
@@ -215,9 +222,3 @@ class Sparse(object):
     def filter(self, condition):
         mask = condition(self.data)
         return Sparse([a[mask] for a in self.axes], self.data[mask])
-
-
-def inv_diag(d):
-    assert isinstance(d, scipy.sparse.dia_matrix)
-    assert np.array_equal(d.offsets, [0])
-    return scipy.sparse.diags(1 / d.data[0])
