@@ -305,10 +305,10 @@ class TopologyCubical(PrimalTopology):
         -------
         List[ndarray, [], uint8]
             list corresponding to each cube elements array
-            where the array encodes the order of the parent element
+            where the array encodes the order of the parent element for each fine element
         List[ndarray, [], index_dtype]
             list corresponding to each cube elements array
-            where the array encodes the index of the parent element
+            where the array encodes the index of the parent element for each fine element
         """
         offsets = np.cumsum([0] + coarse.n_elements, dtype=index_dtype)
         order = []

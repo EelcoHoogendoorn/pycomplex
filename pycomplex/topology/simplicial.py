@@ -376,6 +376,7 @@ class TopologyTriangular(TopologySimplicial):
         Notes
         -----
         no consideration is yet given to relative signs of edge-transfers
+        are they conserved?
         """
 
         # build up transfer operators; only edge-edge has some nontrivial logic
@@ -396,6 +397,31 @@ class TopologyTriangular(TopologySimplicial):
         transfer_matrices = [transfer_matrix(*t, shape=(fine.n_elements[n], coarse.n_elements[n]))
                                  for n, t in enumerate(transfers)]
         return transfer_matrices
+
+    def subdivide_loop_relations(fine, coarse):
+        """Find the relationship between subdivided simplices and their parents
+
+        This function only assumes fine vertices were generated in accordance with `offsets`,
+        with vertices inserted on course 0-simplices followed by vertices on coarse 1-simplices, and so on
+
+        Returns
+        -------
+        List[ndarray, [], uint8]
+            list corresponding to each cube elements array
+            where the array encodes the order of the parent element
+        List[ndarray, [], index_dtype]
+            list corresponding to each cube elements array
+            where the array encodes the index of the parent element
+        """
+        offsets = np.cumsum([0] + coarse.n_elements, dtype=index_dtype)
+        order = []
+        parent = []
+        for e in fine.elements:
+            o = (e[..., None] >= offsets[1:]).sum(axis=-1, dtype=np.uint8)
+            order.append(o)
+            p = e - offsets[o]
+            parent.append(p)
+        return order, parent
 
     def subdivide_loop_direct(self):
         """Subdivide triangular topology in a direct manner, without a call to from_simplices

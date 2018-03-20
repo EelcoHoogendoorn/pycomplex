@@ -1,9 +1,10 @@
+
 import numpy as np
 import scipy.sparse
 from cached_property import cached_property
 
 from examples.multigrid.equation import Equation
-from pycomplex.sparse import normalize_l1
+from pycomplex.sparse import normalize_l1, inv_diag
 
 
 class Poisson(Equation):
@@ -57,11 +58,12 @@ class Poisson(Equation):
         PDl, PDm, PDr = ([0] + PD + [0])[k:][:3]
         Dl, Dr = ([0] + self.complex.topology.matrices + [0])[k:][:2]
         Pl, Pr = np.transpose(Dl), np.transpose(Dr)
+
         A = DPm * Pl * PDl * Dl * PDm + Dr * DPr * Pr
 
-        # FIXME: is mass just hodge for non-scalar forms?
+        # FIXME: is mass just hodge for non-scalar forms? seems like
         B = DPm
-        BI = PDm
+        BI = inv_diag(B)
 
         return A.tocsr(), B.tocsc(), BI.tocsc()
 
@@ -100,9 +102,13 @@ class Poisson(Equation):
         -----
         only available for SphericalTriangularComplex; implementation on regular grids should be easy tho
         """
-        fine = self.complex
-        coarse = fine.parent
-        return self.complex.multigrid_transfer_dual(coarse, fine).T
+        if False:
+            # triangular 0-form special case
+            fine = self.complex
+            coarse = fine.parent
+            return self.complex.multigrid_transfer_dual(coarse, fine).T
+        else:
+            return self.complex.multigrid_transfers[self.k]
 
     @cached_property
     def restrictor(self):
@@ -141,7 +147,7 @@ class PoissonDual(Equation):
         k : int
             degree of the laplacian
         dual : bool
-            if true, dual boundary terms are included
+            if true, dual boundary terms are included in the unknowns
             if false, these are implicitly zero and only primal topology is used
         """
         self.complex = complex
@@ -173,11 +179,12 @@ class PoissonDual(Equation):
             Pl, Pr = ([0] + self.complex.topology.matrices + [0])[k:][:2]
             Dl, Dr = np.transpose(Pl), np.transpose(Pr)
 
-        A = Pl * PDl * Dl + PDm * Dr * DPr * Pr * PDm
+        A = Pl * PDl * Dl + \
+            PDm * Dr * DPr * Pr * PDm
 
         # FIXME: is mass just hodge for non-scalar forms?
         B = scipy.sparse.diags(PDm)
-        BI = scipy.sparse.diags(DPm)
+        BI = inv_diag(B)
 
         return A.tocsr(), B.tocsc(), BI.tocsc()
 
@@ -214,11 +221,15 @@ class PoissonDual(Equation):
 
         Notes
         -----
-        only available for SphericalTriangularComplex; implementation on regular grids should be easy tho
+        might switch to special case for triangular complex and 0-forms
         """
-        fine = self.complex
-        coarse = fine.parent
-        return self.complex.multigrid_transfer_dual(coarse, fine).T
+        if False:
+            # triangular 0-form special case
+            fine = self.complex
+            coarse = fine.parent
+            return self.complex.multigrid_transfer_dual(coarse, fine).T
+        else:
+            return self.complex.multigrid_transfers[self.k]
 
     @cached_property
     def restrictor(self):
@@ -263,10 +274,22 @@ if __name__ == '__main__':
     from pycomplex import synthetic
     import matplotlib.pyplot as plt
 
-    sphere = synthetic.icosahedron().copy(radius=30).subdivide_fundamental()
-    hierarchy = [sphere]
-    for i in range(5):
-        hierarchy.append(hierarchy[-1].subdivide_loop())
+    complex_type = 'sphere'
+
+    if complex_type == 'sphere':
+        sphere = synthetic.icosahedron().copy(radius=30).subdivide_fundamental()
+        hierarchy = [sphere]
+        for i in range(5):
+            hierarchy.append(hierarchy[-1].subdivide_loop())
+
+    if complex_type == 'regular':
+        # test if multigrid operators on primal-0-forms work correctly on regular grids
+        root = synthetic.n_cube(n_dim=2)
+        hierarchy = [root]
+        for i in range(5):
+            hierarchy.append(hierarchy[-1].subdivide_cubical())
+
+    # set up hierarchy of equations
     equations = [Poisson(l, k=0) for l in hierarchy]
 
     if False:

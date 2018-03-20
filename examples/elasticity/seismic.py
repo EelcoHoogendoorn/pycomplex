@@ -34,6 +34,14 @@ making this symmetric requires a similar term (division by density-like term) in
 this means defacto that we are modelling momentum rather than displacement;
 might be good for numerical stability? small unknown magnitude in air; directs solver attention better
 
+changed the unknowns from velocity to momentum; seems to help some with stability, but no miracles
+
+given that we have a fully working vector equation now,
+we have a basis to experiment with geometric multigrid
+
+we could model it as a pure first order problem, including rotation and pressure variables
+this is numeircally more robust, as known from incompressible stokes problem,
+and might not be worse in terms of operation count in a multigrid context.
 """
 
 from cached_property import cached_property
@@ -41,8 +49,8 @@ from cached_property import cached_property
 import numpy as np
 import scipy.sparse
 
-from examples.multigrid.equation import Equation
 import pycomplex
+from examples.multigrid.equation import Equation
 
 
 class Elastic(Equation):
@@ -72,6 +80,9 @@ class Elastic(Equation):
     def operators(self):
         """Laplacian acting on dual 1-forms
 
+        quantity being modelled is effectively momentum, rather than velocity
+        this helps in that it makes any linear solvers focuss on errors within the domain of interest
+
         Note that for simulating free boundaries, domain bc where vorticity rather than tangent flux
         is zero will likely converge faster. However the current formulation with dual-boundary==0 is the simplest.
         """
@@ -84,11 +95,8 @@ class Elastic(Equation):
         Dl, Dr = np.transpose(Pl), np.transpose(Pr)
 
         # left term is shear, right term is pressure
-        A = m * Pl * PDl * l * Dl * mi + \
-            m * PDm * Dr * DPr * r * Pr * PDm * mi
-
-        A = Pl * PDl * l * Dl + \
-            PDm * Dr * DPr * r * Pr * PDm
+        A = mi * Pl * PDl * l * Dl * mi + \
+            mi * PDm * Dr * DPr * r * Pr * PDm * mi
 
         if False:
             # experimental gravity wave term; not a success
@@ -102,7 +110,7 @@ class Elastic(Equation):
         # this suggests we shouldnt think of this term as 'mass' alone
         # P, D = complex.metric
         # mass = (P[::-1][1] * D[1]) * r
-        mass = PDm * m
+        mass = PDm
         B = mass.todia()
         BI = pycomplex.sparse.inv_diag(B)
         return A.tocsr(), B.tocsc(), BI.tocsc()
@@ -177,7 +185,7 @@ if __name__ == '__main__':
             complex = complex.subdivide_cubical()
 
     # set up circular domain; everything outside the circle are 'air cells'
-    def circle(p, sigma=1.0, radius=0.4):
+    def circle(p, sigma=0.5, radius=0.4):
         sigma = sigma * complex.metric[1][1].mean()
         return scipy.special.erfc((np.linalg.norm(p, axis=1) - radius) / sigma) / 2
     def step(p, sigma=0.5, pos=[0, 0], dir=[-1, 0]):
@@ -190,11 +198,12 @@ if __name__ == '__main__':
 
     # set up scenario
     pp = complex.primal_position[0]
-    air_density = 1e-2      # mode calculation gets numerical problems with lower densities
+    air_density = 1e-4      # mode calculation gets numerical problems with lower densities. 1e-4 is feasible with current configuration
     # FIXME: investigate how much the choice of sigma, or boundary layer really matters. does it influence the spectrum, for instance?
     # sigma 0.5->0.2 messes badly with the rotational symmetry of our circle
-    # sigma 0.5 -> 1.0 takes rotation mode from 37 to 29
+    # sigma 0.5 -> 1.0 takes rotation mode from 37 to 29;
     # hard to imagine a significant impact on body modes, but surface modes are probably affected
+    # also has impact on first pinching mode; at least on relative position; should check absolute eigenvalues
     if True:
         d = circle(pp) + air_density
     else:
@@ -208,7 +217,9 @@ if __name__ == '__main__':
     # r += 1e-1
     # l += 1e-4
 
-    # m *= 0.4     # mu is shear stiffness. low values impact stability of eigensolve
+    # m *= 0.1     # mu is shear stiffness. low values impact stability of eigensolve; 0.4 ratio seems about an upper bound
+    # l *= 0.1
+
     if False:
         complex.plot_primal_0_form(d, cmap='jet', plot_contour=False)
         plt.show()
@@ -275,7 +286,7 @@ if __name__ == '__main__':
         V, v = equation.eigen_basis(K=80, amg=True, tol=1e-16)
         print(v)
         for i in save_animation(path, frames=len(v), overwrite=True):
-            plot_flux(V[:, i] * (r**1) * 1e-2)
+            plot_flux(V[:, i] * (r**0) * 1e-2)
 
     elif output == 'explicit_integration':
         # time integration using explicit integration

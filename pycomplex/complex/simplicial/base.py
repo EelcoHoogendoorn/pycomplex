@@ -167,7 +167,8 @@ class BaseComplexSimplicial(BaseComplex):
 
         rhs = field - field.mean()
         # We do only a few iterations of jacobi iterations to solve our equations,
-        # since in practice local redistributions of dual edge length are the only ones of interest
+        # since in practice local redistributions of dual edge length are the only ones of interest,
+        # and more aggresive solvers tend to just make things worse by messing with the null space
         diag = laplacian.diagonal()
         weights = np.zeros_like(field)
         for i in range(1):

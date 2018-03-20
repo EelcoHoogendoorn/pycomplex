@@ -144,7 +144,8 @@ class ComplexCubical(BaseComplex):
         # FIXME: how to normalize? divide by metric, then normalize sum to one, and multiply with metric?
         # FIXME: what about vector forms? absolute sum? remember; goal is to have exact mapping etween (near) null spaces. but constructing these is hard
         # FIXME: note that transfer depends on metric; which may include vertex weights
-        # does it generalize to simplicial? I do think so
+        # does it generalize to simplicial? I do think so. seems like only the element-order logic needs specialization
+        # also, the smoother used should include metric information then
 
         fine = self
         coarse = self.parent
@@ -199,8 +200,6 @@ class ComplexCubical(BaseComplex):
 
             result.append(R.T)
         return result
-        # # this one is the same as used in the subdivision surfaces
-        # T[0] = scipy.sparse.vstack(coarse.topology.averaging_operators_0)
 
     def subdivide_fundamental(self):
         from pycomplex.complex.simplicial.euclidian import ComplexSimplicialEuclidian

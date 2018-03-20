@@ -109,3 +109,16 @@ def test_subdivide_direct():
     print(sub.transfer_matrices[1])
     sub = sub.subdivide_loop_direct()
     print(sub.is_oriented)
+
+
+def test_subdivide_direct():
+    import matplotlib.pyplot as plt
+
+    triangle = synthetic.n_simplex(2).as_2()
+    sub = triangle.subdivide_loop()
+    sub2 = sub.subdivide_loop()
+
+    # test that directionality is inherited as expected
+    sub.plot(plot_dual=True, plot_arrow=True)
+    sub2.plot(plot_dual=True, plot_arrow=True)
+    plt.show()
