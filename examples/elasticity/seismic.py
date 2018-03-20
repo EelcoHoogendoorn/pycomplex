@@ -282,7 +282,7 @@ if __name__ == '__main__':
         # output eigenmodes
         path = r'../output/seismic_modes_0'
         from examples.util import save_animation
-        V, v = equation.eigen_basis(K=80, amg=True, tol=1e-16)
+        V, v = equation.eigen_basis(K=150, amg=True, tol=1e-16)
         print(v)
         for i in save_animation(path, frames=len(v), overwrite=True):
             plot_flux(V[:, i] * (r**0) * 1e-2)

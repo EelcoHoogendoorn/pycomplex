@@ -1,6 +1,11 @@
-import numpy as np
-import scipy.sparse
+
 from cached_property import cached_property
+
+import numpy as np
+import scipy
+import scipy.sparse
+
+import pycomplex
 
 
 class Equation(object):
@@ -29,7 +34,10 @@ class Equation(object):
     def operators(self):
         """Return A, B and B.I"""
         raise NotImplementedError
-
+    @cached_property
+    def null_space(self):
+        """Return null space, if known a-priori"""
+        return None
     def solve(self, y):
         """Solve system exactly. most efficient way may be problem-dependent"""
         raise NotImplementedError
@@ -98,8 +106,17 @@ class Equation(object):
         A, B, BI = self.operators
         M = self.amg_solver.aspreconditioner() if amg else None
 
-        X = scipy.rand(A.shape[0], K)
-        v, V = scipy.sparse.linalg.lobpcg(A=A, B=B, X=X, tol=tol, M=M, largest=False)
+        X = np.random.rand(A.shape[0], K)
+
+        # monkey patch this dumb assert
+        from scipy.sparse.linalg.eigen.lobpcg import lobpcg
+        lobpcg._assert_symmetric = lambda x: None
+
+        try:
+            Y = self.null_space     # giving lobpcg the null space helps with numerical stability
+            v, V = scipy.sparse.linalg.lobpcg(A=A, B=B, X=X, tol=tol, M=M, Y=Y, largest=False)
+        except:
+            v, V = scipy.sparse.linalg.lobpcg(A=A, B=B, X=X, tol=tol, M=M, largest=False)
 
         return V, v
 
@@ -139,7 +156,7 @@ class Equation(object):
         A, B, BI = self.operators
         return BI * (A * x - B * y)
 
-    def descent(self, x, y, relaxation=1):
+    def richardson(self, x, y, relaxation=1):
         """Simple residual descent. Not a great overall solver, but a pretty decent smoother
 
         This is also known as Richardson iteration
@@ -165,7 +182,7 @@ class Equation(object):
             for interpretation, see self.descent
         """
         for s in knots:
-            x = self.descent(x, y, s)
+            x = self.richardson(x, y, s)
         return x
 
     def smooth(self, x, y):
@@ -173,6 +190,22 @@ class Equation(object):
         knots = np.linspace(1, 4, 3, endpoint=True)
         return self.overrelax(x, y, knots)
 
-    def jacobi(self, x, rhs):
-        """Jacobi iteration. Potentially more efficient than our current iteration scheme"""
-        raise NotImplementedError
+    @cached_property
+    def inverse_diagonal(self):
+        A, B, BI = self.operators
+        D = A.diagonal()
+        assert np.all(D > 0)
+        return scipy.sparse.diags(1. / D)
+        # return pycomplex.sparse.inv_diag(D)
+
+    def jacobi(self, x, y, relaxation=1):
+        """Jacobi iteration.
+
+        Notes
+        -----
+        More efficient than Richardson?
+        Scaling with an equation-specific factor might indeed adapt better to anisotropy
+        Requires presennce of nonzero diagonal
+        """
+        # FIXME: not working yet; what gives?
+        return x - self.inverse_diagonal * self.residual(x, y) * relaxation * 0.5

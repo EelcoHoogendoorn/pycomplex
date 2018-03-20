@@ -67,6 +67,13 @@ class Poisson(Equation):
 
         return A.tocsr(), B.tocsc(), BI.tocsc()
 
+    @cached_property
+    def null_space(self):
+        """Return null space of the equations"""
+        A, B, BI = self.operators
+
+        return np.ones((B.shape[1], 1))
+
     def solve(self, y):
         """Solve poisson linear system in eigenbasis
 
@@ -102,7 +109,7 @@ class Poisson(Equation):
         -----
         only available for SphericalTriangularComplex; implementation on regular grids should be easy tho
         """
-        if False:
+        if True:
             # triangular 0-form special case
             fine = self.complex
             coarse = fine.parent
@@ -279,7 +286,7 @@ if __name__ == '__main__':
     if complex_type == 'sphere':
         sphere = synthetic.icosahedron().copy(radius=30).subdivide_fundamental()
         hierarchy = [sphere]
-        for i in range(5):
+        for i in range(4):
             hierarchy.append(hierarchy[-1].subdivide_loop())
 
     if complex_type == 'regular':
@@ -294,7 +301,7 @@ if __name__ == '__main__':
 
     if False:
         # test eigen solve; seems to work just fine
-        V, v = equations[-1].eigen_basis(K=10, amg=True)
+        V, v = equations[-1].eigen_basis(K=100, amg=True)
         print(equations[-1].largest_eigenvalue)
         hierarchy[-1].as_euclidian().plot_primal_0_form(V[:, -1])
         plt.show()

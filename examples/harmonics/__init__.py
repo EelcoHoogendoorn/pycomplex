@@ -6,8 +6,12 @@
 import numpy as np
 import scipy.sparse
 
+# monkey patch this dumb assert
+from scipy.sparse.linalg.eigen.lobpcg import lobpcg
+lobpcg._assert_symmetric = lambda x: None
 
-def get_harmonics_0(complex2, zero_boundary=False, amg=False, K=20):
+
+def get_harmonics_0(complex2, zero_boundary=False, amg=False, K=20, tol=1e-6):
     """primal 0-form harmonics with zero boundary"""
     # grab all the operators we will be needing
     S = complex2.topology.selector[0]
@@ -21,7 +25,6 @@ def get_harmonics_0(complex2, zero_boundary=False, amg=False, K=20):
     # construct our laplacian
     laplacian = S * div * scipy.sparse.diags(complex2.hodge_DP[1]) * grad * S.T
 
-    tol = 1e-10
     B = scipy.sparse.diags(mass).tocsc()
     if not amg:
         W, V = scipy.sparse.linalg.eigsh(
@@ -35,7 +38,10 @@ def get_harmonics_0(complex2, zero_boundary=False, amg=False, K=20):
         # preconditioner based on ml
         M = ml.aspreconditioner()
         # compute eigenvalues and eigenvectors with LOBPCG
-        W, V = scipy.sparse.linalg.lobpcg(laplacian.tocsr(), X, B=B, tol=tol, M=M, largest=False)
+        Y = np.ones((laplacian.shape[0], 1))
+        print(np.abs(laplacian * Y).max())
+        # Y = None
+        W, V = scipy.sparse.linalg.lobpcg(laplacian.tocsr(), X, B=B, tol=tol, M=M, Y=Y, largest=False)
 
     print(W)
     return S.T * V
@@ -59,7 +65,7 @@ def get_harmonics_1(complex2):
     return v
 
 
-def get_harmonics_2(complex2, amg=False, K=20):
+def get_harmonics_2(complex2, amg=False, K=20, tol=1e-6):
     """Solve for dual-0-form harmonics. boundary implicitly zero for now"""
     # grab all the operators we will be needing
     T12 = complex2.topology.matrix(1, 2).T
@@ -73,7 +79,6 @@ def get_harmonics_2(complex2, amg=False, K=20):
     scipy.sparse.diags(mass).tocsc()
 
     # solve for some eigenvectors
-    tol = 1e-10
     B = scipy.sparse.diags(mass).tocsc()
     if not amg:
         W, V = scipy.sparse.linalg.eigsh(laplacian, M=B, which='SA', k=20)
@@ -85,8 +90,9 @@ def get_harmonics_2(complex2, amg=False, K=20):
         X = scipy.rand(laplacian.shape[0], K)
         # preconditioner based on ml
         M = ml.aspreconditioner()
+        Y = np.ones((laplacian.shape[0], 1))
         # compute eigenvalues and eigenvectors with LOBPCG
-        W, V = scipy.sparse.linalg.lobpcg(laplacian.tocsr(), X, B=B, tol=tol, M=M, largest=False)
+        W, V = scipy.sparse.linalg.lobpcg(laplacian.tocsr(), X, B=B, tol=tol, M=M, Y=Y, largest=False)
 
     # print(W)
     return V
