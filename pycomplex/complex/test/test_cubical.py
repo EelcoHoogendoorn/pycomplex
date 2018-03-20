@@ -135,6 +135,7 @@ def test_n_cube():
 
 
 def test_transfer():
+    """Test the direct transfer matrices """
     n_dim = 2
     cube = n_cube(n_dim)
     cube = cube.transform(linalg.orthonormalize(np.random.randn(n_dim, n_dim)))
@@ -149,9 +150,22 @@ def test_transfer():
         hierarchy[-1].plot(plot_dual=True, plot_arrow=True)
         plt.show()
 
+    # no formal tests yet; just check that we do not crash
     DT = hierarchy[-1].topology.dual.transfer_matrices()
 
-    print(DT[0])
+
+def test_multigrid():
+    """Test the full multigrid transfer operators"""
+    # FIXME: test that null space vectors are preserved in a roundtrip
+    # FIXME: not sure this makes sense outside of a regular grid context
+    n_dim = 2
+    cube = n_cube(n_dim)
+    cube = cube.transform(linalg.orthonormalize(np.random.randn(n_dim, n_dim)))
+
+    hierarchy = [cube]
+    for i in range(2):
+        hierarchy.append(hierarchy[-1].subdivide_cubical())
+
     T = hierarchy[-1].multigrid_transfers
     q = T[0].todense()
     print(q)

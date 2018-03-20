@@ -24,7 +24,7 @@ class ComplexSimplicialEuclidian(BaseComplexSimplicial):
     def homogenize(self, points):
         return np.concatenate([points, np.ones_like(points[..., 0:1])], axis=-1)
 
-    def plot(self, ax=None, plot_dual=True, plot_vertices=True, plot_lines=True, primal_color='b', dual_color='r'):
+    def plot(self, ax=None, plot_dual=True, plot_vertices=True, plot_lines=True, plot_arrow=False, primal_color='b', dual_color='r'):
         """Plot projection on plane"""
         import matplotlib.pyplot as plt
         import matplotlib.collections
@@ -38,6 +38,12 @@ class ComplexSimplicialEuclidian(BaseComplexSimplicial):
             ax.add_collection(lc)
         if plot_vertices:
             ax.scatter(*self.vertices.T[:2], color=primal_color)
+        if plot_arrow:
+            for edge in e[..., :2]:
+                ax.arrow(*edge[0], *(edge[1]-edge[0]),
+                         head_width=0.05, head_length=-0.1, fc='k', ec='k')
+
+
 
         if plot_dual:
             dual_vertices, dual_edges = self.dual_position[0:2]

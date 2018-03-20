@@ -18,6 +18,8 @@ including hodges, we can make the system symmetric like this:
 
 if not purely incompressible (λ is finite), it is easy to rewrite this as equation of displacement alone
 infact, total equation is only minimally different from vector-laplacian
+As a matter of fact, given mu=lambda, or a poisson material, `solving an elasticity problem` is to
+`solving a poisson problem` as `diffusing the vector laplacian` is to 'diffusing the scalar laplacian'
 
 We can split up each variable as originating in the interior, primal boundary, or dual boundary (i,p,d)
 
