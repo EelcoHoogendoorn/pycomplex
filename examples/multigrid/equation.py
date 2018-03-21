@@ -159,8 +159,6 @@ class Equation(object):
     def richardson(self, x, y, relaxation=1):
         """Simple residual descent. Not a great overall solver, but a pretty decent smoother
 
-        This is also known as Richardson iteration
-
         Parameters
         ----------
         x : ndarray
@@ -170,6 +168,27 @@ class Equation(object):
             values > 1 denote overrelaxation
         """
         return x - self.residual(x, y) * (relaxation / self.largest_eigenvalue / 2)
+
+    @cached_property
+    def inverse_diagonal(self):
+        A, B, BI = self.operators
+        D = A.diagonal()
+        assert np.all(D > 0)
+        return scipy.sparse.diags(1. / D)
+
+    def jacobi(self, x, y, relaxation=1):
+        """Jacobi iteration.
+
+        Notes
+        -----
+        More efficient than Richardson?
+        Scaling with an equation-specific factor might indeed adapt better to anisotropy
+        Requires presence of nonzero diagonal on A, which richardson does not
+        but unlike richardson, zero mass diagonal terms are fine
+        """
+        A, B, BI = self.operators
+        R = (A * x - B * y)
+        return x - self.inverse_diagonal * R * (relaxation / 2)
 
     def overrelax(self, x, y, knots):
         """overrelax, forcing the eigencomponent to zero at the specified overrelaxation knots
@@ -189,23 +208,3 @@ class Equation(object):
         """Basic smoother; inspired by time integration of heat diffusion equation"""
         knots = np.linspace(1, 4, 3, endpoint=True)
         return self.overrelax(x, y, knots)
-
-    @cached_property
-    def inverse_diagonal(self):
-        A, B, BI = self.operators
-        D = A.diagonal()
-        assert np.all(D > 0)
-        return scipy.sparse.diags(1. / D)
-        # return pycomplex.sparse.inv_diag(D)
-
-    def jacobi(self, x, y, relaxation=1):
-        """Jacobi iteration.
-
-        Notes
-        -----
-        More efficient than Richardson?
-        Scaling with an equation-specific factor might indeed adapt better to anisotropy
-        Requires presennce of nonzero diagonal
-        """
-        # FIXME: not working yet; what gives?
-        return x - self.inverse_diagonal * self.residual(x, y) * relaxation * 0.5

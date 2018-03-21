@@ -100,7 +100,7 @@ class Elastic(Equation):
 
         if False:
             # experimental gravity wave term; not a success
-            G = r * PDm * Dr * DPr * self.lamb   # l is density at primal n-cubes; G gradient of density
+            G = r * PDm * Dr * DPr * self.lamb   # lamb is density at primal n-cubes; G gradient of density
             G = scipy.sparse.diags(G * -1e-3)
             A = A + G
 
@@ -114,6 +114,13 @@ class Elastic(Equation):
         B = mass.todia()
         BI = pycomplex.sparse.inv_diag(B)
         return A.tocsr(), B.tocsc(), BI.tocsc()
+
+    @cached_property
+    def null_space(self):
+        """Depends on bcs.
+
+        if constant rotation patterns is in nullspace, why constant compression isnt?"""
+        return
 
     def operate(self, x):
         return (self.inverse_mass * (self.laplacian * x))
