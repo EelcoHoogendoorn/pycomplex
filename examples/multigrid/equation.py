@@ -131,10 +131,13 @@ class Equation(object):
         x = np.einsum('vi,v...->i...', V, x)
         return x
 
-    def solve_minres(self, y, x0=None, amg=False, tol=1e-6):
+    def solve_minres(self, y, x0=None, preconditioner=None, tol=1e-6):
         """Solve equation using minres"""
         A, B, BI = self.operators
-        M = self.amg_solver.aspreconditioner() if amg else None
+        if preconditioner == 'amg':
+            M = self.amg_solver.aspreconditioner()
+        else:
+            M = preconditioner
         return scipy.sparse.linalg.minres(A=A, b=B * y, M=M, x0=x0, tol=tol)[0]
 
     def restrict(self, fine):

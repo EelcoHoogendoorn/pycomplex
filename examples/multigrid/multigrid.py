@@ -112,3 +112,24 @@ def solve_full_cycle(hierarchy, y, iterations=2):
     x = solve_v_cycle(hierarchy, y=y, x=x, iterations=iterations)
 
     return x
+
+
+# FIXME: this should be a method of the hierarchy?
+def as_preconditioner(hierarchy):
+    """Runtime performance very non-deterministic still
+
+    Returns
+    -------
+    LinearOperator
+    """
+    import scipy.sparse
+    A, B, Bi = hierarchy[-1].operators
+    def inner(y):
+        # FIXME: should we preconditions the full generalized equation or only A?
+        # FIXME: outer minres capable of masking even quite aweful failures here; need sensitive test
+        # FIXME: expose inner iteration parameters and restrict them
+        return solve_full_cycle(hierarchy, B * y, iterations=1)
+    return scipy.sparse.linalg.LinearOperator(
+        shape=A.shape,
+        matvec=inner
+    )
