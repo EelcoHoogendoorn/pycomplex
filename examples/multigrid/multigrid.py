@@ -127,8 +127,9 @@ def as_preconditioner(hierarchy):
     def inner(y):
         # FIXME: should we preconditions the full generalized equation or only A?
         # FIXME: outer minres capable of masking even quite aweful failures here; need sensitive test
-        # FIXME: expose inner iteration parameters and restrict them
-        return solve_full_cycle(hierarchy, B * y, iterations=1)
+        # FIXME: expose inner iteration parameters and restrict them; single smooth v-cycle best precondition found so far
+        # return solve_full_cycle(hierarchy, Bi * y, iterations=1)
+        return v_cycle(hierarchy, Bi * y)
     return scipy.sparse.linalg.LinearOperator(
         shape=A.shape,
         matvec=inner

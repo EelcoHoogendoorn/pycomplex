@@ -3,9 +3,14 @@
 So far, twice as slow for same error on a regular grid
 However, pure AMG is beat by a factor 4
 need to try geometric MG as minres preconditioner
+So far minres+mg gives about the same result as pure mg;
+interesting how mg and amg are different that way
 
 
-This may be different for vector-type problems too
+This may be different for vector-type problems
+also interesting to see how mg performs on anisotropic problems
+and interesting to see how mg does on eigenproblems; especially wrt numerical stability
+no clear advantage thus far
 """
 
 import numpy as np
@@ -98,7 +103,8 @@ class Poisson(Equation):
             x = np.zeros_like(y)
             # poisson linear solve is simple division in eigenspace. skip nullspace
             null_rank = self.null_space.shape[1]
-            x[null_rank:] = y[null_rank:] / v[null_rank:]
+            # swivel dimensions to start binding broadcasting dimensions from the left
+            x[null_rank:] = (y[null_rank:].T / v[null_rank:].T).T
             return x
 
         return self._solve_eigen(B * y, poisson)
@@ -139,6 +145,7 @@ class Poisson(Equation):
         return self.restrictor * fine
     @cached_property
     def interpolator(self):
+        """Maps primal 0-form from coarse to fine"""
         A, B, BI = self.operators
         # convert to dual; then transfer, then back to primal. why again?
         # getting correct operator in regular grids relies on not doing this
@@ -280,7 +287,7 @@ class GeometricMultiGrid(object):
 
 
 class Hierarchy(object):
-    def __index__(self, hierarchy, equation):
+    def __init__(self, hierarchy, equation):
         self.hierarchy = hierarchy
         self.equations = [equation(l) for l in hierarchy]
 
@@ -292,10 +299,14 @@ class Hierarchy(object):
 
 
 if __name__ == '__main__':
+    from examples.multigrid import multigrid
+    from time import clock
+    from examples.diffusion.perlin_noise import perlin_noise
+
     from pycomplex import synthetic
     import matplotlib.pyplot as plt
 
-    complex_type = 'regular'
+    complex_type = 'sphere'
     print(complex_type)
 
     if complex_type == 'sphere':
@@ -329,10 +340,16 @@ if __name__ == '__main__':
 
 
     if False:
+        # monkey patch this dumb assert
+        from scipy.sparse.linalg.eigen.lobpcg import lobpcg
+        lobpcg._assert_symmetric = lambda x: None
+
         # test eigen solve; seems to work just fine
-        V, v = equations[-1].eigen_basis(K=100, amg=True)
+        # V, v = equations[-1].eigen_basis(K=100, preconditioner='amg')
+        V, v = equations[-1].eigen_basis(K=201, preconditioner=multigrid.as_preconditioner(equations[2:]), tol=1e-6)
+
         print(equations[-1].largest_eigenvalue)
-        hierarchy[-1].as_euclidian().plot_primal_0_form(V[:, -1])
+        hierarchy[-1].plot_primal_0_form(V[:, -1])
         plt.show()
 
     # now test multigrid; what is a good testcase?
@@ -340,15 +357,12 @@ if __name__ == '__main__':
     # if we can solve poisson with perlin input using mg,
     # we should be good, since it contains all frequency components
 
-    from examples.diffusion.perlin_noise import perlin_noise
     p0 = perlin_noise(hierarchy[-1])
     p0 -= p0.mean()
     # p0 = np.random.normal(size=p0.size)
 
 
-    from examples.multigrid import multigrid
 
-    from time import clock
 
     x0 = np.zeros_like(p0)
     print('initial res')
@@ -361,14 +375,21 @@ if __name__ == '__main__':
     print('mg full time: ', clock() - t)
     print('mg full resnorm', np.linalg.norm(equations[-1].residual(x, p0)))
 
-
+    # warm up amg
     x_minres = equations[-1].solve_minres(p0, preconditioner='amg')
     t = clock()
-    # x_minres = equations[-1].solve_minres(p0, amg=True)
-    x_minres = equations[-1].solve_minres(p0, preconditioner=multigrid.as_preconditioner(equations))
-
+    x_minres = equations[-1].solve_minres(p0, preconditioner='amg')
     print('minres+amg time: ', clock() - t)
     print('minres+amg resnorm', np.linalg.norm(equations[-1].residual(x_minres, p0)))
+
+    # warm up mg
+    x_minres = equations[-1].solve_minres(p0, preconditioner=multigrid.as_preconditioner(equations[1:]))
+    t = clock()
+    # x_minres = equations[-1].solve_minres(p0, amg=True)
+    x_minres = equations[-1].solve_minres(p0, preconditioner=multigrid.as_preconditioner(equations[1:]))
+    print('minres+mg time: ', clock() - t)
+    print('minres+mg resnorm', np.linalg.norm(equations[-1].residual(x_minres, p0)))
+
 
     t = clock()
     x_amg = equations[-1].solve_amg(p0)

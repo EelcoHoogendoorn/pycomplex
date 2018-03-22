@@ -85,15 +85,15 @@ class Equation(object):
         A, B, BI = self.operators
         return smoothed_aggregation_solver(A)
 
-    def eigen_basis(self, K, amg=False, tol=1e-10):
+    def eigen_basis(self, K, preconditioner=None, tol=1e-10):
         """Compute partial eigen decomposition for `A x = B x`
 
         Parameters
         ----------
         K : int
             number of eigenvectors
-        amg : bool
-            if true, amg preconditioning is used
+        preconditioner : optional
+            if `amg`, amg preconditioning is used
         tol : float
 
         Returns
@@ -104,7 +104,10 @@ class Equation(object):
             eigenvalues, sorted low to high
         """
         A, B, BI = self.operators
-        M = self.amg_solver.aspreconditioner() if amg else None
+        if preconditioner == 'amg':
+            M = self.amg_solver.aspreconditioner()
+        else:
+            M = preconditioner
 
         X = np.random.rand(A.shape[0], K)
 
@@ -121,9 +124,23 @@ class Equation(object):
         return V, v
 
     def _solve_eigen(self, y, func):
-        """solve func in eigenspace
+        """Solve equation in eigenspace
 
-        usefull for for poisson and diffusion solver, and probably others too
+        Parameters
+        ----------
+        y : ndarray, [n, ...], float
+            right hand side
+        func : callable
+            maps y to x
+
+        Returns
+        -------
+        x : ndarray, [n, ...], float
+            solution
+
+        Notes
+        -----
+        Usefull for for poisson and diffusion solver, and probably others too
         """
         V, v = self.complete_eigen_basis
         y = np.einsum('vi,i...->v...', V, y)
@@ -155,9 +172,10 @@ class Equation(object):
         return self.amg_solver.solve(b=B * y)
 
     def residual(self, x, y):
-        """Computes residual; should BI be here?"""
+        """Computes residual; should BI be here? it should for richardson iteration"""
         A, B, BI = self.operators
         return BI * (A * x - B * y)
+        # return q - q.mean()
 
     def richardson(self, x, y, relaxation=1):
         """Simple residual descent. Not a great overall solver, but a pretty decent smoother
@@ -204,7 +222,7 @@ class Equation(object):
             for interpretation, see self.descent
         """
         for s in knots:
-            x = self.richardson(x, y, s)
+            x = self.jacobi(x, y, s)
         return x
 
     def smooth(self, x, y):
