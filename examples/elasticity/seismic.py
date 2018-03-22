@@ -141,7 +141,7 @@ class Elastic(Equation):
         Returns
         -------
         field : ndarray, [n_vertices], float
-            primal 0-form
+            dual 1-form
         """
         p = p + v * fraction
         v = v - self.operate(p) * (fraction / self.largest_eigenvalue)

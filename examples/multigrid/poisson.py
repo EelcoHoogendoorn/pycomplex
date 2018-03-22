@@ -1,3 +1,12 @@
+"""So far not easy to beat minres+amg
+
+So far, twice as slow for same error on a regular grid
+However, pure AMG is beat by a factor 4
+need to try geometric MG as minres preconditioner
+
+
+This may be different for vector-type problems too
+"""
 
 import numpy as np
 import scipy.sparse
@@ -16,8 +25,6 @@ class Poisson(Equation):
 
     Notes
     -----
-    currently sphericalTriangular complexes only; need to add MG operators for regular complexes, at least
-
     need to think of clear interface to extend this to multicomplex as well.
     what do we truly expect as interface from the complex that we bind to here?
     """
@@ -90,7 +97,8 @@ class Poisson(Equation):
         def poisson(y, v):
             x = np.zeros_like(y)
             # poisson linear solve is simple division in eigenspace. skip nullspace
-            x[1:] = y[1:] / v[1:]
+            null_rank = self.null_space.shape[1]
+            x[null_rank:] = y[null_rank:] / v[null_rank:]
             return x
 
         return self._solve_eigen(B * y, poisson)
@@ -98,7 +106,7 @@ class Poisson(Equation):
     # FIXME: mg operators belong to the complexes themselves
     @cached_property
     def transfer(self):
-        """
+        """Transfer operator of state variables between fine and coarse representation
 
         Returns
         -------
@@ -109,152 +117,159 @@ class Poisson(Equation):
         -----
         only available for SphericalTriangularComplex; implementation on regular grids should be easy tho
         """
-        if True:
+        try:
             # triangular 0-form special case
             fine = self.complex
             coarse = fine.parent
             return self.complex.multigrid_transfer_dual(coarse, fine).T
-        else:
+        except:
             return self.complex.multigrid_transfers[self.k]
 
     @cached_property
     def restrictor(self):
+        """Maps primal 0-form from fine to coarse"""
         A, B, BI = self.operators
         # FIXME: need a link to parent equation; this is hacky. should be coarse.BI
+        # convert to dual; then transfer, then back to primal. why again?
+        fine = scipy.sparse.diags(self.complex.hodge_DP[0])
         coarse = scipy.sparse.diags(self.complex.parent.hodge_PD[0])
-        return coarse * normalize_l1(self.transfer.T, axis=0) * B
+        return coarse * normalize_l1(self.transfer.T, axis=0) * fine
     def restrict(self, fine):
         """Restrict solution from fine to coarse"""
         return self.restrictor * fine
     @cached_property
     def interpolator(self):
         A, B, BI = self.operators
+        # convert to dual; then transfer, then back to primal. why again?
+        # getting correct operator in regular grids relies on not doing this
+        fine = scipy.sparse.diags(self.complex.hodge_PD[0])
         coarse = scipy.sparse.diags(self.complex.parent.hodge_DP[0])
-        return BI * normalize_l1(self.transfer, axis=0) * coarse
+        return normalize_l1(self.transfer, axis=1)
     def interpolate(self, coarse):
         """Interpolate solution from coarse to fine"""
         return self.interpolator * coarse
 
 
-class PoissonDual(Equation):
-    """Wrap complex with poisson equation methods and state
-
-    Poisson logic for dual n-forms, or n-laplace-beltrami
-
-    A * x = B * y, or laplacian(x) = mass(y)
-
-    """
-
-    def __init__(self, complex, k, dual=True):
-        """
-
-        Parameters
-        ----------
-        complex : BaseComplex
-        k : int
-            degree of the laplacian
-        dual : bool
-            if true, dual boundary terms are included in the unknowns
-            if false, these are implicitly zero and only primal topology is used
-        """
-        self.complex = complex
-        self.k = k
-        self.dual = dual
-
-    @cached_property
-    def operators(self):
-        """Construct laplace-beltrami on dual k-forms
-
-        Returns
-        -------
-        A : Linear operator
-            symmetric;
-            maps dual k-form to primal k-form
-        B : Linear operator
-            symmetric diagonal;
-            maps dual k-form to primal k-form
-        BI :
-            inverse of B
-        """
-        k = self.k
-        DPl, DPm, DPr = ([0] + self.complex.hodge_DP + [0])[k:][:3]
-        PDl, PDm, PDr = ([0] + self.complex.hodge_PD + [0])[k:][:3]
-        if self.dual:
-            Dl, Dr = ([0] + self.complex.topology.dual.matrices_2 + [0])[k:][:2]
-            Pl, Pr = np.transpose(Dl), np.transpose(Dr)
-        else:
-            Pl, Pr = ([0] + self.complex.topology.matrices + [0])[k:][:2]
-            Dl, Dr = np.transpose(Pl), np.transpose(Pr)
-
-        A = Pl * PDl * Dl + \
-            PDm * Dr * DPr * Pr * PDm
-
-        # FIXME: is mass just hodge for non-scalar forms?
-        B = scipy.sparse.diags(PDm)
-        BI = inv_diag(B)
-
-        return A.tocsr(), B.tocsc(), BI.tocsc()
-
-    def solve(self, y):
-        """Solve poisson linear system in eigenbasis
-
-        Parameters
-        ----------
-        y : ndarray
-
-        Returns
-        -------
-        x : ndarray
-        """
-        A, B, BI = self.operators
-
-        def poisson(y, v):
-            x = np.zeros_like(y)
-            # poisson linear solve is simple division in eigenspace. skip nullspace
-            x[1:] = y[1:] / v[1:]
-            return x
-
-        return self._solve_eigen(B * y, poisson)
-
-    # FIXME: mg operators belong to the complexes themselves
-    @cached_property
-    def transfer(self):
-        """
-
-        Returns
-        -------
-        sparse matrix
-            entry [c, f] is the overlap between fine and coarse dual n-cells
-
-        Notes
-        -----
-        might switch to special case for triangular complex and 0-forms
-        """
-        if False:
-            # triangular 0-form special case
-            fine = self.complex
-            coarse = fine.parent
-            return self.complex.multigrid_transfer_dual(coarse, fine).T
-        else:
-            return self.complex.multigrid_transfers[self.k]
-
-    @cached_property
-    def restrictor(self):
-        A, B, BI = self.operators
-        # FIXME: need a link to parent equation; this is hacky. should be coarse.BI
-        coarse = scipy.sparse.diags(self.complex.parent.hodge_PD[0])
-        return coarse * normalize_l1(self.transfer.T, axis=0) * B
-    def restrict(self, fine):
-        """Restrict solution from fine to coarse"""
-        return self.restrictor * fine
-    @cached_property
-    def interpolator(self):
-        A, B, BI = self.operators
-        coarse = scipy.sparse.diags(self.complex.parent.hodge_DP[0])
-        return BI * normalize_l1(self.transfer, axis=0) * coarse
-    def interpolate(self, coarse):
-        """Interpolate solution from coarse to fine"""
-        return self.interpolator * coarse
+# class PoissonDual(Equation):
+#     """Wrap complex with poisson equation methods and state
+#
+#     Poisson logic for dual n-forms, or n-laplace-beltrami
+#
+#     A * x = B * y, or laplacian(x) = mass(y)
+#
+#     """
+#
+#     def __init__(self, complex, k, dual=True):
+#         """
+#
+#         Parameters
+#         ----------
+#         complex : BaseComplex
+#         k : int
+#             degree of the laplacian
+#         dual : bool
+#             if true, dual boundary terms are included in the unknowns
+#             if false, these are implicitly zero and only primal topology is used
+#         """
+#         self.complex = complex
+#         self.k = k
+#         self.dual = dual
+#
+#     @cached_property
+#     def operators(self):
+#         """Construct laplace-beltrami on dual k-forms
+#
+#         Returns
+#         -------
+#         A : Linear operator
+#             symmetric;
+#             maps dual k-form to primal k-form
+#         B : Linear operator
+#             symmetric diagonal;
+#             maps dual k-form to primal k-form
+#         BI :
+#             inverse of B
+#         """
+#         k = self.k
+#         DPl, DPm, DPr = ([0] + self.complex.hodge_DP + [0])[k:][:3]
+#         PDl, PDm, PDr = ([0] + self.complex.hodge_PD + [0])[k:][:3]
+#         if self.dual:
+#             Dl, Dr = ([0] + self.complex.topology.dual.matrices_2 + [0])[k:][:2]
+#             Pl, Pr = np.transpose(Dl), np.transpose(Dr)
+#         else:
+#             Pl, Pr = ([0] + self.complex.topology.matrices + [0])[k:][:2]
+#             Dl, Dr = np.transpose(Pl), np.transpose(Pr)
+#
+#         A = Pl * PDl * Dl + \
+#             PDm * Dr * DPr * Pr * PDm
+#
+#         # FIXME: is mass just hodge for non-scalar forms?
+#         B = scipy.sparse.diags(PDm)
+#         BI = inv_diag(B)
+#
+#         return A.tocsr(), B.tocsc(), BI.tocsc()
+#
+#     def solve(self, y):
+#         """Solve poisson linear system in eigenbasis
+#
+#         Parameters
+#         ----------
+#         y : ndarray
+#
+#         Returns
+#         -------
+#         x : ndarray
+#         """
+#         A, B, BI = self.operators
+#
+#         def poisson(y, v):
+#             x = np.zeros_like(y)
+#             # poisson linear solve is simple division in eigenspace. skip nullspace
+#             x[1:] = y[1:] / v[1:]
+#             return x
+#
+#         return self._solve_eigen(B * y, poisson)
+#
+#     # FIXME: mg operators belong to the complexes themselves
+#     @cached_property
+#     def transfer(self):
+#         """Transfer operator of state variables between fine and coarse representation
+#
+#         Returns
+#         -------
+#         sparse matrix
+#             entry [c, f] is the overlap between fine and coarse dual n-cells
+#
+#         Notes
+#         -----
+#         might switch to special case for triangular complex and 0-forms
+#         """
+#         if False:
+#             # triangular 0-form special case
+#             fine = self.complex
+#             coarse = fine.parent
+#             return self.complex.multigrid_transfer_dual(coarse, fine).T
+#         else:
+#             return self.complex.multigrid_transfers[self.k]
+#
+#     @cached_property
+#     def restrictor(self):
+#         A, B, BI = self.operators
+#         # FIXME: need a link to parent equation; this is hacky. should be coarse.BI
+#         # note: is this the same for vector equations?
+#         coarse = scipy.sparse.diags(self.complex.parent.hodge_PD[0])
+#         return coarse * normalize_l1(self.transfer.T, axis=0) * B
+#     def restrict(self, fine):
+#         """Restrict solution from fine to coarse; dual to dual"""
+#         return self.restrictor * fine
+#     @cached_property
+#     def interpolator(self):
+#         A, B, BI = self.operators
+#         coarse = scipy.sparse.diags(self.complex.parent.hodge_DP[0])
+#         return BI * normalize_l1(self.transfer, axis=0) * coarse
+#     def interpolate(self, coarse):
+#         """Interpolate solution from coarse to fine; dual to dual"""
+#         return self.interpolator * coarse
 
 
 
@@ -281,7 +296,8 @@ if __name__ == '__main__':
     from pycomplex import synthetic
     import matplotlib.pyplot as plt
 
-    complex_type = 'sphere'
+    complex_type = 'regular'
+    print(complex_type)
 
     if complex_type == 'sphere':
         sphere = synthetic.icosahedron().copy(radius=30).subdivide_fundamental()
@@ -291,13 +307,27 @@ if __name__ == '__main__':
 
     if complex_type == 'regular':
         # test if multigrid operators on primal-0-forms work correctly on regular grids
-        root = synthetic.n_cube(n_dim=2)
+        root = synthetic.n_cube(n_dim=2).as_22().as_regular()
         hierarchy = [root]
         for i in range(5):
             hierarchy.append(hierarchy[-1].subdivide_cubical())
 
     # set up hierarchy of equations
     equations = [Poisson(l, k=0) for l in hierarchy]
+
+    # test transfer operators
+    if False:
+        R = equations[-1].restrictor
+        I = equations[-1].interpolator
+        T = R * I
+        ones = np.ones((T.shape[1], 1))
+        q = T * ones
+        print(q)
+        T = I * R
+        ones = np.ones((T.shape[1], 1))
+        q = T * ones
+        print(q)
+
 
     if False:
         # test eigen solve; seems to work just fine
@@ -336,8 +366,8 @@ if __name__ == '__main__':
     x_minres = equations[-1].solve_minres(p0, amg=True)
     t = clock()
     x_minres = equations[-1].solve_minres(p0, amg=True)
-    print('minres time: ', clock() - t)
-    print('minres resnorm', np.linalg.norm(equations[-1].residual(x_minres, p0)))
+    print('minres+amg time: ', clock() - t)
+    print('minres+amg resnorm', np.linalg.norm(equations[-1].residual(x_minres, p0)))
 
     t = clock()
     x_amg = equations[-1].solve_amg(p0)
@@ -350,7 +380,11 @@ if __name__ == '__main__':
     if True:
         v = x
         vmin, vmax = v.min(), v.max()
-        hierarchy[-1].as_euclidian().plot_primal_0_form(v, vmin=vmin, vmax=vmax)
+        if complex_type == 'sphere':
+
+            hierarchy[-1].as_euclidian().plot_primal_0_form(v, vmin=vmin, vmax=vmax)
+        if complex_type == 'regular':
+            hierarchy[-1].plot_primal_0_form(v, vmin=vmin, vmax=vmax)
 
         # hierarchy[-2].as_euclidian().plot_primal_0_form(equations[-1].restrict(p0), vmin=vmin, vmax=vmax)
         # hierarchy[-1].as_euclidian().plot_primal_0_form(equations[-1].interpolate(equations[-1].restrict(p0)), vmin=vmin, vmax=vmax)
