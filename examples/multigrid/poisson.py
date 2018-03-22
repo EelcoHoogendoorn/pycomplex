@@ -257,7 +257,6 @@ class PoissonDual(Equation):
         return self.interpolator * coarse
 
 
-
 class GeometricMultiGrid(object):
     """Perhaps use this to cache the MG-specific data?"""
     def __init__(self, complex, equation):
@@ -333,9 +332,10 @@ if __name__ == '__main__':
     print('mg full resnorm', np.linalg.norm(equations[-1].residual(x, p0)))
 
 
-    x_minres = equations[-1].solve_minres(p0, amg=True)
+    x_minres = equations[-1].solve_minres(p0, preconditioner='amg')
     t = clock()
-    x_minres = equations[-1].solve_minres(p0, amg=True)
+    # x_minres = equations[-1].solve_minres(p0, preconditioner='amg')
+    x_minres = equations[-1].solve_minres(p0, preconditioner=multigrid.as_preconditioner(equations))
     print('minres time: ', clock() - t)
     print('minres resnorm', np.linalg.norm(equations[-1].residual(x_minres, p0)))
 
