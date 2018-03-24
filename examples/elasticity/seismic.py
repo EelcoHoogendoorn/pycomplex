@@ -40,8 +40,14 @@ given that we have a fully working vector equation now,
 we have a basis to experiment with geometric multigrid
 
 we could model it as a pure first order problem, including rotation and pressure variables
-this is numeircally more robust, as known from incompressible stokes problem,
+this is numerically more robust, as known from incompressible stokes problem,
 and might not be worse in terms of operation count in a multigrid context.
+probably not great for amg though
+
+havnt tried feeding nullspace to amg yet; could be interesting
+
+note that we could make cube spacing anisotropic; might make for more efficient air cells?
+or is this the same as letting shear go to zero?
 """
 
 from cached_property import cached_property
@@ -75,16 +81,18 @@ class Elastic(Equation):
         self.lamb = l
         self.rho = r
         self.laplacian, self.mass, self.inverse_mass = self.operators
+        self.k = complex.n_dim - 1
 
     @cached_property
     def operators(self):
         """Laplacian acting on dual 1-forms
 
         quantity being modelled is effectively momentum, rather than velocity
-        this helps in that it makes any linear solvers focuss on errors within the domain of interest
+        this helps in that it makes any linear solvers focus on errors within the domain of interest
 
         Note that for simulating free boundaries, domain bc where vorticity rather than tangent flux
         is zero will likely converge faster. However the current formulation with dual-boundary==0 is the simplest.
+        Alternatively, could use a toroidal domain
         """
         complex = self.complex
         l, m, r = [scipy.sparse.diags(p) for p in [self.mu, self.rho, self.lamb]] # NOTE: maps physical variaables to left-mid-right scheme
@@ -126,7 +134,7 @@ class Elastic(Equation):
         return (self.inverse_mass * (self.laplacian * x))
 
     def explicit_step(self, p, v, fraction=1):
-        """Forward Euler timestep
+        """Forward Euler timestep of second order wave equation
 
         Parameters
         ----------
@@ -148,6 +156,7 @@ class Elastic(Equation):
         return p, v
 
     def integrate_explicit(self, p, v, dt):
+        """Forward Euler explicit integration of second order wave equation"""
         distance = dt * 2 * np.pi
         steps = int(np.ceil(distance))
         fraction = distance / steps
@@ -159,6 +168,7 @@ class Elastic(Equation):
     def integrate_eigen_precompute(self):
         return self.eigen_basis(K=80, amg=True, tol=1e-14)
     def integrate_eigen(self, p, v, dt):
+        """Eigenbasis integration of second order wave equation"""
         V, eigs = self.integrate_eigen_precompute
         pe = np.dot(V.T, self.mass * p) #/ eigs
         ve = np.dot(V.T, self.mass * v) #/ eigs
@@ -169,6 +179,66 @@ class Elastic(Equation):
         ve = np.imag(c)
 
         return np.dot(V, pe), np.dot(V, ve)
+
+
+    def solve(self, y):
+        """Solve elastic linear system in eigenbasis
+
+        Parameters
+        ----------
+        y : ndarray
+
+        Returns
+        -------
+        x : ndarray
+        """
+        A, B, BI = self.operators
+        null_rank = np.abs(v / self.largest_eigenvalue) < 1e-9
+
+        def poisson(y, v):
+            x = np.zeros_like(y)
+            # poisson linear solve is simple division in eigenspace. skip nullspace
+            # swivel dimensions to start binding broadcasting dimensions from the left
+            x[null_rank:] = (y[null_rank:].T / v[null_rank:].T).T
+            return x
+
+        return self._solve_eigen(B * y, poisson)
+
+    @cached_property
+    def transfer(self):
+        """Transfer operator of state variables between fine and coarse representation
+
+        Returns
+        -------
+        sparse matrix
+            entry [c, f] is the overlap between fine and coarse dual n-cells
+
+        """
+        return self.complex.multigrid_transfers[self.k]
+
+    @cached_property
+    def restrictor(self):
+        """Maps dual 1-form from fine to coarse"""
+        A, B, BI = self.operators
+        # map to 'intermediate' space between primal and dual
+        fine = scipy.sparse.diags(1. / self.complex.dual_metric[self.k])
+        coarse = scipy.sparse.diags(self.complex.parent.dual_metric[self.k])
+        return coarse * pycomplex.sparse.normalize_l1(self.transfer.T, axis=0) * fine
+    def restrict(self, fine):
+        """Restrict solution from fine to coarse"""
+        return self.restrictor * fine
+    @cached_property
+    def interpolator(self):
+        """Maps dual 1-form from coarse to fine"""
+        A, B, BI = self.operators
+        # convert to dual; then transfer, then back to primal. why again?
+        # getting correct operator in regular grids relies on not doing this
+        fine = scipy.sparse.diags(self.complex.hodge_PD[0])
+        coarse = scipy.sparse.diags(self.complex.parent.hodge_DP[0])
+        return pycomplex.sparse.normalize_l1(self.transfer, axis=1)
+    def interpolate(self, coarse):
+        """Interpolate solution from coarse to fine"""
+        return self.interpolator * coarse
 
 
 if __name__ == '__main__':
@@ -184,12 +254,15 @@ if __name__ == '__main__':
         from pycomplex import synthetic
         complex = synthetic.delaunay_cube(density=64, n_dim=2)
         complex = complex.copy(vertices=complex.vertices - 0.5).optimize_weights().as_2().as_2()
+        # NOTE: no hierarchy so not compatible with geometric mg
 
     if kind == 'regular':
         from pycomplex import synthetic
         complex = synthetic.n_cube_grid((1, 1)).as_22().as_regular()
+        hierarchy = [complex]
         for i in range(6):
             complex = complex.subdivide_cubical()
+            hierarchy.append(complex)
 
     # set up circular domain; everything outside the circle are 'air cells'
     def circle(p, sigma=0.5, radius=0.4):
@@ -230,6 +303,9 @@ if __name__ == '__main__':
         complex.plot_primal_0_form(d, cmap='jet', plot_contour=False)
         plt.show()
 
+    # FIXME: to do proper geometric mg, need to coarsen anisotropy fields as well
+    # FIXME: might be better to start prototyping vectorial mg in a simpler context
+    equations = [Elastic(c) for c in hierarchy]
     equation = Elastic(complex, m=m, l=l, r=r)
     print(equation.largest_eigenvalue)
 
@@ -289,7 +365,9 @@ if __name__ == '__main__':
         # output eigenmodes
         path = r'../output/seismic_modes_0'
         from examples.util import save_animation
-        V, v = equation.eigen_basis(K=150, amg=True, tol=1e-16)
+        import examples.multigrid
+        pre = examples.multigrid()
+        V, v = equation.eigen_basis(K=150, preconditioner='amg', tol=1e-16)
         print(v)
         for i in save_animation(path, frames=len(v), overwrite=True):
             plot_flux(V[:, i] * (r**0) * 1e-2)

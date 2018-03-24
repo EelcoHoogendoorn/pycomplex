@@ -21,13 +21,35 @@ class BlockSystem(object):
 
     Todo
     ----
-    Add boundary condition terms
+    Add boundary condition terms; that would amount to a hierarchical nesting of these block classes
 
     make seperate classes for dense block vectors?
 
     need principled approach to doing things like elimination of equations, or preconditioning.
     left/right multiply by block system, while retaining reference to parent?
+    if we split unknowns in unknowns to be kept and to be eliminated,
+    this is a valid split if all eliminated unknowns appear only on the diagonal,
+    and have only retained unknowns off-diagonal
+    in case of typical laplace-beltrami;
+    [I, a, 0] [a]   [0]
+    [c, 0, b] [I] = [ca + bd]
+    [0, d, I] [d]   [0]
+    unknowns which satisfy this condition will indeed trivialize after that transformation
+    cant do this for something like stokes; could do normal equations but get three laplacians
+    can we do a hybrid of these two and get two laplacians for stokes?
+    [I, a, 0] [a, 0]   [0]
+    [c, 0, b] [I, 0] = [ca + bd, b]
+    [0, d, 0] [0, I]   [d, 0]
 
+    [I, 0] [L, b] = [ca + bd, b]
+    [d, I] [d, 0]   [dbd, db]
+
+    Notes
+    -----
+    Make this class focuss on the blocking-aspects
+    seperate the solving and related concerns
+    Generalized linear equation class should be able to use these blocks as a drop-in replacement
+    for normal sparse operations
     """
 
     def __init__(self, equations, knowns, unknowns):
@@ -49,7 +71,7 @@ class BlockSystem(object):
         # check that subblocks are consistent
 
     def symmetrize(self):
-        """symmetrize systems with a structural symmetry"""
+        """symmetrize systems with a structural symmetry, by rewriting boundary terms"""
         raise NotImplementedError
 
     def preconditioned_normal_equations(self):
@@ -89,6 +111,9 @@ class BlockSystem(object):
         ----------
         x : ndarray, [n_cols], float
 
+        Returns
+        -------
+        list of ndarray, float
         """
         splits = [0] + list(np.cumsum(self.cols if axis == 'cols' else self.rows))
         return [x[s:e] for s, e in zip(splits[:-1], splits[1:])]
@@ -102,6 +127,13 @@ class BlockSystem(object):
             print()
 
     def plot(self, dense=True):
+        """Visualize the structure of the linear system
+
+        Parameters
+        ----------
+        dense : bool
+            dense looks better; but only feasible for small systems
+        """
         import matplotlib.pyplot as plt
         S, _ = self.concatenate()
         if not dense:
@@ -153,8 +185,8 @@ class BlockSystem(object):
         options.append(('algebraic_distance', {'theta': 1e-3, 'p': np.inf, 'R': 10, 'alpha': 0.5, 'k': 20}))
         options.append(('algebraic_distance', {'theta': 1e-4, 'p': np.inf, 'R': 10, 'alpha': 0.5, 'k': 20}))
 
-        # M = smoothed_aggregation_solver(equations).aspreconditioner()
-        M = rootnode_solver(equations).aspreconditioner()
+        M = smoothed_aggregation_solver(equations).aspreconditioner()
+        # M = rootnode_solver(equations).aspreconditioner()
         print('amg setup', clock() - t)
         # x = M.solve(knowns, accel='minres', tol=tol)
         # x = M.solve(knowns, x0=x, accel='minres', tol=tol)
@@ -172,6 +204,12 @@ class BlockSystem(object):
         return self.split(x), r
 
     def diag(self):
+        """Get the diagonal of the block system
+
+        Returns
+        -------
+        list of array
+        """
         return [self.equations[i, i].diagonal() for i in range(self.shape[0])]
 
     def precondition(self):

@@ -14,6 +14,10 @@ Or in DEC:
 With B a 1-form on a 2d manifold, or a 2-form on a 3d manifold
 
 
+AMG works poorly here; worse than minres. is this because of the large nullspace?
+interesting to compare it to geometric multigrid
+
+note that we could make the mesh spacing variable to efficiently simulate open field at infinity
 """
 
 import numpy as np
@@ -137,9 +141,10 @@ system = magnetostatics(mesh)
 normal = system.normal_equations()
 # normal.precondition().plot()
 from time import clock
+solution, residual = normal.precondition().solve_amg(tol=1e-8)
 t = clock()
 print('starting solving')
-solution, residual = normal.precondition().solve_minres(tol=1e-16)
+solution, residual = normal.precondition().solve_amg(tol=1e-14)
 print(residual)
 print('solving time: ', clock() - t)
 solution = [s / np.sqrt(d) for s, d in zip(solution, normal.diag())]
