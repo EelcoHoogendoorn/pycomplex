@@ -228,6 +228,26 @@ class BlockSystem(object):
         knowns = [diag[i] * self.knowns[i] for i in range(self.shape[0])]
         return BlockSystem(equations=equations, knowns=knowns, unknowns=self.unknowns)
 
+    def norm_l1(self):
+        """Return the l1 norm of the block, summing over columns"""
+        def norm(A):
+            return np.array(np.abs(A).sum(axis=1)).flatten()
+        l1s = [
+            sum([norm(self.equations[i, j])
+                for j in range(self.shape[1])])
+                    for i in range(self.shape[0])]
+        return l1s
+
+    def balance(self, reg=1e-6):
+        """Divide each row by l1 norm by left-premultiplication"""
+        l1s = [scipy.sparse.diags(reg / (l + reg)) for l in self.norm_l1()]
+        equations = [
+            [l1s[i] * self.equations[i, j]
+                for j in range(self.shape[1])]
+                    for i in range(self.shape[0])]
+        knowns = [l1s[i] * self.knowns[i] for i in range(self.shape[0])]
+        return BlockSystem(equations=equations, knowns=knowns, unknowns=self.unknowns)
+
 
 def d_matrix(chain, shape, O, rows=None):
     """Dual boundary term"""

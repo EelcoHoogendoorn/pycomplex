@@ -306,7 +306,7 @@ if __name__ == '__main__':
     from pycomplex import synthetic
     import matplotlib.pyplot as plt
 
-    complex_type = 'sphere'
+    complex_type = 'regular'
     print(complex_type)
 
     if complex_type == 'sphere':

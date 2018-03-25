@@ -22,7 +22,7 @@ def ones_like(a):
 
 def normalize_l1(A, axis=1):
     """Return A scaled such that the absolute sum over `axis` equals 1"""
-    D = scipy.sparse.diags(1. / np.abs(np.array(A.sum(axis=axis))).flatten())
+    D = scipy.sparse.diags(1. / np.array(np.abs(A).sum(axis=axis)).flatten())
     if axis == 0:
         return A * D
     elif axis == 1:

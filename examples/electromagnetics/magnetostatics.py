@@ -16,6 +16,11 @@ With B a 1-form on a 2d manifold, or a 2-form on a 3d manifold
 
 AMG works poorly here; worse than minres. is this because of the large nullspace?
 interesting to compare it to geometric multigrid
+balancing the equations helps a little; but much more to minres, making the difference even bigger
+must be something mg-specific
+note that the algebraic properties of the normal equations here are a pretty standard vector laplace-beltrami;
+not clear why it should perform any worse than seismic simulation?
+
 
 note that we could make the mesh spacing variable to efficiently simulate open field at infinity
 """
@@ -138,13 +143,13 @@ system = magnetostatics(mesh)
 
 
 # formulate normal equations and solve
-normal = system.normal_equations()
+normal = system.balance().normal_equations()
 # normal.precondition().plot()
 from time import clock
 solution, residual = normal.precondition().solve_amg(tol=1e-8)
 t = clock()
 print('starting solving')
-solution, residual = normal.precondition().solve_amg(tol=1e-14)
+solution, residual = normal.precondition().solve_minres(tol=1e-14)
 print(residual)
 print('solving time: ', clock() - t)
 solution = [s / np.sqrt(d) for s, d in zip(solution, normal.diag())]
