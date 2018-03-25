@@ -14,15 +14,18 @@ Or in DEC:
 With B a 1-form on a 2d manifold, or a 2-form on a 3d manifold
 
 
-AMG works poorly here; worse than minres. is this because of the large nullspace?
-interesting to compare it to geometric multigrid
-balancing the equations helps a little; but much more to minres, making the difference even bigger
-must be something mg-specific
+AMG works poorly here; worse than minres.
 note that the algebraic properties of the normal equations here are a pretty standard vector laplace-beltrami;
 not clear why it should perform any worse than seismic simulation?
-
+perhaps because that benefits from anisotropic coefficients?
 
 note that we could make the mesh spacing variable to efficiently simulate open field at infinity
+
+normal-equations to solve is essentially a vector-laplacian;
+how is it different from elasto-statics? there, neither rotation nor compression is zero.
+the fact that the solution are divergence and rotation free is a consequence of
+left-multiplication of rhs?
+normal-equation rhs is projected on the subspace of solenoidal and irrotational fields
 """
 
 import numpy as np
@@ -34,19 +37,29 @@ from examples.linear_system import *
 
 
 def make_mesh():
-    mesh = synthetic.n_cube(2).as_22().as_regular()
+    """Construct domain
+
+    Returns
+    -------
+    complex
+        the complex to operate on
+    chains
+        boundary description chains
+    """
+    mesh = synthetic.n_cube(n_dim=2).as_22().as_regular()
     # subdivide
-    for i in range(5):
+    for i in range(6):
         mesh = mesh.subdivide_cubical()
 
     # identify boundaries
     edge_position = mesh.boundary.primal_position[1]
     BPP = mesh.boundary.primal_position
-    left  = (BPP[1][:, 0] == BPP[1][:, 0].min()).astype(sign_dtype)
+    left_1  = (BPP[1][:, 0] == BPP[1][:, 0].min()).astype(sign_dtype)
+    bottom_1  = (BPP[1][:, 1] == BPP[1][:, 1].min()).astype(sign_dtype)
 
     # right = (BPP[1][:, 0] == BPP[1][:, 0].max()).astype(sign_dtype)
     # construct closed part of the boundary
-    all = mesh.boundary.topology.chain(1, fill=1)
+    all_1 = mesh.boundary.topology.chain(1, fill=1)
     closed = (BPP[1][:, 1] != BPP[1][:, 1].min()).astype(sign_dtype)
 
     left_0  = (BPP[0][:, 0] == BPP[0][:, 0].min()).astype(sign_dtype)
@@ -55,17 +68,17 @@ def make_mesh():
     bottom_0  = (BPP[0][:, 1] == BPP[0][:, 1].min()).astype(sign_dtype)
     bottom_0 = bottom_0 * (1-left_0) * (1-right_0)
 
-    # construct surface current
+    # construct surface current; this is the source term
     PP = mesh.primal_position
     magnet_width = 0.25
-    magnet_height = 0.05
+    magnet_height = 0.35
     magnet_width = PP[0][:, 0][np.argmin(np.abs(PP[0][:, 0] - magnet_width))]
     current = (PP[0][:, 0] == magnet_width) * (PP[0][:, 1] < magnet_height)
 
-    return mesh, all, left, bottom_0, current, closed
+    return mesh, all_1, left_1, bottom_0, bottom_1, current, closed
 
 
-mesh, all, left, bottom, current, closed = make_mesh()
+mesh, all_1, left_1, bottom_0, bottom_1, current, closed = make_mesh()
 # mesh.plot(plot_dual=False, plot_vertices=False)
 
 
@@ -107,11 +120,13 @@ def magnetostatics(complex2):
     rotation_bc   = [sparse_zeros((B0, d)) for d in [D1]]
     continuity_bc = [sparse_zeros((B1, d)) for d in [D1]]
 
-    # antisymmetry
-    rotation_bc[0] = d_matrix(bottom, rotation_bc[0].shape, P1)
+    # antisymmetry on the bottom axis; set tangent flux to zero
+    rotation_bc[0] = d_matrix(bottom_0, rotation_bc[0].shape, P1)
 
-    # symmetry
-    continuity_bc[0] = o_matrix(left, boundary.parent_idx[1], continuity_bc[0].shape)
+    # symmetry on the left axis; set normal flux to zero
+    # the former only happens to work with minres
+    # continuity_bc[0] = o_matrix(left_1, boundary.parent_idx[1], continuity_bc[0].shape)
+    continuity_bc[0] = o_matrix(all_1 - bottom_1, boundary.parent_idx[1], continuity_bc[0].shape)
 
     equations = [
         rotation,
@@ -123,6 +138,7 @@ def magnetostatics(complex2):
     flux = np.zeros(D1)   # one flux unknown for each dual edge
     unknowns = [flux]
 
+    # set up right hand side
     # current = current          # rotation dependent on current
     current_bc = np.zeros(B0)
     source = np.zeros(P2)        # divergence is zero everywhere
@@ -143,29 +159,25 @@ system = magnetostatics(mesh)
 
 
 # formulate normal equations and solve
-normal = system.balance().normal_equations()
+normal = system.balance(1e-6).normal_equations()
 # normal.precondition().plot()
 from time import clock
 solution, residual = normal.precondition().solve_amg(tol=1e-8)
 t = clock()
 print('starting solving')
-solution, residual = normal.precondition().solve_minres(tol=1e-14)
+solution, residual = normal.precondition().solve_amg(tol=1e-9)
 print(residual)
 print('solving time: ', clock() - t)
 solution = [s / np.sqrt(d) for s, d in zip(solution, normal.diag())]
 # solution, residual = normal.solve_direct()
 flux, = solution
 
-# plot result
-tris = mesh.subdivide_simplicial()
 
-# now we compute a streamfunction after all; just for visualization.
-# no streamfunctions were harmed in the finding of the magnetic flux.
 from examples.flow.stream import stream
 primal_flux = mesh.hodge_PD[1] * (mesh.topology.dual.selector[1] * flux)
 phi = stream(mesh, primal_flux)
-phi = tris.topology.transfer_operators[0] * phi
-tris.as_2().plot_primal_0_form(phi, cmap='jet', plot_contour=True, levels=49)
+
+mesh.plot_primal_0_form(phi, cmap='jet', plot_contour=True, levels=49)
 
 import matplotlib.pyplot as plt
 plt.show()

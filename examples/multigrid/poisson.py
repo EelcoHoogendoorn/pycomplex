@@ -32,6 +32,7 @@ class Poisson(Equation):
     -----
     need to think of clear interface to extend this to multicomplex as well.
     what do we truly expect as interface from the complex that we bind to here?
+    at what level do we trnaslate from possible block system to simple monolithic matrices?
     """
 
     def __init__(self, complex, k=0):

@@ -168,7 +168,7 @@ class BlockSystem(object):
         return self.split(x), self.split(r, axis='rows')
 
     def solve_amg(self, tol=1e-12):
-        """Interesting to experiment with AMG; slightly improves darcy flow solve but nothing spectacular yet"""
+        """Sole using minres and amg preconditioner"""
         print('amg solve')
         from pyamg import smoothed_aggregation_solver, ruge_stuben_solver, rootnode_solver
         equations, knowns = self.concatenate()
@@ -176,16 +176,16 @@ class BlockSystem(object):
 
         from time import clock
         t = clock()
-        options = []
-        options.append(('symmetric', {'theta': 0.0}))
-        options.append(('symmetric', {'theta': 0.25}))
-        options.append(('evolution', {'epsilon': 4.0}))
-        options.append(('algebraic_distance', {'theta': 1e-1, 'p': np.inf, 'R': 10, 'alpha': 0.5, 'k': 20}))
-        options.append(('algebraic_distance', {'theta': 1e-2, 'p': np.inf, 'R': 10, 'alpha': 0.5, 'k': 20}))
-        options.append(('algebraic_distance', {'theta': 1e-3, 'p': np.inf, 'R': 10, 'alpha': 0.5, 'k': 20}))
-        options.append(('algebraic_distance', {'theta': 1e-4, 'p': np.inf, 'R': 10, 'alpha': 0.5, 'k': 20}))
+        # options = []
+        # options.append(('symmetric', {'theta': 0.0}))
+        # options.append(('symmetric', {'theta': 0.25}))
+        # options.append(('evolution', {'epsilon': 4.0}))
+        # options.append(('algebraic_distance', {'theta': 1e-1, 'p': np.inf, 'R': 10, 'alpha': 0.5, 'k': 20}))
+        # options.append(('algebraic_distance', {'theta': 1e-2, 'p': np.inf, 'R': 10, 'alpha': 0.5, 'k': 20}))
+        # options.append(('algebraic_distance', {'theta': 1e-3, 'p': np.inf, 'R': 10, 'alpha': 0.5, 'k': 20}))
+        # options.append(('algebraic_distance', {'theta': 1e-4, 'p': np.inf, 'R': 10, 'alpha': 0.5, 'k': 20}))
 
-        M = smoothed_aggregation_solver(equations).aspreconditioner()
+        M = smoothed_aggregation_solver(equations, smooth='jacobi').aspreconditioner()
         # M = rootnode_solver(equations).aspreconditioner()
         print('amg setup', clock() - t)
         # x = M.solve(knowns, accel='minres', tol=tol)
@@ -197,6 +197,12 @@ class BlockSystem(object):
         return self.split(x), self.split(r, axis='rows')
 
     def solve_least_squares(self):
+        """Solve equations in a least-squares sense
+
+        Notes
+        -----
+        This is conceptually similar to minres on normal equations
+        """
         equations, knowns = self.concatenate()
         # x = scipy.sparse.linalg.lsqr(equations, knowns, atol=1e-16, btol=1e-16)[0]
         x = scipy.sparse.linalg.lsqr(equations, knowns, atol=0, btol=0, conlim=0, damp=1)[0]
@@ -238,7 +244,7 @@ class BlockSystem(object):
                     for i in range(self.shape[0])]
         return l1s
 
-    def balance(self, reg=1e-6):
+    def balance(self, reg=0):
         """Divide each row by l1 norm by left-premultiplication"""
         l1s = [scipy.sparse.diags(reg / (l + reg)) for l in self.norm_l1()]
         equations = [

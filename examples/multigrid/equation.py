@@ -25,6 +25,11 @@ class Equation(object):
 
     First lets focus on getting the poisson problem to work.
     Generalizing to block systems can be done guided by stokes problem
+
+    Would be nice to work in petrov-galerkin MG as well
+    that is, construct coarse linear system from transfer operators
+    alternative is rediscretization of anisotropies and bcs;
+    feels kinda messy
     """
 
     def __init__(self, complex):
