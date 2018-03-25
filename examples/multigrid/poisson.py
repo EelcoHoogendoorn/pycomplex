@@ -1,16 +1,8 @@
-"""So far not easy to beat minres+amg
+"""minres+mg is the most efficient solver on these isotropic problems
 
-So far, twice as slow for same error on a regular grid
-However, pure AMG is beat by a factor 4
-need to try geometric MG as minres preconditioner
-So far minres+mg gives about the same result as pure mg;
-interesting how mg and amg are different that way
-
-
-This may be different for vector-type problems
-also interesting to see how mg performs on anisotropic problems
-and interesting to see how mg does on eigenproblems; especially wrt numerical stability
-no clear advantage thus far
+Note that these relative benchmarks are very sensitive to the rhs;
+making it very smooth favors pure minres, and simplifies amg restriction
+with high bandwidth, mg wins.
 """
 
 import numpy as np
@@ -32,7 +24,7 @@ class Poisson(Equation):
     -----
     need to think of clear interface to extend this to multicomplex as well.
     what do we truly expect as interface from the complex that we bind to here?
-    at what level do we trnaslate from possible block system to simple monolithic matrices?
+    at what level do we translate from possible block system to simple monolithic matrices?
     """
 
     def __init__(self, complex, k=0):
@@ -157,6 +149,9 @@ class Poisson(Equation):
         """Interpolate solution from coarse to fine"""
         return self.interpolator * coarse
 
+    def petrov_galerkin(self):
+        A, B, BI = self.operators
+        return self.restrictor * A * self.interpolator
 
 # class PoissonDual(Equation):
 #     """Wrap complex with poisson equation methods and state
@@ -313,12 +308,13 @@ if __name__ == '__main__':
     if complex_type == 'sphere':
         sphere = synthetic.icosahedron().copy(radius=30).subdivide_fundamental()
         hierarchy = [sphere]
-        for i in range(4):
+        for i in range(5):
             hierarchy.append(hierarchy[-1].subdivide_loop())
 
     if complex_type == 'regular':
         # test if multigrid operators on primal-0-forms work correctly on regular grids
         root = synthetic.n_cube(n_dim=2).as_22().as_regular()
+        root = root.copy(vertices=root.vertices * 30)
         hierarchy = [root]
         for i in range(5):
             hierarchy.append(hierarchy[-1].subdivide_cubical())
@@ -368,6 +364,11 @@ if __name__ == '__main__':
     x0 = np.zeros_like(p0)
     print('initial res')
     print(np.linalg.norm(equations[-1].residual(x0, p0)))
+
+    t = clock()
+    x_minres = equations[-1].solve_minres(p0, preconditioner=None)
+    print('minres time: ', clock() - t)
+    print('minres resnorm', np.linalg.norm(equations[-1].residual(x_minres, p0)))
 
     # warm up cache
     x = multigrid.solve_full_cycle(equations, p0, iterations=1)
