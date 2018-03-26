@@ -389,3 +389,16 @@ class ComplexRegular3(ComplexRegularMixin, ComplexCubical3Euclidian3):
 
 class ComplexRegular4(ComplexRegularMixin, ComplexCubical4Euclidian4):
     """Regular cubical 4-complex"""
+
+
+class ComplexCubicalToroidal(ComplexCubical, ComplexRegularMixin):
+    """Cubical complex with a toroidal topology, and corresponding metric"""
+
+    @cached_property
+    def pick_primal_precomp(self):
+        """Overload with boxsize argument"""
+
+    @cached_property
+    def metric(self):
+        """Overload with toroidal logic.
+        should we describe each coordinate as a complex number, or point on unit circle?"""

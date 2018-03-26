@@ -389,7 +389,3 @@ class ComplexCubical4Euclidian4(ComplexCubical):
     def as_regular(self):
         from pycomplex.complex.regular import ComplexRegular4
         return ComplexRegular4(vertices=self.vertices, topology=self.topology)
-
-
-class ComplexCubicalToroidal(ComplexCubical):
-    """Cubical complex with a toroidal topology, and corresponding metric"""

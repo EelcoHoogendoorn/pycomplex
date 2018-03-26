@@ -17,7 +17,7 @@ With B a 1-form on a 2d manifold, or a 2-form on a 3d manifold
 AMG works poorly here; worse than pure minres. for scalar laplace we get factor two gain, here factor two loss
 note that the algebraic properties of the normal equations here are a pretty standard vector laplace-beltrami;
 not clear why it should perform any worse than seismic simulation?
-perhaps because that benefits from anisotropic coefficients? but amg isnt as effective for vectorial fields generally?
+it doesnt; appears amg isnt as effective for vectorial fields generally?
 
 
 

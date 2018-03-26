@@ -93,6 +93,8 @@ class Elastic(Equation):
         Note that for simulating free boundaries, domain bc where vorticity rather than tangent flux
         is zero will likely converge faster. However the current formulation with dual-boundary==0 is the simplest.
         Alternatively, could use a toroidal domain
+
+        Note that we could derive this operator from a first-order system as well by elimination
         """
         complex = self.complex
         l, m, r = [scipy.sparse.diags(p) for p in [self.mu, self.rho, self.lamb]] # NOTE: maps physical variaables to left-mid-right scheme
@@ -288,7 +290,7 @@ if __name__ == '__main__':
         d = circle(pp) + air_density
     else:
         d = rect(pp) + air_density
-    # d = np.ones_like(d)
+    d = np.ones_like(d)
     powers = 1., 1., 1.
     m, r, l = [(o * np.power(d, p)) for o, p in zip(complex.topology.averaging_operators_0[-3:], powers)]
     # r = np.ones_like(r)
@@ -305,6 +307,7 @@ if __name__ == '__main__':
 
     # FIXME: to do proper geometric mg, need to coarsen anisotropy fields as well
     # FIXME: might be better to start prototyping vectorial mg in a simpler context
+    # FIXME: or should we just implement petrov-galerkin smoothing?
     # equations = [Elastic(c) for c in hierarchy]
     equation = Elastic(complex, m=m, l=l, r=r)
     print(equation.largest_eigenvalue)
@@ -367,11 +370,14 @@ if __name__ == '__main__':
         from examples.util import save_animation
         from time import clock
         t = clock()
-        # FIXME: using preconditioning influences spectrum
-        V, v = equation.eigen_basis(K=150, preconditioner=None, tol=1e-8)
+        # FIXME: using preconditioning influences spectrum? could be an error of lobpcg
+        # however, modes without preconditioning are completely useless, so hard to say
+        # for simple isotropic square domain, pattern persists: adding amg slows down by factor two,
+        # but yields purer modes, despite being forced to lower tolerance
+        V, v = equation.eigen_basis(K=100, preconditioner='amg', tol=1e-6)
         print('eigen solve time:', clock() - t)
         print(v)
-        quit()
+        # quit()
         for i in save_animation(path, frames=len(v), overwrite=True):
             plot_flux(V[:, i] * (r**0) * 1e-2)
 
