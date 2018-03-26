@@ -14,10 +14,11 @@ Or in DEC:
 With B a 1-form on a 2d manifold, or a 2-form on a 3d manifold
 
 
-AMG works poorly here; worse than pure minres.
+AMG works poorly here; worse than pure minres. for scalar laplace we get factor two gain, here factor two loss
 note that the algebraic properties of the normal equations here are a pretty standard vector laplace-beltrami;
 not clear why it should perform any worse than seismic simulation?
 perhaps because that benefits from anisotropic coefficients? but amg isnt as effective for vectorial fields generally?
+
 
 
 normal-equations to solve is essentially a vector-laplacian;
@@ -167,7 +168,7 @@ from time import clock
 solution, residual = normal.precondition().solve_amg(tol=1e-8)
 t = clock()
 print('starting solving')
-solution, residual = normal.precondition().solve_minres(tol=1e-9)
+solution, residual = normal.precondition().solve_amg(tol=1e-9)
 print(residual)
 print('solving time: ', clock() - t)
 solution = [s / np.sqrt(d) for s, d in zip(solution, normal.diag())]

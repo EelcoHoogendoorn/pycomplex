@@ -20,6 +20,10 @@ Or in DEC:
 With E a 1-form on a 2d manifold, and a 1-form on a 3d manifold
 
 In the 2d case, the equations thus formed are truly indistinguishable from the magnetostatic case!
+In practice, we have different solution strategies available to us however,
+considering that the absence of source terms in δE = 0 allows us to write this in terms of a scalar potential,
+which isnt the case for magnetostatics
+
 In the 3d case
 
 

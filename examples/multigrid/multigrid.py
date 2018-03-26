@@ -1,6 +1,4 @@
-"""Attempt at geometric multigrid solver
-Start with primal 0-form laplacian; but aim for more general framework
-Start by cleaning up escheresque solver
+"""Geometric multigrid solver
 
 MG code should be entirely agnostic about what complex or forms it is working with;
 this should be encapsulated by the Equation object
@@ -9,10 +7,13 @@ currently only a single `-`, zeros_like and linalg.norm left;
 could easily be wrapped on equation object so we can work with block vectors and such
 
 
-
 how to transfer boundary conditions in mg-setting is an interesting problem that i havnt given a lot of attention yet.
 Equation re-discretizes on each level; maybe need to make BC-setup scale-invariant callable as well?
 alternative is to apply petrov-galerkin coarening to the bcs instead
+
+would like to implement a recursive-krylov-cycle as well, where we solve using a krylov method at each level,
+and precondition with the coarse grid operator at each step. This should be a much stronger solver than gradient descent
+or jacobi iteration, and hopefully cope better with anisotropy
 """
 
 

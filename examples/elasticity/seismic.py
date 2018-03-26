@@ -305,7 +305,7 @@ if __name__ == '__main__':
 
     # FIXME: to do proper geometric mg, need to coarsen anisotropy fields as well
     # FIXME: might be better to start prototyping vectorial mg in a simpler context
-    equations = [Elastic(c) for c in hierarchy]
+    # equations = [Elastic(c) for c in hierarchy]
     equation = Elastic(complex, m=m, l=l, r=r)
     print(equation.largest_eigenvalue)
 
@@ -365,10 +365,13 @@ if __name__ == '__main__':
         # output eigenmodes
         path = r'../output/seismic_modes_0'
         from examples.util import save_animation
-        import examples.multigrid
-        pre = examples.multigrid()
-        V, v = equation.eigen_basis(K=150, preconditioner='amg', tol=1e-16)
+        from time import clock
+        t = clock()
+        # FIXME: using preconditioning influences spectrum
+        V, v = equation.eigen_basis(K=150, preconditioner=None, tol=1e-8)
+        print('eigen solve time:', clock() - t)
         print(v)
+        quit()
         for i in save_animation(path, frames=len(v), overwrite=True):
             plot_flux(V[:, i] * (r**0) * 1e-2)
 
