@@ -5,11 +5,12 @@
 
 Physics:
     div B = 0
-    curl B = J
+    curl H = J
+    B = mu H
 
 Or in DEC:
     dB = 0      magnetic flux is divergence-free
-    δB = J      magnetic flux is irrotational, where no current is present
+    δH = J      magnetic flux is irrotational, where no current is present
 
 With B a 1-form on a 2d manifold, or a 2-form on a 3d manifold
 
@@ -18,7 +19,8 @@ AMG works poorly here; worse than pure minres. for scalar laplace we get factor 
 note that the algebraic properties of the normal equations here are a pretty standard vector laplace-beltrami;
 not clear why it should perform any worse than seismic simulation?
 it doesnt; appears amg isnt as effective for vectorial fields generally?
-
+seems like it; when adding anisotropy, amg becomes no faster; but less stable!
+this is in contrast to seismic, where eigen decomposition becomes more stable with amg. what gives?
 
 
 normal-equations to solve is essentially a vector-laplacian;
@@ -47,7 +49,7 @@ def make_mesh():
     complex
         the complex to operate on
     chains
-        boundary description chains
+        boundary and body description chains
     """
     mesh = synthetic.n_cube(n_dim=2).as_22().as_regular()
     # subdivide
@@ -57,32 +59,38 @@ def make_mesh():
     # identify boundaries
     edge_position = mesh.boundary.primal_position[1]
     BPP = mesh.boundary.primal_position
-    left_1  = (BPP[1][:, 0] == BPP[1][:, 0].min()).astype(sign_dtype)
-    bottom_1  = (BPP[1][:, 1] == BPP[1][:, 1].min()).astype(sign_dtype)
+    left_1 = (BPP[1][:, 0] == BPP[1][:, 0].min()).astype(sign_dtype)
+    bottom_1 = (BPP[1][:, 1] == BPP[1][:, 1].min()).astype(sign_dtype)
 
     # right = (BPP[1][:, 0] == BPP[1][:, 0].max()).astype(sign_dtype)
     # construct closed part of the boundary
     all_1 = mesh.boundary.topology.chain(1, fill=1)
-    closed = (BPP[1][:, 1] != BPP[1][:, 1].min()).astype(sign_dtype)
+    closed_1 = (BPP[1][:, 1] != BPP[1][:, 1].min()).astype(sign_dtype)
 
     left_0  = (BPP[0][:, 0] == BPP[0][:, 0].min()).astype(sign_dtype)
-    right_0  = (BPP[0][:, 0] == BPP[0][:, 0].max()).astype(sign_dtype)
+    right_0 = (BPP[0][:, 0] == BPP[0][:, 0].max()).astype(sign_dtype)
 
-    bottom_0  = (BPP[0][:, 1] == BPP[0][:, 1].min()).astype(sign_dtype)
+    bottom_0 = (BPP[0][:, 1] == BPP[0][:, 1].min()).astype(sign_dtype)
     bottom_0 = bottom_0 * (1-left_0) * (1-right_0)
 
     # construct surface current; this is the source term
     PP = mesh.primal_position
     magnet_width = 0.25
-    magnet_height = 0.35
+    magnet_height = 0.25
     magnet_width = PP[0][:, 0][np.argmin(np.abs(PP[0][:, 0] - magnet_width))]
-    current = (PP[0][:, 0] == magnet_width) * (PP[0][:, 1] < magnet_height)
+    current_0 = (PP[0][:, 0] == magnet_width) * (PP[0][:, 1] < magnet_height)
 
-    return mesh, all_1, left_1, bottom_0, bottom_1, current, closed
+    plate_width = 0.3
+    plate_height = 0.1
+    plate_2 = (PP[2][:, 0] < plate_width) * (PP[2][:, 1] > magnet_height) * (PP[2][:, 1] < magnet_height + plate_height)
+    plate_1 = mesh.topology.averaging_operators_N[1] * plate_2
+
+    return mesh, all_1, left_1, bottom_0, bottom_1, current_0, plate_1
 
 
-mesh, all_1, left_1, bottom_0, bottom_1, current, closed = make_mesh()
+mesh, all_1, left_1, bottom_0, bottom_1, current_0, plate_1 = make_mesh()
 # mesh.plot(plot_dual=False, plot_vertices=False)
+mu = plate_1 * 10000 + 1
 
 
 def magnetostatics(complex2):
@@ -116,8 +124,9 @@ def magnetostatics(complex2):
 
     S = complex2.topology.dual.selector
 
-    rotation   = [P0D2 * D2D1       ]
-    continuity = [P2P1 * P1D1 * S[1]]   # dual boundary tangent fluxes are not involved in continuity
+    # compliance = scipy.sparse.diags(1/mu)
+    rotation   = [P0D2 * D2D1]
+    continuity = [P2P1 * P1D1 * scipy.sparse.diags(mu) * S[1]]   # dual boundary tangent fluxes are not involved in continuity
 
     # set up boundary equations
     rotation_bc   = [sparse_zeros((B0, d)) for d in [D1]]
@@ -147,7 +156,7 @@ def magnetostatics(complex2):
     source = np.zeros(P2)        # divergence is zero everywhere
     source_bc = np.zeros(B1)     # we only set zero fluxes in this example
     knowns = [
-        current,
+        current_0,
         current_bc,
         source,
         source_bc,
@@ -168,7 +177,7 @@ from time import clock
 solution, residual = normal.precondition().solve_amg(tol=1e-8)
 t = clock()
 print('starting solving')
-solution, residual = normal.precondition().solve_amg(tol=1e-9)
+solution, residual = normal.precondition().solve_minres(tol=1e-9)
 print(residual)
 print('solving time: ', clock() - t)
 solution = [s / np.sqrt(d) for s, d in zip(solution, normal.diag())]
@@ -177,10 +186,10 @@ flux, = solution
 
 
 from examples.flow.stream import stream
-primal_flux = mesh.hodge_PD[1] * (mesh.topology.dual.selector[1] * flux)
+primal_flux = mu * mesh.hodge_PD[1] * (mesh.topology.dual.selector[1] * flux)
 phi = stream(mesh, primal_flux)
 
-mesh.plot_primal_0_form(phi, cmap='jet', plot_contour=True, levels=49)
+mesh.plot_primal_0_form(phi, cmap='jet', plot_contour=True, levels=39)
 
 import matplotlib.pyplot as plt
 plt.show()

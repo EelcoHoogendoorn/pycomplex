@@ -99,7 +99,7 @@ class Laplace(Equation):
         def poisson(y, v):
             x = np.zeros_like(y)
             # poisson linear solve is simple division in eigenspace. skip nullspace
-            null_rank = self.null_space.shape[1]
+            null_rank = (np.abs(v) / np.max(v) < 1e-9).sum()
             # swivel dimensions to start binding broadcasting dimensions from the left
             x[null_rank:] = (y[null_rank:].T / v[null_rank:].T).T
             return x
@@ -178,7 +178,9 @@ if __name__ == '__main__':
 
 
     equations = [Laplace(c, k=-2) for c in hierarchy]
-    equation = Laplace(complex, k=-2)
+    from examples.multigrid import multigrid
+    mg_preconditioner = multigrid.as_preconditioner(equations)
+    equation = equations[-1]
     print(equation.largest_eigenvalue)
 
     def plot_flux(fd1):
@@ -202,7 +204,7 @@ if __name__ == '__main__':
         # however, modes without preconditioning are completely useless, so hard to say
         # for simple isotropic square domain, pattern persists: adding amg slows down by factor two,
         # but yields purer modes, despite being forced to lower tolerance
-        V, v = equation.eigen_basis(K=100, preconditioner='amg', tol=1e-6)
+        V, v = equation.eigen_basis(K=100, preconditioner=mg_preconditioner, tol=1e-6)
         print('eigen solve time:', clock() - t)
         print(v)
         # quit()
