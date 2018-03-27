@@ -189,7 +189,7 @@ from examples.flow.stream import stream
 primal_flux = mu * mesh.hodge_PD[1] * (mesh.topology.dual.selector[1] * flux)
 phi = stream(mesh, primal_flux)
 
-mesh.plot_primal_0_form(phi, cmap='jet', plot_contour=True, levels=39)
+mesh.plot_primal_0_form(phi, cmap='jet', plot_contour=True, levels=29)
 
 import matplotlib.pyplot as plt
 plt.show()
