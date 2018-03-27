@@ -142,8 +142,8 @@ class Poisson(Equation):
         A, B, BI = self.operators
         # convert to dual; then transfer, then back to primal. why again?
         # getting correct operator in regular grids relies on not doing this
-        fine = scipy.sparse.diags(self.complex.hodge_PD[0])
-        coarse = scipy.sparse.diags(self.complex.parent.hodge_DP[0])
+        # fine = scipy.sparse.diags(self.complex.hodge_PD[0])
+        # coarse = scipy.sparse.diags(self.complex.parent.hodge_DP[0])
         return normalize_l1(self.transfer, axis=1)
     def interpolate(self, coarse):
         """Interpolate solution from coarse to fine"""
@@ -323,17 +323,20 @@ if __name__ == '__main__':
     equations = [Poisson(l, k=0) for l in hierarchy]
 
     # test transfer operators
-    if False:
+    if True:
         R = equations[-1].restrictor
         I = equations[-1].interpolator
         T = R * I
         ones = np.ones((T.shape[1], 1))
         q = T * ones
         print(q)
+        assert np.allclose(q, 1)
+
         T = I * R
         ones = np.ones((T.shape[1], 1))
         q = T * ones
         print(q)
+        assert np.allclose(q, 1)
 
 
     if False:
@@ -357,8 +360,6 @@ if __name__ == '__main__':
     p0 = perlin_noise(hierarchy[-1])
     p0 -= p0.mean()
     # p0 = np.random.normal(size=p0.size)
-
-
 
 
     x0 = np.zeros_like(p0)

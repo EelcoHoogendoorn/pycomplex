@@ -130,25 +130,31 @@ class Laplace(Equation):
 
     @cached_property
     def restrictor(self):
-        """Maps primal 0-form from fine to coarse"""
+        """Maps dual of primal k-form from fine to coarse"""
         A, B, BI = self.operators
         # FIXME: need a link to parent equation; this is hacky. should be coarse.BI
         # convert to dual; then transfer, then back to primal. why again?
-        fine = scipy.sparse.diags(self.complex.hodge_DP[self.k])
-        coarse = scipy.sparse.diags(self.complex.parent.hodge_PD[self.k])
+        # fine = scipy.sparse.diags(self.complex.primal_metric[self.k])
+        # coarse = scipy.sparse.diags(self.complex.parent.hodge_PD[self.k])
+        fine = scipy.sparse.diags(1. / self.complex.dual_metric[self.k])
+        coarse = scipy.sparse.diags(self.complex.parent.dual_metric[self.k])
+
         return coarse * normalize_l1(self.transfer.T, axis=0) * fine
     def restrict(self, fine):
         """Restrict solution from fine to coarse"""
         return self.restrictor * fine
     @cached_property
     def interpolator(self):
-        """Maps primal 0-form from coarse to fine"""
-        return normalize_l1(self.transfer, axis=1)
+        """Maps dual of primal k-form from coarse to fine"""
+        fine = scipy.sparse.diags(self.complex.dual_metric[self.k])
+        coarse = scipy.sparse.diags(1. / self.complex.parent.dual_metric[self.k])
+        return fine * normalize_l1(self.transfer, axis=1) * coarse
     def interpolate(self, coarse):
         """Interpolate solution from coarse to fine"""
         return self.interpolator * coarse
 
     def petrov_galerkin(self):
+        """Generate operator appropriate for the parent complex"""
         A, B, BI = self.operators
         return self.restrictor * A * self.interpolator
 
@@ -177,11 +183,33 @@ if __name__ == '__main__':
             hierarchy.append(complex)
 
 
+    # setup vectorial geometric multigrid solver
     equations = [Laplace(c, k=-2) for c in hierarchy]
     from examples.multigrid import multigrid
     mg_preconditioner = multigrid.as_preconditioner(equations)
     equation = equations[-1]
     print(equation.largest_eigenvalue)
+
+
+    # test transfer operators
+    if True:
+        R = equations[-1].restrictor
+        I = equations[-1].interpolator
+        T = R * I
+        # ones isnt in the nullspace of vector laplace
+        null = equations[-2].eigen_basis(K=3)[0][:, 0]
+        # ones = np.ones((T.shape[1], 1))
+        q = T * null
+        print(q)
+        # FIXME: q / null tends to be around 4 atm
+        # assert np.allclose(q, 1)
+        T = I * R
+        null = equations[-1].eigen_basis(K=3)[0][:, 0]
+        # ones = np.ones((T.shape[1], 1))
+        q = T * null
+        print(q)
+        assert np.allclose(q, 1)
+
 
     def plot_flux(fd1):
         ax = plt.gca()
@@ -200,11 +228,9 @@ if __name__ == '__main__':
         # from examples.util import save_animation
         from time import clock
         t = clock()
-        # FIXME: using preconditioning influences spectrum? could be an error of lobpcg
-        # however, modes without preconditioning are completely useless, so hard to say
-        # for simple isotropic square domain, pattern persists: adding amg slows down by factor two,
-        # but yields purer modes, despite being forced to lower tolerance
-        V, v = equation.eigen_basis(K=100, preconditioner=mg_preconditioner, tol=1e-6)
+        # FIXME: geometric mg only stable for very low k so far
+        # FIXME: equation.restrictor * equations.interpolator far from identity!
+        V, v = equation.eigen_basis(K=50, preconditioner=mg_preconditioner, tol=1e-6)
         print('eigen solve time:', clock() - t)
         print(v)
         # quit()

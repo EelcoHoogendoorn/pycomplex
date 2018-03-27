@@ -119,9 +119,16 @@ def solve_full_cycle(hierarchy, y, iterations=2):
 def as_preconditioner(hierarchy):
     """Runtime performance very non-deterministic still
 
+    Parameters
+    ----------
+    hierarchy : List[Equation]
+
     Returns
     -------
     LinearOperator
+        Linear operator that approximately inverts the linear relation Ax=By,
+        returning an approximate x given a y
+
     """
     import scipy.sparse
     A, B, Bi = hierarchy[-1].operators

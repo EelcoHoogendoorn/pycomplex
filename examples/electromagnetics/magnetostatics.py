@@ -41,8 +41,12 @@ from pycomplex.topology import sign_dtype
 from examples.linear_system import *
 
 
-def make_mesh():
+def setup_domain(mesh):
     """Construct domain
+
+    Parameters
+    ----------
+    mesh : Complex
 
     Returns
     -------
@@ -51,10 +55,6 @@ def make_mesh():
     chains
         boundary and body description chains
     """
-    mesh = synthetic.n_cube(n_dim=2).as_22().as_regular()
-    # subdivide
-    for i in range(6):
-        mesh = mesh.subdivide_cubical()
 
     # identify boundaries
     edge_position = mesh.boundary.primal_position[1]
@@ -85,10 +85,20 @@ def make_mesh():
     plate_2 = (PP[2][:, 0] < plate_width) * (PP[2][:, 1] > magnet_height) * (PP[2][:, 1] < magnet_height + plate_height)
     plate_1 = mesh.topology.averaging_operators_N[1] * plate_2
 
-    return mesh, all_1, left_1, bottom_0, bottom_1, current_0, plate_1
+    return all_1, left_1, bottom_0, bottom_1, current_0, plate_1
 
 
-mesh, all_1, left_1, bottom_0, bottom_1, current_0, plate_1 = make_mesh()
+# generate a mesh
+mesh = synthetic.n_cube(n_dim=2).as_22().as_regular()
+hierarchy = [mesh]
+# subdivide
+for i in range(6):
+    mesh = mesh.subdivide_cubical()
+    hierarchy.append(mesh)
+
+
+
+all_1, left_1, bottom_0, bottom_1, current_0, plate_1 = setup_domain(mesh)
 # mesh.plot(plot_dual=False, plot_vertices=False)
 mu = plate_1 * 10000 + 1
 
@@ -136,7 +146,7 @@ def magnetostatics(complex2):
     rotation_bc[0] = d_matrix(bottom_0, rotation_bc[0].shape, P1)
 
     # symmetry on the left axis; set normal flux to zero
-    # the former only happens to work with minres
+    # the former only happens to work with minres; fails with mg solver
     # continuity_bc[0] = o_matrix(left_1, boundary.parent_idx[1], continuity_bc[0].shape)
     continuity_bc[0] = o_matrix(all_1 - bottom_1, boundary.parent_idx[1], continuity_bc[0].shape)
 
