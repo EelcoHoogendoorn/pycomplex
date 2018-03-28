@@ -88,9 +88,9 @@ class Equation(object):
         """Get AMG preconditioner for the action of A in isolation"""
         from pyamg import smoothed_aggregation_solver
         A, B, BI = self.operators
-        return smoothed_aggregation_solver(A)
+        return smoothed_aggregation_solver(A, B=self.null_space)
 
-    def eigen_basis(self, K, preconditioner=None, tol=1e-10):
+    def eigen_basis(self, K, preconditioner=None, tol=1e-10, nullspace=None):
         """Compute partial eigen decomposition for `A x = B x`
 
         Parameters
@@ -121,7 +121,10 @@ class Equation(object):
         lobpcg._assert_symmetric = lambda x: None
 
         try:
-            Y = self.null_space     # giving lobpcg the null space helps with numerical stability
+            if nullspace is None:
+                Y = self.null_space     # giving lobpcg the null space helps with numerical stability
+            if nullspace is False:
+                Y = None
             v, V = scipy.sparse.linalg.lobpcg(A=A, B=B, X=X, tol=tol, M=M, Y=Y, largest=False)
         except:
             v, V = scipy.sparse.linalg.lobpcg(A=A, B=B, X=X, tol=tol, M=M, largest=False)

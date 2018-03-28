@@ -205,6 +205,7 @@ normal = system.normal_equations()
 # normal.precondition().plot()
 t = clock()
 print('starting solving')
+# adding amg in any way here makes things aweful; what gives?
 solution, residual = normal.precondition().solve_minres(tol=1e-16)
 # print(residual)
 print('solving time: ', clock() - t)

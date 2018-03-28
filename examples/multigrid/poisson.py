@@ -395,14 +395,24 @@ if __name__ == '__main__':
     print('minres+mg time: ', clock() - t)
     print('minres+mg resnorm', np.linalg.norm(equations[-1].residual(x_minres, p0)))
 
-
     t = clock()
     x_amg = equations[-1].solve_amg(p0)
     print('amg time: ', clock() - t)
     print('amg resnorm', np.linalg.norm(equations[-1].residual(x_amg, p0)))
 
-    # x_eigen = equations[-1].solve(p0)
-    # print(np.linalg.norm(equations[-1].residual(x_eigen, p0)))
+    t = clock()
+    x_eigen = equations[-1].eigen_basis(K=100, preconditioner=None, tol=1e-6)
+    print('eigen time: ', clock() - t)
+
+    t = clock()
+    x_eigen = equations[-1].eigen_basis(K=100, preconditioner='amg', tol=1e-6)
+    print('eigen amg time: ', clock() - t)
+
+    t = clock()
+    x_eigen = equations[-1].eigen_basis(K=100, preconditioner=multigrid.as_preconditioner(equations[1:]), tol=1e-6)
+    print('eigen mg time: ', clock() - t)
+
+
 
     if True:
         v = x

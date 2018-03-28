@@ -182,7 +182,7 @@ system = stokes_flow(mesh)
 
 normal = system.normal_equations()
 # normal.precondition().plot()
-solution, residual = normal.precondition().solve_minres(tol=1e-16)
+solution, residual = normal.precondition().solve_minres_amg(tol=1e-16)
 solution = [s / np.sqrt(d) for s, d in zip(solution, normal.diag())]
 
 # solution, residual = system.solve_least_squares()

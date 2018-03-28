@@ -7,6 +7,9 @@ no k-generalized interpolation/restriction yet,
 but at least we do have something for dual 1 forms now
 
 can test in higher ndim now too
+
+geometric mg performs about the same as amg for now
+neither is doing great
 """
 
 import numpy as np
@@ -80,12 +83,18 @@ class Laplace(Equation):
 
         return A.tocsr(), B.tocsc(), BI.tocsc()
 
-    # @cached_property
-    # def null_space(self):
-    #     """Return null space of A"""
-    #     A, B, BI = self.operators
-    #
-    #     return np.ones((B.shape[1], 1))
+    @cached_property
+    def null_space(self):
+        """Return null space of A"""
+
+        # bootstrap an eigensolver; need nullspace for amg preconditioned eigensolve, but need amg for convergent eigensolve to get nullspace
+        from pyamg import smoothed_aggregation_solver
+        A, B, BI = self.operators
+        P = smoothed_aggregation_solver(A).aspreconditioner()
+
+        V, v = self.eigen_basis(K=30, preconditioner=P, nullspace=False)
+        return V[:, :2]
+        # return np.ones((B.shape[1], 1))
 
     def solve(self, y):
         """Solve linear system in eigenbasis
@@ -178,6 +187,8 @@ if __name__ == '__main__':
             complex = complex.subdivide_cubical()
             hierarchy.append(complex)
 
+    # complex.plot(plot_dual=True, plot_arrow=False)
+    # plt.show()
 
     # setup vectorial geometric multigrid solver
     equations = [Laplace(c, k=-2) for c in hierarchy]
@@ -226,7 +237,7 @@ if __name__ == '__main__':
         t = clock()
         # FIXME: geometric mg still less stable so far. also bit slower than amg
         # actually for k=150 no instability and amg is a bit slower...
-        V, v = equation.eigen_basis(K=150, preconditioner=mg_preconditioner, tol=1e-6)
+        V, v = equation.eigen_basis(K=150, preconditioner='amg', tol=1e-6)
         print('eigen solve time:', clock() - t)
         print(v)
         # quit()

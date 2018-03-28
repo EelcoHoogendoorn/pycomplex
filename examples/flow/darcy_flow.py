@@ -173,8 +173,8 @@ if False:   # only set to true for small problem sizes
 normal = system.normal_equations()
 t = clock()
 print('starting solving')
-# FIXME: solve_amg only 20% faster than solve_minres
-solution, residual = normal.precondition().solve_amg(tol=1e-16)
+# FIXME: solve_minres_amg only 20% faster than solve_minres
+solution, residual = normal.precondition().solve_minres_amg(tol=1e-16)
 print('solving time: ', clock() - t)
 solution = [s / np.sqrt(d) for s, d in zip(solution, normal.diag())]
 flux, pressure = solution

@@ -167,9 +167,9 @@ class BlockSystem(object):
         r = equations * x - knowns
         return self.split(x), self.split(r, axis='rows')
 
-    def solve_amg(self, tol=1e-12):
+    def solve_minres_amg(self, tol=1e-12):
         """Sole using minres and amg preconditioner"""
-        print('amg solve')
+        print('minres+amg solve')
         from pyamg import smoothed_aggregation_solver, ruge_stuben_solver, rootnode_solver
         equations, knowns = self.concatenate()
         equations = equations.tocsr()
@@ -195,6 +195,28 @@ class BlockSystem(object):
         x = scipy.sparse.linalg.minres(equations, knowns, tol=tol, M=M)[0]
         r = equations * x - knowns
         return self.split(x), self.split(r, axis='rows')
+
+    def solve_amg(self, tol=1e-12):
+        """Sole using amg"""
+        print('amg solve')
+        from pyamg import smoothed_aggregation_solver, ruge_stuben_solver, rootnode_solver
+        equations, knowns = self.concatenate()
+        equations = equations.tocsr()
+
+        from time import clock
+        t = clock()
+
+        # FIXME: add these
+        null = None
+
+        M = smoothed_aggregation_solver(equations, B=null, smooth='jacobi')
+        # M = rootnode_solver(equations).aspreconditioner()
+        print('amg setup', clock() - t)
+
+        x = M.solve(knowns, tol=tol)
+        r = equations * x - knowns
+        return self.split(x), self.split(r, axis='rows')
+
 
     def solve_least_squares(self):
         """Solve equations in a least-squares sense
