@@ -3,6 +3,10 @@
 Note that these relative benchmarks are very sensitive to the rhs;
 making it very smooth favors pure minres, and simplifies amg restriction
 with high bandwidth, mg wins.
+
+still many surprising things happening; pure mg is fastest by far on the sphere,
+followed by minres+amg, and minres+amg by far the best on regular complex
+differences by machine are likely related to the number of cores and parralelization differences
 """
 
 import numpy as np
@@ -127,6 +131,7 @@ class Poisson(Equation):
     @cached_property
     def restrictor(self):
         """Maps primal 0-form from fine to coarse"""
+        # return self.interpolator.T
         A, B, BI = self.operators
         # FIXME: need a link to parent equation; this is hacky. should be coarse.BI
         # convert to dual; then transfer, then back to primal. why again?
@@ -140,10 +145,6 @@ class Poisson(Equation):
     def interpolator(self):
         """Maps primal 0-form from coarse to fine"""
         A, B, BI = self.operators
-        # convert to dual; then transfer, then back to primal. why again?
-        # getting correct operator in regular grids relies on not doing this
-        # fine = scipy.sparse.diags(self.complex.hodge_PD[0])
-        # coarse = scipy.sparse.diags(self.complex.parent.hodge_DP[0])
         return normalize_l1(self.transfer, axis=1)
     def interpolate(self, coarse):
         """Interpolate solution from coarse to fine"""
@@ -316,7 +317,7 @@ if __name__ == '__main__':
         root = synthetic.n_cube(n_dim=2).as_22().as_regular()
         root = root.copy(vertices=root.vertices * 30)
         hierarchy = [root]
-        for i in range(5):
+        for i in range(6):
             hierarchy.append(hierarchy[-1].subdivide_cubical())
 
     # set up hierarchy of equations
@@ -327,6 +328,7 @@ if __name__ == '__main__':
         R = equations[-1].restrictor
         I = equations[-1].interpolator
         T = R * I
+        # this T is far from identity. i suppose this is normal; roundtrip on high frequency component does lead to smoothing, if R=I.T
         ones = np.ones((T.shape[1], 1))
         q = T * ones
         print(q)

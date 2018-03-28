@@ -1,6 +1,12 @@
 """Generalized homogeneous poisson; or laplace-beltrami
 
 Use this to test non-scalar multigrid
+working alright
+implement for sphere too
+no k-generalized interpolation/restriction yet,
+but at least we do have something for dual 1 forms now
+
+can test in higher ndim now too
 """
 
 import numpy as np
@@ -23,7 +29,7 @@ class Laplace(Equation):
     at what level do we translate from possible block system to simple monolithic matrices?
     """
 
-    def __init__(self, complex, k=-2):
+    def __init__(self, complex, k):
         """
 
         Parameters
@@ -35,7 +41,7 @@ class Laplace(Equation):
         """
         # FIXME: add modifier terms for all diagonals
         self.complex = complex
-        self.k = k if k > 0 else complex.n_dim + k + 1
+        self.k = k if k >= 0 else complex.n_dim + k + 1
 
     @cached_property
     def operators(self):
@@ -131,23 +137,18 @@ class Laplace(Equation):
     @cached_property
     def restrictor(self):
         """Maps dual of primal k-form from fine to coarse"""
-        A, B, BI = self.operators
-        # FIXME: need a link to parent equation; this is hacky. should be coarse.BI
-        # convert to dual; then transfer, then back to primal. why again?
-        # fine = scipy.sparse.diags(self.complex.primal_metric[self.k])
-        # coarse = scipy.sparse.diags(self.complex.parent.hodge_PD[self.k])
-        fine = scipy.sparse.diags(1. / self.complex.dual_metric[self.k])
-        coarse = scipy.sparse.diags(self.complex.parent.dual_metric[self.k])
-
-        return coarse * normalize_l1(self.transfer.T, axis=0) * fine
+        return self.interpolator.T
+        # fine = scipy.sparse.diags(1./self.complex.dual_metric[self.k])
+        # coarse = scipy.sparse.diags(self.complex.parent.dual_metric[self.k])
+        # return coarse * normalize_l1(self.transfer.T, axis=0) * fine / 4
     def restrict(self, fine):
         """Restrict solution from fine to coarse"""
         return self.restrictor * fine
     @cached_property
     def interpolator(self):
         """Maps dual of primal k-form from coarse to fine"""
-        fine = scipy.sparse.diags(self.complex.dual_metric[self.k])
-        coarse = scipy.sparse.diags(1. / self.complex.parent.dual_metric[self.k])
+        fine = scipy.sparse.diags(self.complex.dual_metric[::-1][self.k])
+        coarse = scipy.sparse.diags(1. / self.complex.parent.dual_metric[::-1][self.k])
         return fine * normalize_l1(self.transfer, axis=1) * coarse
     def interpolate(self, coarse):
         """Interpolate solution from coarse to fine"""
@@ -163,16 +164,11 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
     kind = 'regular'
 
-    # if kind == 'sphere':
-    #     from pycomplex import synthetic
-    #     complex = synthetic.icosphere(refinement=6)
-    #     complex = complex.copy(radius=16)
-
-    if kind == 'simplicial':
+    if kind == 'sphere':
+        # FIXME: implement generalized mg transfer on simplicial complexes
         from pycomplex import synthetic
-        complex = synthetic.delaunay_cube(density=64, n_dim=2)
-        complex = complex.copy(vertices=complex.vertices - 0.5).optimize_weights().as_2().as_2()
-        # NOTE: no hierarchy so not compatible with geometric mg
+        complex = synthetic.icosphere(refinement=6)
+        complex = complex.copy(radius=16)
 
     if kind == 'regular':
         from pycomplex import synthetic
@@ -197,18 +193,18 @@ if __name__ == '__main__':
         I = equations[-1].interpolator
         T = R * I
         # ones isnt in the nullspace of vector laplace
-        null = equations[-2].eigen_basis(K=3)[0][:, 0]
+        # infact with tangent fluxes at zero there is no true nullspace
+        null = equations[-2].eigen_basis(K=10)[0][:, 0]
         # ones = np.ones((T.shape[1], 1))
         q = T * null
-        print(q)
-        # FIXME: q / null tends to be around 4 atm
+        print(q / null)
         # assert np.allclose(q, 1)
         T = I * R
-        null = equations[-1].eigen_basis(K=3)[0][:, 0]
+        null = equations[-1].eigen_basis(K=10)[0][:, 0]
         # ones = np.ones((T.shape[1], 1))
         q = T * null
-        print(q)
-        assert np.allclose(q, 1)
+        print(q / null)
+        # assert np.allclose(q, 1)
 
 
     def plot_flux(fd1):
@@ -228,11 +224,12 @@ if __name__ == '__main__':
         # from examples.util import save_animation
         from time import clock
         t = clock()
-        # FIXME: geometric mg only stable for very low k so far
-        # FIXME: equation.restrictor * equations.interpolator far from identity!
-        V, v = equation.eigen_basis(K=50, preconditioner=mg_preconditioner, tol=1e-6)
+        # FIXME: geometric mg still less stable so far. also bit slower than amg
+        # actually for k=150 no instability and amg is a bit slower...
+        V, v = equation.eigen_basis(K=150, preconditioner=mg_preconditioner, tol=1e-6)
         print('eigen solve time:', clock() - t)
         print(v)
         # quit()
         # for i in save_animation(path, frames=len(v), overwrite=True):
         #     plot_flux(V[:, i] * (r**0) * 1e-2)
+
