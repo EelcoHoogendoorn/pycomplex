@@ -16,17 +16,20 @@ import numpy as np
 import scipy.sparse
 from cached_property import cached_property
 
-from examples.multigrid.equation import Equation
+from examples.multigrid.equation import SymmetricEquation
 from pycomplex.sparse import normalize_l1, inv_diag
 
 
-class Laplace(Equation):
+class Laplace(SymmetricEquation):
     """laplace-beltrami on dual k-forms
 
     A * x = B * y, or laplacian(x) = mass(y)
 
     Notes
     -----
+    Would it be cleaner to formulate these as first order equations,
+    and turn them into a symmetric equation be elimination?
+
     need to think of clear interface to extend this to multicomplex as well.
     what do we truly expect as interface from the complex that we bind to here?
     at what level do we translate from possible block system to simple monolithic matrices?

@@ -13,11 +13,11 @@ import numpy as np
 import scipy.sparse
 from cached_property import cached_property
 
-from examples.multigrid.equation import Equation
+from examples.multigrid.equation import SymmetricEquation
 from pycomplex.sparse import normalize_l1, inv_diag
 
 
-class Poisson(Equation):
+class Poisson(SymmetricEquation):
     """Wrap complex with poisson equation methods and state
 
     Poisson logic for primal 0-forms, or 0-laplace-beltrami

@@ -56,10 +56,10 @@ import numpy as np
 import scipy.sparse
 
 import pycomplex
-from examples.multigrid.equation import Equation
+from examples.multigrid.equation import SymmetricEquation
 
 
-class Elastic(Equation):
+class Elastic(SymmetricEquation):
     """Object to manage second order vectorial wave equation over dual 1-forms"""
 
     def __init__(self, complex, m, l, r):
@@ -195,9 +195,10 @@ class Elastic(Equation):
         x : ndarray
         """
         A, B, BI = self.operators
-        null_rank = np.abs(v / self.largest_eigenvalue) < 1e-9
 
         def poisson(y, v):
+            null_rank = np.abs(v / self.largest_eigenvalue) < 1e-9
+
             x = np.zeros_like(y)
             # poisson linear solve is simple division in eigenspace. skip nullspace
             # swivel dimensions to start binding broadcasting dimensions from the left

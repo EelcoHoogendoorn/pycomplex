@@ -1,5 +1,6 @@
 
 from cached_property import cached_property
+from abc import abstractmethod
 
 import numpy as np
 import scipy
@@ -8,7 +9,41 @@ import scipy.sparse
 import pycomplex
 
 
-class Equation(object):
+class GeneralizedEquation(object):
+    """Generalized linear equation of the form A x = B y"""
+    def __init__(self, complex):
+        self.complex = complex
+
+    @cached_property
+    def operators(self):
+        """Return A and B"""
+        raise NotImplementedError
+
+    @cached_property
+    def null_space(self):
+        """Return null space, if known a-priori"""
+        return None
+
+    @cached_property
+    def A(self):
+        return self.operators[0]
+    @cached_property
+    def B(self):
+        return self.operators[1]
+    @cached_property
+    def BI(self):
+        return pycomplex.sparse.inv_dia(self.B)
+
+    def solve(self, y):
+        """Solve system exactly. most efficient way may be problem-dependent"""
+        raise NotImplementedError
+
+    def solve_dense(self, y):
+        """Solve system using dense linear algebra; for debugging purposes, mostly"""
+        raise NotImplementedError
+
+
+class SymmetricEquation(GeneralizedEquation):
     """Encode operators and other defining information about a system of equations
 
     We consider here generalized linear problems of the form Ax=By,
@@ -32,24 +67,6 @@ class Equation(object):
     feels kinda messy
     """
 
-    def __init__(self, complex):
-        self.complex = complex
-
-    @cached_property
-    def operators(self):
-        """Return A, B and B.I"""
-        raise NotImplementedError
-    @cached_property
-    def null_space(self):
-        """Return null space, if known a-priori"""
-        return None
-    def solve(self, y):
-        """Solve system exactly. most efficient way may be problem-dependent"""
-        raise NotImplementedError
-
-    def solve_dense(self, y):
-        """Solve system using dense linear algebra; for debugging purposes, mostly"""
-        raise NotImplementedError
 
     @cached_property
     def largest_eigenvalue(self):
@@ -91,7 +108,7 @@ class Equation(object):
         return smoothed_aggregation_solver(A, B=self.null_space)
 
     def eigen_basis(self, K, preconditioner=None, tol=1e-10, nullspace=None):
-        """Compute partial eigen decomposition for `A x = B x`
+        """Compute partial eigen decomposition for `A V = v B V`
 
         Parameters
         ----------
@@ -237,3 +254,81 @@ class Equation(object):
         """Basic smoother; inspired by time integration of heat diffusion equation"""
         knots = np.linspace(1, 4, 3, endpoint=True)
         return self.overrelax(x, y, knots)
+
+
+class NormalEquation(GeneralizedEquation):
+    """Set of equations intended to be solved in a least-square sense,
+    or through formulation of their normal equations
+
+    A x = B y
+
+    A.T A x = A.T B y
+
+    Where A can be any matrix, and B must be diagonal
+
+    What does it mean to take an eigenvector of the normal equations?
+    and are the eigenvectors we obtain identical to those of a 'true' laplacian?
+    """
+
+    @cached_property
+    def normal(self):
+        """Return explicit normal equations"""
+        A, B = self.operators
+        An = A.T * A
+        Bn = A.T * B
+        e = SymmetricEquation(self.complex)
+        e.operators = An, Bn
+        e.parent = self
+        return e
+
+    def jacobi(self, x, y, relaxation=1):
+        """Jacobi iteration on the normal equations."""
+        R = self.residual(x, y)
+        return x - self.normal.inverse_diagonal * (self.A.T * R) * (relaxation / 2)
+
+    def residual(self, x, y):
+        """Computes residual"""
+        return self.A * x - self.B * y
+
+    @cached_property
+    def normal_operator(self):
+        """Linear operator representing A.T * A"""
+        def inner(x):
+            return self.A.T * (self.A * x)
+        return scipy.sparse.linalg.LinearOperator(
+            shape=self.B.shape,
+            matvec=inner
+        )
+
+    def solve_minres(self, y, x0=None, preconditioner=None, tol=1e-6):
+        """Solve normal equation using minres
+
+
+        """
+        # if preconditioner == 'amg':
+        #     M = self.amg_solver.aspreconditioner()
+        # else:
+        M = preconditioner
+        return scipy.sparse.linalg.minres(
+            A=self.normal_operator,
+            b=self.A.T * (self.B * y),
+            M=M,
+            x0=x0, tol=tol
+        )[0]
+
+    def solve_lsqr(self, y, x0=None, tol=1e-6):
+        """Solve iteratively in least square sense. """
+        return scipy.sparse.linalg.lsqr(
+            A=self.A,
+            b=self.B * y,
+            x0=x0, tol=tol
+        )[0]
+
+    def eigen_basis(self, K):
+        """Obtain solutions of the form
+
+        A V = v B V
+
+        does this even make sense? not really for nonsquare...
+        yet would still expect eigs to be usefull in solving
+        """
