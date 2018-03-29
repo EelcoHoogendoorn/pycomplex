@@ -126,7 +126,7 @@ class BlockSystem(object):
                 # print(shape, end='')
             print()
 
-    def plot(self, dense=True):
+    def plot(self, dense=True, order=None):
         """Visualize the structure of the linear system
 
         Parameters
@@ -142,6 +142,8 @@ class BlockSystem(object):
             plt.gca().invert_yaxis()
         else:
             S = S.todense()
+            if order is not None:
+                S = S[order, :][:, order]
             cmap = 'bwr'#''seismic'
             plt.imshow(S[::-1], cmap=cmap, vmin=-1, vmax=+1, origin='upper', extent=(0, S.shape[1], 0, S.shape[0]))
             # plot block boundaries

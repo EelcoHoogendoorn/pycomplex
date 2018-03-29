@@ -182,7 +182,15 @@ system = magnetostatics(mesh)
 
 # formulate normal equations and solve
 normal = system.balance(1e-6).normal_equations()
-# normal.precondition().plot()
+if False:
+    # optionaly reorder the unknowns to show coupling between horizontal and vertical dofs
+    dual_edges = mesh.topology.dual.matrices_2[0].T * mesh.dual_position[0]
+    order = np.dot(dual_edges, [1, 0])
+    order = np.argsort(np.abs(order))
+else:
+    order = None
+
+# normal.precondition().plot(order=order, kind='mergesort'))
 from time import clock
 solution, residual = normal.precondition().solve_amg(tol=1e-8)
 t = clock()
