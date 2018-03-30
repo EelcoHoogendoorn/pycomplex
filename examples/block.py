@@ -1,10 +1,10 @@
-"""Blocked linear algebra
+"""Blocked arrays and linear algebra
 
 This is usefull for managing structure in our DEC equations;
 briding the gap between the abstract linear algebra perspective and more structured DEC operators
 
 Note that it is important that these blocked matrices behave much the same, or have the same interface,
-as their unblocked couterparts
+as their unblocked counterparts
 
 Should be able to use this in low level topology classes as well;
 maintain seperation interior/primal/dual variables, and so on
@@ -105,6 +105,48 @@ class BlockArray(object):
         """Slicing simply passes on to the block"""
         return type(self)(self.block.__getitem__(slc))
 
+    @staticmethod
+    def einsum(operands, formula):
+        """Generic multilinear product over blocks
+
+        Notes
+        -----
+        swapping indices should recurse down the block level
+        if we cant use this function to transpose correctly, it is of little use
+        """
+        import itertools
+        import functools
+
+        # parse formula
+        left, right = formula.split('->')
+        spec = left.split(',')
+        axes_labels = list(set(formula) - set(',->'))
+
+        # characterize axes
+        axis_size = {}
+        for o, o_axes in zip(operands, spec):
+            for a, s in zip(o_axes, o.block.shape):
+                if a in axis_size:
+                    assert axis_size[a] == s
+                else:
+                    axis_size[a] = s
+
+        # allocate output
+        output_shape = [axis_size[a] for a in right]
+        output = np.zeros(output_shape, dtype=np.object)
+
+        # loop over all axes of the product
+        for idx in itertools.product(*[range(axis_size[a]) for a in axes_labels]):
+            # this is a operation per subblock. need to select the subblock, and then swivel the axes
+            # could recurse into einsum for dense blocks?
+            # need to add similar logic for sparse then too
+            try:
+                output = output + np.einsum(operands, formula)
+            except:
+                output = output + functools.reduce(operands, lambda x, y: x * y)
+
+        return type(operands[-1])(output)
+
 
 class BlockMatrix(BlockArray):
     """Blocked linear algebra
@@ -134,24 +176,48 @@ class BlockMatrix(BlockArray):
         -------
         DenseBlockArray
         """
-        assert self.square
-        return [self.block[i, i].diagonal() for i in range(self.rows)]
+        # assert self.square
+        return DenseBlockArray([self.block[i, i].diagonal() for i in range(self.rows)])
+
+    def norm_l1(self, axis):
+        """Return the l1 norm of the block, summing over the given axis"""
+        # FIXME: generalize to nd and other norms?
+        if axis == 0:
+            return self.transpose().norm_l1(axis=1)
+        def norm(A):
+            return np.array(np.abs(A).sum(axis=axis)).flatten()
+        l1s = [
+            sum([norm(self.block[i, j])
+                for j in range(self.block.shape[1])])
+                    for i in range(self.block.shape[0])]
+        return DenseBlockArray(l1s)
 
 
 class SparseBlockMatrix(BlockMatrix):
     """This wraps a block of scipy.sparse matrices"""
 
     def __mul__(self, other):
-        """Compute self[i,j] * other[j,k] -> output[i,k]"""
-        assert self.cols == other.rows
-        output_shape = self.rows, other.cols
+        """Compute self[i,j] * other[j,...] -> output[i,...]
+        Contract self and other along their inner dimension
+
+        Parameters
+        ----------
+        other : BlockArray
+
+        Returns
+        -------
+        type(other)
+        """
+        assert self.block.shape[1] == other.block.shape[0]
+        output_shape = self.rows, np.prod(other.block.shape[1:], dtype=np.int)
+        other_block = other.block.reshape(other.block.shape[0], output_shape[1])
         output = np.zeros(output_shape, dtype=np.object)
         for i in range(self.rows):
             for j in range(self.cols):
-                for k in range(other.cols):
-                    output[i, k] = output[i, k] + self.block[i, j] * other.block[j, k]
+                for k in range(output_shape[1]):
+                    output[i, k] = output[i, k] + self.block[i, j] * other_block[j, k]
 
-        return type(other)(output)
+        return type(other)(output.reshape(self.rows, *other.block.shape[1:]))
 
     def split(self, x):
         """"""
@@ -163,9 +229,24 @@ class SparseBlockMatrix(BlockMatrix):
             raise NotImplementedError
         return scipy.sparse.bmat(self.block)
 
+    @staticmethod
+    def diags(diag):
+        """Turn dense block vector into diagonal block structure"""
+        assert diag.ndim == 1
+        output_shape = diag.block.shape, * 2
+        output = np.zeros(output_shape, dtype=np.object)
+        for i, b in enumerate(diag.block):
+            output[i, i] = scipy.sparse.diags(b)
+        return SparseBlockMatrix(output)
+
+
 
 class DenseBlockArray(BlockArray):
-    """Dense array with block structure"""
+    """Dense array with block structure
+
+    usefull for n-forms
+    """
+
     def split(self, x):
         """Split non-blocked array x according to the pattern of self"""
         # splits along all axes
@@ -199,10 +280,19 @@ def test_sparse():
         [sparse_zeros((4, 8)), sparse_zeros((4, 3))],
         [sparse_zeros((3, 8)), scipy.sparse.diags([1, 1, 1])],
     ])
+    # N = S.einsum((S, S), 'ji,jk->ik')
     N = S.transpose() * S
     # print(N.square)
     print(N.merge().todense())
     print(S[:, 1:].merge().todense())
+    v = DenseBlockArray([np.arange(8), np.arange(3)])
+    v = DenseBlockArray([[np.arange(16).reshape(8,2)], [np.arange(6).reshape(3, 2)]])
+    q = S * v
+    print(q.merge())
+
+    print(S.norm_l1(axis=1).merge())
+    print()
+
 
 
 def test_vec():
@@ -218,5 +308,4 @@ def test_vec():
 
 if __name__ == '__main__':
     test_sparse()
-    test_vec()
-
+    # test_vec()

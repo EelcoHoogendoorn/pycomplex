@@ -50,6 +50,7 @@ class BlockSystem(object):
     seperate the solving and related concerns
     Generalized linear equation class should be able to use these blocks as a drop-in replacement
     for normal sparse operations
+
     """
 
     def __init__(self, equations, knowns, unknowns):
