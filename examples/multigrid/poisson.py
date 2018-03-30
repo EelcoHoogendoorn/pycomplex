@@ -380,6 +380,13 @@ if __name__ == '__main__':
     print('mg full time: ', clock() - t)
     print('mg full resnorm', np.linalg.norm(equations[-1].residual(x, p0)))
 
+    from examples.multigrid.krylov import krylov_cycle
+    t = clock()
+    x = krylov_cycle(equations, p0)
+    print('krylov full time: ', clock() - t)
+    print('krylov full resnorm', np.linalg.norm(equations[-1].residual(x, p0)))
+
+
     # warm up amg
     x_minres = equations[-1].solve_minres(p0, preconditioner='amg')
     t = clock()

@@ -18,6 +18,7 @@ or jacobi iteration, and hopefully cope better with anisotropy
 
 
 import numpy as np
+import scipy.sparse
 
 
 def v_cycle(hierarchy, y, x=None):
@@ -130,7 +131,6 @@ def as_preconditioner(hierarchy):
         returning an approximate x given a y
 
     """
-    import scipy.sparse
     A, B, Bi = hierarchy[-1].operators
     def inner(y):
         # FIXME: expose inner iteration parameters and restrict them; single smooth v-cycle best precondition found so far

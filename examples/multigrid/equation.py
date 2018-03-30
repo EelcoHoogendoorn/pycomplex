@@ -1,4 +1,8 @@
+"""Linear equation objects
 
+Currently all based on sparse matrices
+probably not hard to generalize to allow more generic linear operators
+"""
 from cached_property import cached_property
 from abc import abstractmethod
 
@@ -32,7 +36,7 @@ class GeneralizedEquation(object):
         return self.operators[1]
     @cached_property
     def BI(self):
-        return pycomplex.sparse.inv_dia(self.B)
+        return pycomplex.sparse.inv_diag(self.B.todia())
 
     def solve(self, y):
         """Solve system exactly. most efficient way may be problem-dependent"""
@@ -173,14 +177,14 @@ class SymmetricEquation(GeneralizedEquation):
         x = np.einsum('vi,v...->i...', V, x)
         return x
 
-    def solve_minres(self, y, x0=None, preconditioner=None, tol=1e-6):
+    def solve_minres(self, y, x0=None, preconditioner=None, tol=1e-6, maxiter=None):
         """Solve equation using minres"""
         A, B, BI = self.operators
         if preconditioner == 'amg':
             M = self.amg_solver.aspreconditioner()
         else:
             M = preconditioner
-        return scipy.sparse.linalg.minres(A=A, b=B * y, M=M, x0=x0, tol=tol)[0]
+        return scipy.sparse.linalg.minres(A=A, b=B * y, M=M, x0=x0, tol=tol, maxiter=maxiter)[0]
 
     def restrict(self, fine):
         raise NotImplementedError
@@ -268,6 +272,16 @@ class NormalEquation(GeneralizedEquation):
 
     What does it mean to take an eigenvector of the normal equations?
     and are the eigenvectors we obtain identical to those of a 'true' laplacian?
+    take vector laplacian as triplet system as example; stokes or elasticity
+    mass B term applies to middle row. after normal equations we get mass like terms
+    on top and bottom instead.
+
+    note that we might only want to use first order solve as a preconditioner;
+    should work as a preconditioner for eigensolve on eliminated system though
+
+    recap rationale for working with first-order systems:
+    bcs formulate most naturally there, and potentials cannot represent all fields
+    trouble with vectorial multigrid and natural error propagation is another one
     """
 
     @cached_property
