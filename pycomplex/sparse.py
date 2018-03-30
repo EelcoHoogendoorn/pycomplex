@@ -12,6 +12,8 @@ import scipy
 import scipy.sparse
 from cached_property import cached_property
 
+from pycomplex.topology import sign_dtype
+
 
 def ones_like(a):
     """Return a sparse matrix with the same sparsity pattern, but all nonzeros set to one"""
@@ -34,6 +36,15 @@ def inv_diag(d):
     assert isinstance(d, scipy.sparse.dia_matrix)
     assert np.array_equal(d.offsets, [0])
     return scipy.sparse.diags(1 / d.data[0])
+
+
+def sparse_zeros(shape):
+    q = np.zeros(0, dtype=sign_dtype)
+    return scipy.sparse.coo_matrix((q, (q, q)), shape=shape)
+
+def zeros_like(arr):
+    return sparse_zeros(arr.shape)
+
 
 # class Diagonal(object):
 #     def __init__(self, diagonal):

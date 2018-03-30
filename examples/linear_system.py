@@ -70,6 +70,28 @@ class BlockSystem(object):
 
         # check that subblocks are consistent
 
+    @staticmethod
+    def complex(complex):
+        """Generate full block system from a complex;
+        can be sliced for various physics problems
+
+        Parameters
+        ----------
+        complex : BaseComplex
+
+        Returns
+        -------
+        BlockSystem
+        """
+        knowns = [complex.topology.dual.chain(n) for n in range(complex.n_dim)]
+        unknowns = [complex.topology.dual.chain(n) for n in range(complex.n_dim)]
+        equations = [[None for r in range(complex.n_dim)] for c in complex.n_dim]
+        # set up the full cochain complex
+        complex.topology.matrices
+        complex.topology.dual.matrices_2
+        # FIXME: figure out details of block structure
+        return BlockSystem(equations, knowns, unknowns)
+
     def symmetrize(self):
         """symmetrize systems with a structural symmetry, by rewriting boundary terms"""
         raise NotImplementedError

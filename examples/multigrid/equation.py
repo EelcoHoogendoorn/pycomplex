@@ -268,6 +268,7 @@ class NormalEquation(GeneralizedEquation):
 
     What does it mean to take an eigenvector of the normal equations?
     and are the eigenvectors we obtain identical to those of a 'true' laplacian?
+    or would we be using this as a preconditioner only?
     """
 
     @cached_property
