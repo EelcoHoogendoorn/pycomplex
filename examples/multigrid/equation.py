@@ -272,6 +272,8 @@ class NormalEquation(GeneralizedEquation):
 
     What does it mean to take an eigenvector of the normal equations?
     and are the eigenvectors we obtain identical to those of a 'true' laplacian?
+    or would we be using this as a preconditioner only?
+
     take vector laplacian as triplet system as example; stokes or elasticity
     mass B term applies to middle row. after normal equations we get mass like terms
     on top and bottom instead.
@@ -282,6 +284,7 @@ class NormalEquation(GeneralizedEquation):
     recap rationale for working with first-order systems:
     bcs formulate most naturally there, and potentials cannot represent all fields
     trouble with vectorial multigrid and natural error propagation is another one
+
     """
 
     @cached_property
