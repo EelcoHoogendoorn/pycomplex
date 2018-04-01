@@ -66,25 +66,75 @@ def concave():
     # discard a corner
     mesh = mesh.select_subset([1, 1, 1, 0])
 
-    for i in range(4):  # subdiv 5 is already pushing our solvers...
+    for i in range(2):  # subdiv 5 is already pushing our solvers...
         mesh = mesh.subdivide_cubical()
         # left = mesh.topology.transfer_matrices[1] * left
         # right = mesh.topology.transfer_matrices[1] * right
+    return mesh
 
+
+def get_regions(mesh):
+    """Identify (boundary) regions of the mesh
+
+    Returns
+    -------
+    dict[chain]
+    """
     # identify sides of the domain
-    edge_position = mesh.boundary.primal_position[1]
-    left  = (edge_position[:, 0] == edge_position[:, 0].min()).astype(sign_dtype)
-    right = (edge_position[:, 0] == edge_position[:, 0].max()).astype(sign_dtype)
+    BP1 = mesh.boundary.primal_position[1]
+    left_1  = (BP1[:, 0] == BP1[:, 0].min()).astype(sign_dtype)
+    right_1 = (BP1[:, 0] == BP1[:, 0].max()).astype(sign_dtype)
     # construct closed part of the boundary
-    all = mesh.boundary.topology.chain(1, fill=1)
-    closed = all - left - right
+    all_1 = mesh.boundary.topology.chain(1, fill=1)
+    all_0 = mesh.boundary.topology.chain(0, fill=1)
+    closed_1 = all_1 - left_1 - right_1
 
-    return mesh, left, right, closed
+    # FIXME: 0-1 nomenclature is ndim-specific
+    return dict(
+        left_1=left_1,
+        right_1=right_1,
+        closed_1=closed_1,
+        all_1=all_1,
+        all_0=all_0
+    )
 
 
-mesh, inlet, outlet, closed = concave()
+mesh = concave()
+regions = get_regions(mesh)
 # mesh.plot()
 
+
+def stokes_system(complex, regions):
+    from examples.linear_system import System
+
+    assert complex.topology.n_dim >= 2  # makes no sense in lower-dimensional space
+    system = System.canonical(complex)[-3:, -3:]
+    equations = dict(vorticity=0, momentum=1, continuity=2)
+    variables = dict(vorticity=0, flux=1, pressure=2)
+    # desciption = dict(
+    #     equations=[('vorticity', -3)]
+    # )
+    system.A.block[1, 1] *= 0   # no direct force relation with flux
+    system.A.block[2, 2] *= 0   # no compressibility
+
+    # NOTE: setup pipe flow with step diameter change
+    # FIXME: index by var instead of eq?
+    # prescribe tangent flux on entire boundary
+    system.set_dia_boundary(equations['momentum'], regions['all_0'])
+    # set normal flux to zero
+    system.set_off_boundary(equations['continuity'], regions['closed_1'])
+    # prescribe pressure on inlet and outlet
+    inlet, outlet = regions['left_1'], regions['right_1']
+    system.set_dia_boundary(equations['continuity'], inlet + outlet)
+    system.set_rhs_boundary(equations['continuity'], outlet.astype(np.float) - inlet.astype(np.float))
+
+    system.plot()
+
+    print()
+    print()
+
+stokes_system(mesh, regions)
+quit()
 
 def stokes_flow(complex2):
     """Formulate stokes flow over a 2-complex"""

@@ -202,7 +202,7 @@ class BaseTopology(object):
                 raise ValueError('chain [{i}, {i+1}] to [{i+1}, {i+2}] does not match'.format(i=i))
 
     def accumulated_operators_0(self):
-        """
+        """Accumulated topology matrices from 0 to n
 
         Returns
         -------
@@ -218,7 +218,7 @@ class BaseTopology(object):
         return [scipy.sparse.identity(A[0].shape[0], dtype=sign_dtype)] + A
 
     def accumulated_operators_N(self):
-        """
+        """Accumulated topology matrices from N to n
 
         Returns
         -------

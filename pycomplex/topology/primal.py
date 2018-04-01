@@ -138,6 +138,16 @@ class PrimalTopology(BaseTopology):
         return self.matrices
 
     @cached_property
+    def matrices_blocked(self):
+        """Topology matrices, with i/p split
+
+        Does this even make sense? would need to reorder all unknowns to group boundary;
+        possible but not very efficient. leave block construction to derived equation objects?
+        """
+        raise NotImplementedError
+        return
+
+    @cached_property
     def elements(self):
         return self._elements
 

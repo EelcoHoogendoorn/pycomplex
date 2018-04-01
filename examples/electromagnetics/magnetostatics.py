@@ -103,6 +103,29 @@ all_1, left_1, bottom_0, bottom_1, current_0, plate_1 = setup_domain(mesh)
 mu = plate_1 * 10000 + 1
 
 
+def setup_magnetostatics(complex):
+    """new style magnetostatics setup"""
+
+    # unknown is a dual 1-form; two equations to close form from both sides
+    system = System.canonical(complex)[[-3, -1], :][:, [-2]]
+
+    equations = dict(rotation=0, divergence=2)
+    variables = dict(flux=0)
+
+    # antisymmetry on the bottom axis; set tangent flux to zero
+    system.set_dia_boundary(equations['rotation'], bottom_0)
+
+    # symmetry on the left axis; set normal flux to zero
+    system.set_off_boundary(equations['divergence'], all_1 - bottom_1)
+
+    system.plot()
+
+
+if False:
+    setup_magnetostatics(mesh)
+    quit()
+
+
 def magnetostatics(complex2):
     """Set up 2d magnetostatics
 

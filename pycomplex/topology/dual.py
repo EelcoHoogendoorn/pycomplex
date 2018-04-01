@@ -3,12 +3,13 @@ import numpy_indexed as npi
 import scipy.sparse
 from cached_property import cached_property
 
+from pycomplex.block import SparseBlockMatrix
 from pycomplex.topology.base import BaseTopology
 from pycomplex.topology import sign_dtype, index_dtype
 
 
 class ClosedDual(BaseTopology):
-    """Dual to a closed primal. should be rather boring"""
+    """Dual to a closed primal. should be rather boring. no need for primal/dual blocked terms here"""
 
     def __init__(self, primal):
         # bind primal; all internals are lazily computed
@@ -116,6 +117,12 @@ class Dual(BaseTopology):
         S = self.selector    # [P0DN ... PND0]
         return [m * s.T for m, s in zip(M, S[::-1][1:])]
 
+    @cached_property
+    def matrices_blocked(self):
+        """topology matrices, with i/p/d split"""
+        raise NotImplementedError
+        return
+
     # @cached_property
     # def matrices_3(self):
     #     """Construct dual topology matrices stripped of dual boundary topology
@@ -159,6 +166,8 @@ class Dual(BaseTopology):
         This version attaches the dual boundary information; the dual chain will thus be closed
         Note that this requires that both the primal and its boundary are oriented
         """
+        assert self.primal.is_oriented
+
         def dual_T(T, B, idx):
             """Compose dual topology matrix in presence of boundaries
 
@@ -182,7 +191,7 @@ class Dual(BaseTopology):
             else:
                 blocks = [
                     [T, None],
-                    [I, B]      # its far from obvious any application actually needs this term...
+                    [I, B]      # it is far from obvious any application actually needs the B term...
                 ]
             return (blocks)
 

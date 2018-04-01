@@ -16,10 +16,14 @@ including hodges, we can make the system symmetric like this:
 [0,   d*, */λ] [c]   [0]
 
 
-if not purely incompressible (λ is finite), it is easy to rewrite this as equation of displacement alone
+if not purely incompressible (λ is finite), it is easy to rewrite this as equation of displacement alone by elimination
 infact, total equation is only minimally different from vector-laplacian
 As a matter of fact, given mu=lambda, or a poisson material, `solving an elasticity problem` is to
 `solving a poisson problem` as `diffusing the vector laplacian` is to 'diffusing the scalar laplacian'
+
+note that even the similarity to magnetostatics is striking in this form;
+there we also end up with a vector-laplacian; when we take normal equations rather than by elimination
+this does result in different behavior though,
 
 We can split up each variable as originating in the interior, primal boundary, or dual boundary (i,p,d)
 
@@ -164,7 +168,6 @@ also, integration coarse correction in a more nuanced way than just subtracting;
 treating it as a direction on the fine grid and rescaling it there for optimum effect should help;
 maybe it would even be enough to solve the topology change problem? doubtfull of that
 """
-
 from pycomplex.topology import sign_dtype
 from examples.linear_system import *
 
@@ -181,104 +184,69 @@ def concave():
     # discard a corner
     mesh = mesh.select_subset([1, 1, 1, 0])
 
-    for i in range(4):  # subdiv 5 is already pushing our solvers...
+    for i in range(2):  # subdiv 5 is already pushing our solvers...
         mesh = mesh.subdivide_cubical()
         # left = mesh.topology.transfer_matrices[1] * left
         # right = mesh.topology.transfer_matrices[1] * right
+    return mesh
 
+
+def get_regions(mesh):
+    """Identify (boundary) regions of the mesh
+
+    Returns
+    -------
+    dict[chain]
+    """
     # identify sides of the domain
-    edge_position = mesh.boundary.primal_position[1]
-    left  = (edge_position[:, 0] == edge_position[:, 0].min()).astype(sign_dtype)
-    right = (edge_position[:, 0] == edge_position[:, 0].max()).astype(sign_dtype)
+    BP1 = mesh.boundary.primal_position[1]
+    left_1  = (BP1[:, 0] == BP1[:, 0].min()).astype(sign_dtype)
+    right_1 = (BP1[:, 0] == BP1[:, 0].max()).astype(sign_dtype)
     # construct closed part of the boundary
-    all = mesh.boundary.topology.chain(1, fill=1)
-    closed = all - left - right
+    all_1 = mesh.boundary.topology.chain(1, fill=1)
+    all_0 = mesh.boundary.topology.chain(0, fill=1)
+    closed_1 = all_1 - left_1 - right_1
 
-    return mesh, left, right, closed
+    # FIXME: 0-1 nomenclature is ndim-specific
+    return dict(
+        left_1=left_1,
+        right_1=right_1,
+        closed_1=closed_1,
+        all_1=all_1,
+        all_0=all_0
+    )
 
 
-mesh, inlet, outlet, closed = concave()
+mesh = concave()
+regions = get_regions(mesh)
 # mesh.plot()
 
 
-def lame_elasticity(complex2):
-    """Formulate elasticity over a 2-complex"""
+def lame_system(complex, regions):
+    assert complex.topology.n_dim >= 2  # makes no sense in lower-dimensional space
+    system = System.canonical(complex)[-3:, -3:]
+    equations = dict(rotation=0, momentum=1, divergence=2)
+    variables = dict(rotation=0, displacement=1, pressure=2)
+    # desciption = dict(
+    #     equations=[('vorticity', -3)]
+    # )
+    system.A.block[1, 1] *= 0   # no direct force relation with flux
 
-    # grab the chain complex
-    primal = complex2.topology
-    boundary = primal.boundary
-    dual = primal.dual
-    # make sure our boundary actually makes sense topologically
-    primal.check_chain()
-    dual.check_chain()
+    # TODO: set up some physically interesting scenario
+    # FIXME: index by var instead of eq?
+    # prescribe tangent flux on entire boundary
+    system.set_dia_boundary(equations['momentum'], regions['all_0'])
+    # set normal flux to zero
+    system.set_off_boundary(equations['divergence'], regions['closed_1'])
+    # prescribe pressure on inlet and outlet
+    inlet, outlet = regions['left_1'], regions['right_1']
+    system.set_dia_boundary(equations['divergence'], inlet + outlet)
+    system.set_rhs_boundary(equations['divergence'], outlet.astype(np.float) - inlet.astype(np.float))
 
-    P01, P12 = primal.matrices
-    D01, D12 = dual.matrices_2
+    system.plot()
 
-    P2P1 = P12.T
-    P1P0 = P01.T
-    D2D1 = D12.T
-    D1D0 = D01.T
+    print()
+    print()
 
-    P0, P1, P2 = primal.n_elements
-    D0, D1, D2 = dual.n_elements
-    B0, B1 = boundary.n_elements
-
-    P0D2 = sparse_diag(complex2.hodge_PD[0])
-    P1D1 = sparse_diag(complex2.hodge_PD[1])
-    P2D0 = sparse_diag(complex2.hodge_PD[2])
-
-    # FIXME: autogen this given system shape
-    P2D2_0 = sparse_zeros((P2, D2))
-    P1D1_0 = sparse_zeros((P1, D1))
-    P0D0_0 = sparse_zeros((P0, D0))
-    P2D0_0 = sparse_zeros((P2, D0))
-
-    S = complex2.topology.dual.selector
-
-    rotation    = [P0D2       , P0D2 * D2D1       , P0D0_0       ]
-    momentum    = [P1P0 * P0D2, P1D1_0            , P1D1 * D1D0  ]
-    compression = [P2D2_0     , P2P1 * P1D1 * S[1], P2D0         ]
-
-    # set up boundary equations; default to zeros
-    compression_bc = [sparse_zeros((B0, d)) for d in dual.n_elements[::-1]]
-    momentum_bc = [sparse_zeros((B1, d)) for d in dual.n_elements[::-1]]
-    # force pressure at free boundary to zero
-    compression_bc[2] = d_matrix(inlet + outlet, compression_bc[2].shape, P2)
-    # force shear at free boundary to zero
-    momentum_bc[0] = o_matrix(inlet + outlet + closed, boundary.parent_idx[0], momentum_bc[0].shape)
-
-    equations = [
-        rotation,
-        momentum,
-        momentum_bc,
-        compression,
-        compression_bc,
-    ]
-
-    omega    = np.zeros(D2)
-    displacement = np.zeros(D1)
-    pressure = np.zeros(D0)
-    unknowns = [
-        omega,
-        displacement,
-        pressure
-    ]
-
-    vortex    = np.zeros(P0)
-    force     = np.zeros(P1)
-    force_bc  = np.zeros(B1)   # set tangent fluxes; all zero
-    source    = np.zeros(P2)
-    source_bc = np.zeros(B0) - inlet.astype(np.float) + outlet.astype(np.float)  # set opening pressures
-    knowns = [
-        vortex,
-        force,
-        force_bc,
-        source,
-        source_bc,
-    ]
-
-    system = BlockSystem(equations=equations, knowns=knowns, unknowns=unknowns)
-    return system
-
-system = lame_elasticity(mesh)
+lame_system(mesh, regions)
+quit()

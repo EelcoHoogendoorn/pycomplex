@@ -24,6 +24,10 @@ import scipy.sparse
 from pycomplex.sparse import sparse_zeros
 from cached_property import cached_property
 
+def cochain(complex):
+    """construct full cochain complex"""
+    return SparseBlockMatrix(complex.topology.matrices)
+
 
 def pairs(iterable):
     """Yield pairs of an iterator"""
@@ -103,7 +107,12 @@ class BlockArray(object):
 
     def __getitem__(self, slc):
         """Slicing simply passes on to the block"""
+        # FIXME: can we also do a form of nested slicing?
         return type(self)(self.block.__getitem__(slc))
+    def __add__(self, other):
+        """"""
+    def __mul__(self, other):
+        """"""
 
     @staticmethod
     def einsum(operands, formula):
@@ -146,6 +155,9 @@ class BlockArray(object):
                 output = output + functools.reduce(operands, lambda x, y: x * y)
 
         return type(operands[-1])(output)
+
+    def copy(self):
+        return type(self)(self.block.copy())
 
 
 class BlockMatrix(BlockArray):
@@ -191,6 +203,9 @@ class BlockMatrix(BlockArray):
                 for j in range(self.block.shape[1])])
                     for i in range(self.block.shape[0])]
         return DenseBlockArray(l1s)
+
+    def identity_like(self):
+        return
 
 
 class SparseBlockMatrix(BlockMatrix):
