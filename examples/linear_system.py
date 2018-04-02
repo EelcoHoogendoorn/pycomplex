@@ -270,7 +270,7 @@ class System(object):
             b[i] = self.complex.topology.dual.form(n=N-k)
         return block.DenseBlockArray(b)
 
-    def eliminate(self, rows):
+    def eliminate(self, rows, cols):
         """eliminate rows from the block with nonzero diagonal
 
         Parameters
@@ -282,7 +282,37 @@ class System(object):
         -------
         System
             equivalent system with rows eliminated
+
+        Examples
+        --------
+        what elimination looks like for a streamfunction:
+        [0, δ] [phi ] = [r]
+        [d, I] [flux] = [0]
+
+        [phi ] = [I] [phi]
+        [flux] = [d]
+
+        [I, d]
         """
+
+        eq = self.A[[rows], :]
+        diag = eq[:, [cols]]
+        diag = diag.merge().todia()
+        import pycomplex.sparse
+        diag = pycomplex.sparse.inv_diag(-diag)
+        assert np.all(np.isfinite(diag.data))
+        b = np.empty((1, 1), dtype=np.object)
+        b[0, 0] = diag
+        diag = block.SparseBlockMatrix(b)
+        elim = diag * eq
+        return System(
+            complex=self.complex,
+            A=elim * self.A * elim.transpose(),
+            rhs=elim * self.rhs,
+            L=np.delete(self.L, rows),
+            R=np.delete(self.R, cols),
+        )
+
 
     def normal(self):
         """Form normal equations

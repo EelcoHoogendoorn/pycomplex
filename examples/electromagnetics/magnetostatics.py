@@ -76,6 +76,7 @@ def setup_domain(mesh):
     magnet_width = 0.25
     magnet_height = 0.25
     magnet_width = PP[0][:, 0][np.argmin(np.abs(PP[0][:, 0] - magnet_width))]
+    # could write this as directional derivative of magnetization
     current_0 = (PP[0][:, 0] == magnet_width) * (PP[0][:, 1] < magnet_height)
 
     plate_width = 0.3
@@ -83,59 +84,124 @@ def setup_domain(mesh):
     plate_2 = (PP[2][:, 0] < plate_width) * (PP[2][:, 1] > magnet_height) * (PP[2][:, 1] < magnet_height + plate_height)
     plate_1 = mesh.topology.averaging_operators_N[1] * plate_2
 
-    return all_1, left_1, bottom_0, bottom_1, current_0, plate_1
+    return dict(
+        all_1=all_1,
+        left_1=left_1,
+        bottom_0=bottom_0,
+        bottom_1=bottom_1,
+        current_0=current_0,
+        plate_1=plate_1
+    )
 
 
 # generate a mesh
 mesh = synthetic.n_cube(n_dim=2).as_22().as_regular()
 hierarchy = [mesh]
 # subdivide
-for i in range(6):
+for i in range(3):
     mesh = mesh.subdivide_cubical()
     hierarchy.append(mesh)
 
 
 
-all_1, left_1, bottom_0, bottom_1, current_0, plate_1 = setup_domain(mesh)
+regions = setup_domain(mesh)
 # mesh.plot(plot_dual=False, plot_vertices=False)
-mu = plate_1 * 10000 + 1
+mu = regions['plate_1'] * 10000 + 1
 
 
-def setup_magnetostatics(complex):
+def setup_magnetostatics(complex, regions):
     """new style magnetostatics setup"""
     assert complex.topology.n_dim >= 2  # makes no sense in lower-dimensional space
     # unknown is a dual 1-form; two equations to close from from both sides
     system = System.canonical(complex)[-3:, :][:, [-2]]
-    equations = dict(rotation=0, flux=1, divergence=2)
+    equations = dict(rotation=0, flux=1, divergence=2)  # should these names be tracked by system?
     variables = dict(flux=0)
 
     system.A.block[equations['flux'], variables['flux']] *= 0   # flux is mostly unspecified
 
+    # NOTE: boundary conditions begin here
     # antisymmetry on the bottom axis; set tangent flux to zero
-    system.set_dia_boundary(equations['flux'], variables['flux'], bottom_0)
+    system.set_dia_boundary(equations['flux'], variables['flux'], regions['bottom_0'])
 
     # symmetry on the left axis; set normal flux to zero; also at 'infinity'
     # interesting; in this setup, could set normal flux on middle block just as easily
-    system.set_off_boundary(equations['divergence'], variables['flux'], all_1 - bottom_1)
+    system.set_off_boundary(equations['divergence'], variables['flux'], regions['all_1'] - regions['bottom_1'])
 
     # apply the source terms; current induces nonzero rotation
-    system.set_rhs(equations['rotation'], current_0.astype(np.float))
+    system.set_rhs(equations['rotation'], regions['current_0'].astype(np.float))
     return system
 
 
+def setup_stream(complex):
+    """
+    [0, δ] [phi ] = [r]
+    [d, I] [flux] = [0]
+
+    Parameters
+    ----------
+    complex
+
+    Returns
+    -------
+    System
+        representing a stream function
+    """
+    assert complex.topology.n_dim == 2  # only makes sense in 2d
+    system = System.canonical(complex)[:2, :2]
+    system.A.block[0, 0] *= 0
+    # set all tangent fluxes to zero explicitly
+    system.set_dia_boundary(1, 1, complex.topology.boundary.chain(n=1, fill=1))
+
+    return system
+
+
+def solve_stream(stream, flux_d1):
+    """
+
+    Parameters
+    ----------
+    stream : System
+        first order stream system
+    flux_d1 : ndarray
+        dual flux 1-form
+
+    Returns
+    -------
+    phi : ndarray
+        primal 0-form
+    """
+    S = stream.complex.topology.dual.selector[1]
+    # filter out tangent fluxes; must be zero
+    vorticity = stream.A.block[0, 1] * S.T * S * flux_d1
+    stream.rhs.block[0] = vorticity
+
+    if False:
+        # FIXME: we dont have a symmetric system to start with, since δ term has no knowledge of zero tangent flux
+        # FIXME: this renders eliminated system effectively non-symmetric too
+        # stream.plot()
+        laplace = stream.eliminate(1, 1)
+        # laplace.plot()
+        x, r = laplace.solve_minres()
+    else:
+        # stream = stream.balance(1e-9)
+        normal = stream.normal()
+        normal.plot()
+        x, r = normal.solve_minres()
+    return stream.complex.hodge_PD[0] * x.block[0]
+
+
 if True:
-    system = setup_magnetostatics(mesh)
-    # system = system.balance(1e-9)
+    system = setup_magnetostatics(mesh, regions)
+    system = system.balance(1e-9)
     normal = system.normal()
     solution, res = normal.solve_minres()
     # normal.plot()
 
     flux = solution.merge()
 
-    from examples.flow.stream import stream
-
-    primal_flux = mesh.hodge_PD[1] * (mesh.topology.dual.selector[1] * flux)
-    phi = stream(mesh, primal_flux)
+    # from examples.flow.stream import stream
+    stream = setup_stream(mesh)
+    phi = solve_stream(stream, flux)
 
     mesh.plot_primal_0_form(phi, cmap='jet', plot_contour=True, levels=29)
 
