@@ -42,6 +42,7 @@ def pairs(iterable):
 class BlockArray(object):
     """ndim-blocked array object"""
     def __init__(self, block):
+        # FIXME: we wish to convertnested lists but not merge in leaf level arrays. how to enforce this?
         self.block = np.asarray(block, dtype=np.object)
         # assert self.compatible
 
@@ -109,10 +110,36 @@ class BlockArray(object):
         """Slicing simply passes on to the block"""
         # FIXME: can we also do a form of nested slicing?
         return type(self)(self.block.__getitem__(slc))
+
+    def broadcasting_operator(self, other, op):
+        try:
+            A = self.block
+        except:
+            A = self
+        try:
+            B = other.block
+        except:
+            B = other
+
+        A, B = np.broadcast_arrays(A, B)
+        block = [op(a, b) for a, b in zip(A.flatten(), B.flatten())]
+        block = np.asarray(block, np.object).reshape(A.shape)
+        return type(self)(block)
+
     def __add__(self, other):
-        """"""
+        """Add two block matrices"""
+        return self.broadcasting_operator(other, lambda a, b: a + b)
+
     def __mul__(self, other):
-        """"""
+        """pointwise multiply two block matrices"""
+        return self.broadcasting_operator(other, lambda a, b: a * b)
+
+    def __truediv__(self, other):
+        """pointwise multiply two block matrices"""
+        return self.broadcasting_operator(other, lambda a, b: a / b)
+    def __rtruediv__(self, other):
+        return self.broadcasting_operator(other, lambda a, b: b / a)
+
 
     @staticmethod
     def einsum(operands, formula):
@@ -190,6 +217,18 @@ class BlockMatrix(BlockArray):
         """
         # assert self.square
         return DenseBlockArray([self.block[i, i].diagonal() for i in range(self.rows)])
+
+    @staticmethod
+    def as_diagonal(diag):
+        assert diag.ndim == 1
+        block = np.zeros((diag.block.shape[0],)*2, dtype=np.object)
+        for i, a in enumerate(diag.block):
+            for j, b in enumerate(diag.block):
+                if i == j:
+                    block[i, i] = scipy.sparse.diags(b)
+                else:
+                    block[i, j] = sparse_zeros((len(a), len(b)))
+        return SparseBlockMatrix(block)
 
     def norm_l1(self, axis):
         """Return the l1 norm of the block, summing over the given axis"""
@@ -271,7 +310,9 @@ class DenseBlockArray(BlockArray):
 
         coords = np.indices(self.block.shape)
         blocks = [x[slices(c)] for c in coords.reshape(self.ndim, -1).T]
-        blocks = np.asarray(blocks).reshape(self.block.shape)
+        blockss = np.empty(len(blocks), np.object)
+        blockss[...] = blocks
+        blocks = blockss.reshape(self.block.shape)
         if self.nested:
             # split each subblock
             # FIXME

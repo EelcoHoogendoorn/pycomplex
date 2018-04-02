@@ -36,8 +36,14 @@ class System(object):
     just use this class to abstract away the accessing of the logically different subblocks
     that works; boundary setters are sure a lot cleaner
 
+    how to handle rhs? feels a bit clunky to be tied to a single rhs
+    should we assemble boundary conditions in a seperate datastructure,
+    to be added on top of core equations later / at will?
+
+    altenative to block datastructure is to let a class like this encapsulate all offsetting logic,
+    the way selection matrices are now used to manage substructure of first order operators
     """
-    def __init__(self, complex, A, B=None, L=None, R=None):
+    def __init__(self, complex, A, B=None, L=None, R=None, rhs=None):
         """
 
         Parameters
@@ -46,14 +52,33 @@ class System(object):
             left matrix in A x = B y
         B : sparse block matrix, optional
             right matrix in A x = B y
+        L : List[int]
+            primal form associated with rows of the system
+            or space of left-multiplication
+        R : List[int]
+            primal form associated with columns of the system
+            or space of right-multiplication
         """
         self.complex = complex
         self.A = A
         self.B = B
         self.L = np.array(L)
         self.R = np.array(R)
-        self.rhs = self.allocate_y()
+        self.rhs = self.allocate_y() if rhs is None else rhs
 
+    def copy(self, **kwargs):
+        """Copy self with some constructor args overridden. Part of general functional logic"""
+        import funcsigs
+        args = funcsigs.signature(type(self)).parameters.keys()
+        nkwargs = {}
+        for a in args:
+            if hasattr(self, a):
+                nkwargs[a] = getattr(self, a)
+
+        nkwargs.update(kwargs)
+        c = type(self)(**nkwargs)
+        c.parent = self
+        return c
 
     @staticmethod
     def canonical(complex):
@@ -87,24 +112,39 @@ class System(object):
             A.block[i, i + 1] = S[i].T * PD[i] * t.T
             A.block[i + 1, i] = S[i+1].T * S[i+1] * t * PD[i] * S[i]    # selector zeros out the boundary conditions
 
-        # put hodges on diag by default; easier to zero out that to fill in
+        # put hodges on diag by default; easier to zero out than to fill in
         for i in range(N):
             A.block[i, i] = S[i].T * PD[i] * S[i]
 
         LR = np.arange(N, dtype=index_dtype)
         return System(complex, A=A, B=None, L=LR, R=LR)
 
-    def set_dia_boundary(self, i, d):
-        """
+    def __getitem__(self, item):
+        """Slice a subsystem of full cochain complex"""
+        return System(
+            self.complex,
+            self.A.__getitem__(item).copy(),
+            L=self.L[item[0]],
+            R=self.R[item[1]],
+        )
+
+    def set_dia_boundary(self, i, j, d):
+        """Set a boundary on a 'diagonal' term of the cochain complex
 
         Parameters
         ----------
         i : int
             index of row/equation
+        j : int
+            index of column/variable
         d : array_like, boundary chain
-            diagonal term
             one value for each boundary element
+
+        Side effects
+        ------------
+        modifies the A matrix
         """
+        assert self.L[i] == self.R[j]   # this implies diagonal of the cochain complex
 
         def d_matrix(chain, shape, offset, rows=None):
             """Dual boundary term"""
@@ -118,43 +158,69 @@ class System(object):
                 (rows, cols)),
                 shape=shape
             )
-        j = self.L[i]
-        self.A.block[i, i] = self.A.block[i, i] + d_matrix(d, self.A.block[i, i].shape, self.complex.topology.n_elements[j])
+        self.A.block[i, j] = self.A.block[i, j] + d_matrix(
+            d, self.A.block[i, j].shape, self.complex.topology.n_elements[self.L[i]])
 
-    def set_off_boundary(self, i, o):
+    def set_off_boundary(self, i, j, o):
+        """Set a boundary on a 'off-diagonal' term of the cochain complex
 
-        # FIXME: for prescribed values, need to get hodge involved
-        def o_matrix(chain, cols, shape, rows=None):
+        Parameters
+        ----------
+        i : int
+            index of row/equation
+        j : int
+            index of column/variable
+        o : array_like, boundary chain
+            one value for each boundary element
+
+        Side effects
+        ------------
+        modifies the A matrix
+        """
+        # FIXME: need to get hodge involved?
+
+        assert self.L[i] == self.R[j] + 1   # this implies entry below the diagonal
+
+        def o_matrix(chain, cols, shape, offset, rows=None):
             """Primal boundary term"""
             if rows is None:
-                rows = np.arange(len(chain), dtype=index_dtype)
+                rows = np.arange(len(chain), dtype=index_dtype) + offset
             else:
-                rows = np.ones(len(chain), dtype=index_dtype) * rows
+                rows = np.ones(len(chain), dtype=index_dtype) * rows + offset
             return scipy.sparse.coo_matrix((
                 chain.astype(np.float),
                 (rows, cols)),
                 shape=shape
             )
-        j = self.L[i]
 
-        idx = self.complex.topology.boundary.parent_idx[j - 1]
+        # idx that primal boundary connects to
+        idx = self.complex.topology.boundary.parent_idx[self.R[j]]
 
-        self.A.block[i, i-1] = self.A.block[i, i-1] + o_matrix(o, idx, self.A.block[i, i-1].shape)
+        self.A.block[i, j] = self.A.block[i, j] + o_matrix(
+            o, idx, self.A.block[i, j].shape, self.complex.topology.n_elements[self.L[i]])
 
     def set_rhs_boundary(self, i, r):
-        k = self.L[i]
-        offset = self.complex.topology.n_elements[k]
+        """Set a boundary term on the rhs
+
+        Parameters
+        ----------
+        i : int
+            index of row/equation
+        r : array_like, boundary chain
+            one value for each boundary element
+
+        Side effects
+        ------------
+        modifies the rhs vector
+        """
+        # boundary is on last rows of the block; shift down by all primal elements
+        # FIXME: we should expand the concept of the selector matrices to handle things like addressing the dual boundary
+        offset = self.complex.topology.n_elements[self.L[i]]
         self.rhs.block[i] = self.rhs.block[i] + np.concatenate([np.zeros(offset), r])
 
-    def __getitem__(self, item):
-        """Slice a subsystem of full cochain complex"""
-        # FIXME: maybe only allow simple indexing here; obtain L and R that way
-        return System(
-            self.complex,
-            self.A.__getitem__(item).copy(),
-            L=self.L[item[1]],
-            R=self.R[item[0]],
-        )
+    def set_rhs(self, i, r):
+        S = self.complex.topology.dual.selector[self.L[i]]
+        self.rhs.block[i] = self.rhs.block[i] + S * r
 
 
     def plot(self, dense=True, order=None):
@@ -189,19 +255,70 @@ class System(object):
 
 
     # FIXME:  all the below are solver-related nonsense. should that be in a seperate class?
-    # perhaps this thing should just be an assembly helper
+    # perhaps this class should just be a matrix assembly helper
     def allocate_x(self):
-        return block.DenseBlockArray([self.complex.topology.dual.form(n=r) for r in self.R])
+        N = self.complex.topology.n_dim
+        b = np.zeros(len(self.R), np.object)
+        for i, k in enumerate(self.R):
+            b[i] = self.complex.topology.dual.form(n=N-k)
+        return block.DenseBlockArray(b)
 
     def allocate_y(self):
-        return block.DenseBlockArray([self.complex.topology.dual.form(n=l) for l in self.L])
+        N = self.complex.topology.n_dim
+        b = np.zeros(len(self.L), np.object)
+        for i, k in enumerate(self.L):
+            b[i] = self.complex.topology.dual.form(n=N-k)
+        return block.DenseBlockArray(b)
 
-    def eliminate(self):
-        """eliminate rows from the block with nonzero diagonal"""
+    def eliminate(self, rows):
+        """eliminate rows from the block with nonzero diagonal
+
+        Parameters
+        ----------
+        rows : List[int]
+            rows to be eliminated
+
+        Returns
+        -------
+        System
+            equivalent system with rows eliminated
+        """
 
     def normal(self):
-        A = self.A.T * self.A
+        """Form normal equations
 
+        Returns
+        -------
+        System
+            normal equations belonging to self
+        """
+        AT = self.A.transpose()
+        return System(
+            complex=self.complex,
+            A=AT * self.A,
+            rhs=AT * self.rhs,
+            R=self.R,
+            L=self.R,   # NOTE: this is the crux of forming normal equations
+        )
+
+    def balance(self, reg=0.0):
+        """Divide each row by l1 norm through left-premultiplication"""
+        bal = 1.0 / (self.A.norm_l1(axis=1) + reg)
+        bal = block.SparseBlockMatrix.as_diagonal(bal)
+        return System(
+            complex=self.complex,
+            A=bal * self.A,
+            rhs=bal * self.rhs,
+            L=self.L,
+            R=self.R
+        )
+
+    def solve_minres(self, tol=1e-12, M=None):
+        A = self.A.merge()
+        rhs = self.rhs.merge()
+        x = scipy.sparse.linalg.minres(A, rhs, tol=tol, M=M)[0]
+        r = A * x - rhs
+        return self.allocate_x().split(x), self.rhs.split(r)
 
 
 def sparse_diag(diag):
@@ -270,28 +387,6 @@ class BlockSystem(object):
         # unknown_shape = [row[0].shape[1] for row in self.system.T]
 
         # check that subblocks are consistent
-
-    @staticmethod
-    def complex(complex):
-        """Generate full block system from a complex;
-        can be sliced for various physics problems
-
-        Parameters
-        ----------
-        complex : BaseComplex
-
-        Returns
-        -------
-        BlockSystem
-        """
-        knowns = [complex.topology.dual.chain(n) for n in range(complex.n_dim)]
-        unknowns = [complex.topology.dual.chain(n) for n in range(complex.n_dim)]
-        equations = [[None for r in range(complex.n_dim)] for c in complex.n_dim]
-        # set up the full cochain complex
-        complex.topology.matrices
-        complex.topology.dual.matrices_2
-        # FIXME: figure out details of block structure
-        return BlockSystem(equations, knowns, unknowns)
 
     def symmetrize(self):
         """symmetrize systems with a structural symmetry, by rewriting boundary terms"""

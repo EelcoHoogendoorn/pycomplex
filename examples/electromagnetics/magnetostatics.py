@@ -50,8 +50,6 @@ def setup_domain(mesh):
 
     Returns
     -------
-    complex
-        the complex to operate on
     chains
         boundary and body description chains
     """
@@ -105,24 +103,46 @@ mu = plate_1 * 10000 + 1
 
 def setup_magnetostatics(complex):
     """new style magnetostatics setup"""
-
-    # unknown is a dual 1-form; two equations to close form from both sides
-    system = System.canonical(complex)[[-3, -1], :][:, [-2]]
-
-    equations = dict(rotation=0, divergence=2)
+    assert complex.topology.n_dim >= 2  # makes no sense in lower-dimensional space
+    # unknown is a dual 1-form; two equations to close from from both sides
+    system = System.canonical(complex)[-3:, :][:, [-2]]
+    equations = dict(rotation=0, flux=1, divergence=2)
     variables = dict(flux=0)
 
+    system.A.block[equations['flux'], variables['flux']] *= 0   # flux is mostly unspecified
+
     # antisymmetry on the bottom axis; set tangent flux to zero
-    system.set_dia_boundary(equations['rotation'], bottom_0)
+    system.set_dia_boundary(equations['flux'], variables['flux'], bottom_0)
 
-    # symmetry on the left axis; set normal flux to zero
-    system.set_off_boundary(equations['divergence'], all_1 - bottom_1)
+    # symmetry on the left axis; set normal flux to zero; also at 'infinity'
+    # interesting; in this setup, could set normal flux on middle block just as easily
+    system.set_off_boundary(equations['divergence'], variables['flux'], all_1 - bottom_1)
 
-    system.plot()
+    # apply the source terms; current induces nonzero rotation
+    system.set_rhs(equations['rotation'], current_0.astype(np.float))
+    return system
 
 
-if False:
-    setup_magnetostatics(mesh)
+if True:
+    system = setup_magnetostatics(mesh)
+    # system = system.balance(1e-9)
+    normal = system.normal()
+    solution, res = normal.solve_minres()
+    # normal.plot()
+
+    flux = solution.merge()
+
+    from examples.flow.stream import stream
+
+    primal_flux = mesh.hodge_PD[1] * (mesh.topology.dual.selector[1] * flux)
+    phi = stream(mesh, primal_flux)
+
+    mesh.plot_primal_0_form(phi, cmap='jet', plot_contour=True, levels=29)
+
+    import matplotlib.pyplot as plt
+
+    plt.show()
+
     quit()
 
 

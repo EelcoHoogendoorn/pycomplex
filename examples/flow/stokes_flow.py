@@ -111,29 +111,28 @@ def stokes_system(complex, regions):
     system = System.canonical(complex)[-3:, -3:]
     equations = dict(vorticity=0, momentum=1, continuity=2)
     variables = dict(vorticity=0, flux=1, pressure=2)
-    # desciption = dict(
-    #     equations=[('vorticity', -3)]
-    # )
-    system.A.block[1, 1] *= 0   # no direct force relation with flux
-    system.A.block[2, 2] *= 0   # no compressibility
+
+    system.A.block[equations['momentum'], variables['flux']] *= 0   # no direct force relation with flux
+    system.A.block[equations['continuity'], variables['pressure']] *= 0   # no compressibility
 
     # NOTE: setup pipe flow with step diameter change
-    # FIXME: index by var instead of eq?
     # prescribe tangent flux on entire boundary
-    system.set_dia_boundary(equations['momentum'], regions['all_0'])
+    system.set_dia_boundary(equations['momentum'], variables['flux'], regions['all_0'])
     # set normal flux to zero
-    system.set_off_boundary(equations['continuity'], regions['closed_1'])
+    system.set_off_boundary(equations['continuity'], variables['flux'], regions['closed_1'])
     # prescribe pressure on inlet and outlet
     inlet, outlet = regions['left_1'], regions['right_1']
-    system.set_dia_boundary(equations['continuity'], inlet + outlet)
+    system.set_dia_boundary(equations['continuity'], variables['pressure'], inlet + outlet)
     system.set_rhs_boundary(equations['continuity'], outlet.astype(np.float) - inlet.astype(np.float))
 
-    system.plot()
+    return system
 
-    print()
-    print()
-
-stokes_system(mesh, regions)
+system = stokes_system(mesh, regions)
+# system.plot()
+normal = system.normal()
+normal.plot()
+print()
+print()
 quit()
 
 def stokes_flow(complex2):
