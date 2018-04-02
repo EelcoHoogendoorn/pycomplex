@@ -44,30 +44,119 @@ def grid(shape=(32, 32)):
     return mesh.as_22().as_regular()
 
 
-def concave():
+def concave(levels=6):
     # take a 2x2 grid
     mesh = grid(shape=(2, 2))
     # discard a corner
     mesh = mesh.select_subset([1, 1, 1, 0])
-
-    for i in range(6):  # if you change this, change scaling below accordingly, to keep RD happy
-        mesh = mesh.subdivide_cubical()
     mesh = mesh.copy(vertices=mesh.vertices * 64)
 
-    edge_position = mesh.boundary.primal_position[1]
-    left = edge_position[:, 0] == edge_position[:, 0].min()
-    right = edge_position[:, 0] == edge_position[:, 0].max()
+    for i in range(levels):  # if you change this, change scaling below accordingly, to keep RD happy
+        mesh = mesh.subdivide_cubical()
+
+    return mesh
+
+
+def setup_regions(complex):
+    BPP = complex.boundary.primal_position
+    left_1 = BPP[1][:, 0] == BPP[1][:, 0].min()
+    right_1 = BPP[1][:, 0] == BPP[1][:, 0].max()
+
     # construct closed part of the boundary
-    closed = mesh.boundary.topology.chain(1, fill=1)
-    closed[np.nonzero(left)] = 0
-    closed[np.nonzero(right)] = 0
+    closed_1 = complex.boundary.topology.chain(1, fill=1)
+    closed_1[np.nonzero(left_1)] = 0
+    closed_1[np.nonzero(right_1)] = 0
+    all_0 = complex.boundary.topology.chain(0, fill=1)
 
-    return mesh, left, right, closed
+    return dict(
+        left_1=left_1,
+        right_1=right_1,
+        closed_1=closed_1,
+        all_0=all_0
+    )
 
 
-mesh, inlet, outlet, closed = concave()
-if False:
-    mesh.plot()
+def generate_pattern(complex):
+    # Use reaction-diffusion to set up an interesting permeability-pattern
+    # high min/max mu ratios make the equations very stiff, but gives the coolest looking results
+    # Solving the resulting equations may take a while; about a minute on my laptop
+    # Efficiently solving these equations is a known hard problem.
+    from examples.diffusion.reaction_diffusion import ReactionDiffusion
+    rd = ReactionDiffusion(complex, key='labyrinth')
+    rd.simulate(300)
+    form = rd.state[0]
+    if False:
+        complex.plot_primal_0_form(form, plot_contour=False, cmap='jet')
+        plt.show()
+    # mu = form[complex.topology.elements[1]].mean(axis=1)
+    mu = complex.topology.averaging_operators_0[1] * form   # map vertices to edges
+    S = mesh.topology.dual.selector
+    mu -= mu.min()
+    mu /= mu.max()
+    mu *= mu
+    mu += .00001
+
+    mu = S[-2].T * mu   # zero on dual boundary; is that ok?
+
+    return mu
+
+
+def setup_darcy_flow(complex, regions):
+    """New style darcy flow setup"""
+    assert complex.topology.n_dim >= 1
+    system = System.canonical(complex)[-2:, -2:]
+    equations = dict(momentum=0, continuity=1)
+    variables = dict(flux=0, pressure=1)
+
+    # FIXME: encapsulate this direct access with some modifier methods
+    system.A.block[equations['continuity'], variables['pressure']] *= 0   # no compressibility
+    # FIXME: implementation of mu not quite successfull yet
+    # system.A.block[equations['momentum'], variables['flux']] *= sparse_diag(1. / regions['mu'])
+    system.A.block[equations['momentum'], variables['pressure']] = \
+        sparse_diag(regions['mu']) * system.A.block[equations['momentum'], variables['pressure']]
+
+    # prescribe tangent flux on entire boundary; all 0
+    system.set_dia_boundary(equations['momentum'], variables['flux'], regions['all_0'])
+    # set normal flux to zero
+    system.set_off_boundary(equations['continuity'], variables['flux'], regions['closed_1'])
+    # prescribe pressure on inlet and outlet
+    inlet, outlet = regions['left_1'], regions['right_1']
+    system.set_dia_boundary(equations['continuity'], variables['pressure'], inlet + outlet)
+    system.set_rhs_boundary(equations['continuity'], outlet.astype(np.float) - inlet.astype(np.float))
+
+    return system
+
+
+if __name__ == '__main__':
+    mesh = concave()
+    regions = setup_regions(mesh)
+    if True:
+        mu = generate_pattern(mesh)
+    else:
+        mu = mesh.topology.chain(1, fill=1, dtype=np.float)
+    regions['mu'] = mu
+
+    # mesh.plot()
+    system = setup_darcy_flow(mesh, regions)
+    system = system.balance(1e-9)
+    # system.plot()
+    # without vorticity constraint, we have an asymmetry in the [1,0] block
+    # is this a problem for elimination?
+    # FIXME: not working yet; should be possible
+    # system_up = system.eliminate([0], [0])
+    # system_up.plot()
+    normal = system.normal()
+    # normal.plot()
+    solution, residual = normal.solve_minres()
+    flux = solution[-2].merge()
+
+    # visualize
+    from examples.flow.stream import setup_stream, solve_stream
+    phi = solve_stream(setup_stream(mesh), flux)
+    mesh.plot_primal_0_form(phi - phi.min(), cmap='jet', plot_contour=True, levels=29)
+    plt.show()
+    quit()
+
 
 
 def darcy_flow(complex2, mu):

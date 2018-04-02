@@ -134,7 +134,7 @@ if __name__ == '__main__':
     # system.plot()
     # without vorticity constraint, we have an asymmetry in the [1,0] block
     # is this a problem for elimination?
-    # FIXME: not working yet
+    # FIXME: not working yet; should be possible
     system_up = system.eliminate([0], [0])
     # system_up.plot()
     normal = system.normal()

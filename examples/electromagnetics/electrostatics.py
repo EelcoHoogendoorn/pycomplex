@@ -31,5 +31,14 @@ In the 3d case, electric is a primal 1-flux and magnetic a primal 2-flux
 static solutions to both in 3d are still very similar though,
 in that we have a non scalar form that closed as both primal and dual form
 
+can we solve a static problem with mobile charges?
+we can say that total charge must be conserved in some area,
+and that E field must vanish inside conductors.
+this requires us to make rho part of unknowns somehow
+can we place conducting cylinder in field, for instance?
+for E to zero here; will violate closedness of form without explicit
+modelling of surface current though, I think
+lines of electric field always at right angles to the surface
+
 
 """

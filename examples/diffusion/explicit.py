@@ -16,6 +16,7 @@ class Diffusor(object):
         self.laplacian, self.mass, self.inverse_mass_operator = self.laplacian_0()
 
     def laplacian_0(self):
+        # FIXME : derive from System class; generic laplacian setup plus bc config
         complex = self.complex
         T01 = complex.topology.matrices[0]
         grad = T01.T
