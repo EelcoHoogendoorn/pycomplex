@@ -50,7 +50,6 @@ we can also use this as a model for isotropic linear elasticity
 
 """
 
-from pycomplex.topology import sign_dtype
 from examples.linear_system import *
 
 
@@ -60,13 +59,13 @@ def grid(shape=(32, 32)):
     return mesh.as_22().as_regular()
 
 
-def concave():
+def concave(levels=3):
     # take a 2x2 grid
     mesh = grid(shape=(2, 2))
     # discard a corner
     mesh = mesh.select_subset([1, 1, 1, 0])
 
-    for i in range(2):  # subdiv 5 is already pushing our solvers...
+    for i in range(levels):  # subdiv 5 is already pushing our solvers...
         mesh = mesh.subdivide_cubical()
         # left = mesh.topology.transfer_matrices[1] * left
         # right = mesh.topology.transfer_matrices[1] * right
@@ -99,20 +98,14 @@ def get_regions(mesh):
     )
 
 
-mesh = concave()
-regions = get_regions(mesh)
-# mesh.plot()
-
-
 def stokes_system(complex, regions):
     """New style stokes system setup"""
-    from examples.linear_system import System
-
     assert complex.topology.n_dim >= 2  # makes no sense in lower-dimensional space
     system = System.canonical(complex)[-3:, -3:]
     equations = dict(vorticity=0, momentum=1, continuity=2)
     variables = dict(vorticity=0, flux=1, pressure=2)
 
+    # FIXME: encapsulate this direct acces with some modifier methods
     system.A.block[equations['momentum'], variables['flux']] *= 0   # no direct force relation with flux
     system.A.block[equations['continuity'], variables['pressure']] *= 0   # no compressibility
 
@@ -128,157 +121,30 @@ def stokes_system(complex, regions):
 
     return system
 
-system = stokes_system(mesh, regions)
-system = system.balance(1e-9)
-# system.plot()
 
-# without vorticity constraint, we have an asymmetry in the [1,0] block
-# is this a problem for elimination?
-system_up = system.eliminate([0], [0])
-system_up.plot()
-normal = system.normal()
-normal.plot()
+if __name__ == '__main__':
+    mesh = concave()
+    regions = get_regions(mesh)
+    # mesh.plot()
 
-solution, residual = normal.solve_minres()
-flux = solution[-2].merge()
-from examples.flow.stream import stream
-primal_flux = mesh.hodge_PD[1] * (mesh.topology.dual.selector[1] * flux)
-phi = stream(mesh, primal_flux)
-mesh.plot_primal_0_form(phi, cmap='jet', plot_contour=True)
+    system = stokes_system(mesh, regions)
+    system = system.balance(1e-9)
+    # system.plot()
 
-import matplotlib.pyplot as plt
+    # without vorticity constraint, we have an asymmetry in the [1,0] block
+    # is this a problem for elimination?
+    # FIXME: not working yet
+    system_up = system.eliminate([0], [0])
+    # system_up.plot()
+    normal = system.normal()
+    # normal.plot()
 
-plt.show()
-print()
-print()
-quit()
-
-def stokes_flow(complex2):
-    """Formulate stokes flow over a 2-complex"""
-
-    # grab the chain complex
-    primal = complex2.topology
-    boundary = primal.boundary
-    dual = primal.dual
-    # make sure our boundary actually makes sense topologically
-    primal.check_chain()
-    dual.check_chain()
-
-    P01, P12 = primal.matrices
-    D01, D12 = dual.matrices_2
-
-    P2P1 = P12.T
-    P1P0 = P01.T
-    D2D1 = D12.T
-    D1D0 = D01.T
-
-    P0, P1, P2 = primal.n_elements
-    D0, D1, D2 = dual.n_elements
-    B0, B1 = boundary.n_elements
-
-    P0D2 = sparse_diag(complex2.hodge_PD[0])
-    P1D1 = sparse_diag(complex2.hodge_PD[1])
-
-    # FIXME: autogen this given system shape
-    P2D2_0 = sparse_zeros((P2, D2))
-    P1D1_0 = sparse_zeros((P1, D1))
-    P0D0_0 = sparse_zeros((P0, D0))
-    P2D0_0 = sparse_zeros((P2, D0))
-
-    S = complex2.topology.dual.selector
-
-    # NOTE: could model divergence as a seperate 2-form; would that give more control over the numerical structure of the vector laplacian?
-    vorticity  = [P0D2       , P0D2 * D2D1       , P0D0_0       ]
-    momentum   = [P1P0 * P0D2, P1D1_0            , P1D1 * D1D0  ]
-    continuity = [P2D2_0     , P2P1 * P1D1 * S[1], P2D0_0       ]   # the S[1] is there to add the boundary equations to the primal operator
-
-    # set up boundary equations
-    continuity_bc = [sparse_zeros((B0, d)) for d in dual.n_elements[::-1]]
-    momentum_bc = [sparse_zeros((B1, d)) for d in dual.n_elements[::-1]]
-    # set normal flux
-    continuity_bc[1] = o_matrix(closed, boundary.parent_idx[1], continuity_bc[1].shape)
-    # set opening pressures
-    continuity_bc[2] = d_matrix(inlet + outlet, continuity_bc[2].shape, P2)
-    # set tangent flux
-    momentum_bc[1] = d_matrix(inlet + outlet + closed, momentum_bc[1].shape, P1)
-    # alternatively, set zero shear on boundaries
-    # momentum_bc[0] = o_matrix(inlet + outlet + closed, boundary.parent_idx[0], momentum_bc[0].shape)
-
-    equations = [
-        vorticity,
-        momentum,
-        momentum_bc,
-        continuity,
-        continuity_bc,
-    ]
-
-    omega    = np.zeros(D2)
-    velocity = np.zeros(D1)
-    pressure = np.zeros(D0)
-    unknowns = [
-        omega,
-        velocity,
-        pressure
-    ]
-
-    vortex    = np.zeros(P0)
-    force     = np.zeros(P1)
-    force_bc  = np.zeros(B1)   # set tangent fluxes; all zero
-    source    = np.zeros(P2)
-    source_bc = np.zeros(B0) - inlet.astype(np.float) + outlet.astype(np.float)  # set opening pressures
-    knowns = [
-        vortex,
-        force,
-        force_bc,
-        source,
-        source_bc,
-    ]
-
-    system = BlockSystem(equations=equations, knowns=knowns, unknowns=unknowns)
-    return system
-
-system = stokes_flow(mesh)
+    solution, residual = normal.solve_minres()
+    flux = solution[-2].merge()
 
 
-# system.print()
-# system.plot()
-
-# formulate normal equations and solve
-# normal = system.preconditioned_normal_equations()
-# normal.plot()
-
-normal = system.normal_equations()
-# normal.precondition().plot()
-solution, residual = normal.precondition().solve_minres_amg(tol=1e-16)
-solution = [s / np.sqrt(d) for s, d in zip(solution, normal.diag())]
-
-# solution, residual = system.solve_least_squares()
-# solution, residual = normal.solve_minres()
-# solution, residual = system.solve_direct()
-
-vorticity, flux, pressure = solution
-# normal.print()
-# normal.plot()
-
-
-# plot result
-tris = mesh.subdivide_simplicial()
-pressure = mesh.topology.dual.selector[2] * pressure
-pressure = mesh.hodge_PD[2] * pressure
-pressure = tris.topology.transfer_operators[2] * pressure
-tris.as_2().plot_primal_2_form(pressure)
-
-from examples.flow.stream import stream
-primal_flux = mesh.hodge_PD[1] * (mesh.topology.dual.selector[1] * flux)
-phi = stream(mesh, primal_flux)
-phi = tris.topology.transfer_operators[0] * phi
-tris.as_2().plot_primal_0_form(phi, cmap='jet', plot_contour=True)
-
-vorticity = mesh.topology.dual.selector[0] * vorticity
-vorticity = mesh.hodge_PD[0] * vorticity
-vorticity = tris.topology.transfer_operators[0] * vorticity
-limit = np.abs(vorticity).max()
-tris.as_2().plot_primal_0_form(vorticity, cmap='seismic', vmin=-limit, vmax=limit, plot_contour=False, shading='gouraud')
-
-import matplotlib.pyplot as plt
-plt.show()
+    from examples.flow.stream import setup_stream, solve_stream
+    phi = solve_stream(setup_stream(mesh), flux)
+    mesh.plot_primal_0_form(phi - phi.min(), cmap='jet', plot_contour=True, levels=29)
+    import matplotlib.pyplot as plt
+    plt.show()
