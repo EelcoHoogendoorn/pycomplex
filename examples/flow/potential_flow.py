@@ -67,14 +67,11 @@ which reflects physical intuition; smallest velocity squared is the
 least energetic / smoothest field
 
 """
-from time import clock
 
-import numpy as np
+from time import clock
 import scipy.sparse
-import matplotlib.pyplot as plt
 
 from examples.linear_system import *
-from examples.flow.stream import stream
 
 
 def grid(shape):
@@ -83,144 +80,139 @@ def grid(shape):
     return mesh.as_22().as_regular()
 
 
-def concave():
-    # take a 3x3 grid
+def setup_mesh(levels=5):
+    # generate a mesh
     mesh = grid(shape=(3, 3))
     # make a hole in it
     mask = np.ones((3, 3), dtype=np.int)
     mask[1, 1] = 0
     mesh = mesh.select_subset(mask.flatten())
 
+    hierarchy = [mesh]
     # subdivide
-    for i in range(4):
+    for i in range(levels):
         mesh = mesh.subdivide_cubical()
+        hierarchy.append(mesh)
+    return mesh, hierarchy
+
+
+def setup_domain(mesh):
+    """Construct domain
+
+    Parameters
+    ----------
+    mesh : Complex
+
+    Returns
+    -------
+    chains
+        boundary and body description chains
+    """
 
     # identify boundaries
-    edge_position = mesh.boundary.primal_position[1]
+    PP = mesh.primal_position
     BPP = mesh.boundary.primal_position
-    left  = (edge_position[:, 0] == edge_position[:, 0].min()).astype(sign_dtype)
-    right = (edge_position[:, 0] == edge_position[:, 0].max()).astype(sign_dtype)
+    left_1  = (BPP[1][:, 0] == BPP[1][:, 0].min()).astype(sign_dtype)
+    right_1 = (BPP[1][:, 0] == BPP[1][:, 0].max()).astype(sign_dtype)
+
+    bottom_1 = (BPP[1][:, 1] == BPP[1][:, 1].min()).astype(sign_dtype)
+
+    # right = (BPP[1][:, 0] == BPP[1][:, 0].max()).astype(sign_dtype)
     # construct closed part of the boundary
-    all = mesh.boundary.topology.chain(1, fill=1)
-    closed = all - left - right
+    all_1 = mesh.boundary.topology.chain(1, fill=1)
+
+    left_0  = (BPP[0][:, 0] == BPP[0][:, 0].min()).astype(sign_dtype)
+    right_0 = (BPP[0][:, 0] == BPP[0][:, 0].max()).astype(sign_dtype)
+
+    bottom_0 = (BPP[0][:, 1] == BPP[0][:, 1].min()).astype(sign_dtype)
+    bottom_0 = bottom_0 * (1-left_0) * (1-right_0)
 
     # 0-element boundary
-    interior = (np.linalg.norm(BPP[0], axis=1) < 1).astype(sign_dtype)
+    interior_0 = (np.linalg.norm(BPP[0], axis=1) < 1).astype(sign_dtype)    # inside the doughnut
 
     all_0 = mesh.boundary.topology.chain(0, fill=1)
     top_right_0 = mesh.boundary.topology.chain(0, fill=0)
     top_right_0[np.argmin(np.linalg.norm(BPP[0]-[0.5,0.5], axis=1))] = 1
 
-    exterior = all_0 - interior
+    exterior_0 = all_0 - interior_0
 
-    return mesh, all, left, right, closed, interior, exterior, top_right_0
+    return dict(
+        all_1=all_1,
+        left_1=left_1,
+        right_1=right_1,
+        bottom_0=bottom_0,
+        bottom_1=bottom_1,
+        interior_0=interior_0,
+        exterior_0=exterior_0,
+        all_0=all_0,
+        top_right_0=top_right_0,
+
+    )
 
 
-mesh, all, inlet, outlet, closed, interior, exterior, top_right = concave()
-if False:
-    mesh.plot(plot_dual=False, plot_vertices=False)
+def setup_potential_flow(complex, regions):
+    """new style potential flow setup
 
+    Parameters
+    ----------
+    complex : Complex
+        complex with topological dimension > 2
+    regions : dict[str, ndarray]
+        dict of chains specifying regions of interest
 
-def potential_flow(complex2):
-    """Set up potential flow system
-
-    Note that it does not actually involve any potentials
-    And note the similarity, if not identicality, to EM problems
+    Returns
+    -------
+    system : System
+        complete first order system describing potential flow problem
     """
+    assert complex.topology.n_dim >= 2  # makes no sense in lower-dimensional space
+    # unknown is a dual 1-form; two equations to close from from both sides
+    system = System.canonical(complex)[-3:, :][:, [-2]]
+    equations = dict(rotation=0, flux=1, divergence=2)  # should these names be tracked by system?
+    variables = dict(flux=0)
 
-    # grab the chain complex
-    primal = complex2.topology
-    boundary = primal.boundary
-    assert boundary.is_oriented
-    dual = primal.dual
-    # make sure our boundary actually makes sense topologically
-    primal.check_chain()
-    dual.check_chain()
+    system.A.block[equations['flux'], variables['flux']] *= 0   # flux is mostly unspecified
 
-    P01, P12 = primal.matrices
-    D01, D12 = dual.matrices_2
-
-    P2P1 = P12.T
-    D2D1 = D12.T
-
-    P0, P1, P2 = primal.n_elements
-    D0, D1, D2 = dual.n_elements
-    B0, B1 = boundary.n_elements
-
-    P0D2 = sparse_diag(complex2.hodge_PD[0])
-    P1D1 = sparse_diag(complex2.hodge_PD[1])
-
-    S = complex2.topology.dual.selector
-
-    rotation   = [P0D2 * D2D1       ]
-    continuity = [P2P1 * P1D1 * S[1]]   # dual boundary tangent fluxes are not involved in continuity
-
-    # set up boundary equations
-    rotation_bc   = [sparse_zeros((B0, d)) for d in [D1]]
-    continuity_bc = [sparse_zeros((B1, d)) for d in [D1]]
+    # NOTE: boundary conditions begin here
 
     # impose a circulation around both boundaries
-    rotation_bc[0] = \
-        d_matrix(interior, rotation_bc[0].shape, P1, rows=0) + \
-        d_matrix(exterior, rotation_bc[0].shape, P1, rows=1) + \
-        d_matrix(top_right, rotation_bc[0].shape, P1) * 0   # for some reason, this does not work
+    # cannot set tangent directly; important that we specify the sum
+    # FIXME: make a less hacky interface for this on system class
+    system.set_dia_boundary(equations['flux'], variables['flux'], regions['interior_0'], rows=0)
+    q = np.zeros_like(regions['all_1'])
+    q[0] = -1e5
+    q[1] = 0#-1e5
+    system.set_rhs_boundary(equations['flux'], q)
+    system.set_dia_boundary(equations['flux'], variables['flux'], regions['exterior_0'], rows=1)
+    # activate normal flux constraint everywhere
+    system.set_off_boundary(equations['divergence'], variables['flux'], regions['all_1'])
+    system.set_rhs_boundary(equations['divergence'], regions['left_1'] - regions['right_1'])
 
-        # activate condition on normal flux
-    continuity_bc[0] = o_matrix(all, boundary.parent_idx[1], continuity_bc[0].shape)
-
-    equations = [
-        rotation,
-        rotation_bc,
-        continuity,
-        continuity_bc,
-    ]
-
-    velocity = np.zeros(D1)   # one velocity unknown for each dual edge
-    unknowns = [velocity]
-
-    vortex = np.zeros(P0)       # generally irrotational
-    vortex_bc = np.zeros(B0)
-    vortex_bc[0] = 2e1 * 8
-    vortex_bc[1] = 0
-    source = np.zeros(P2)       # generally incompressible
-    source_bc = np.zeros(B1) + inlet - outlet
-    knowns = [
-        vortex,
-        vortex_bc,
-        source,
-        source_bc,
-    ]
-
-    system = BlockSystem(equations=equations, knowns=knowns, unknowns=unknowns)
     return system
 
 
-system = potential_flow(mesh)
-if False:
-    system.plot()
+if __name__ == '__main__':
+    mesh, hierarchy = setup_mesh()
+    regions = setup_domain(mesh)
+    # mesh.plot(plot_dual=False, plot_vertices=False)
+
+    system = setup_potential_flow(mesh, regions)
+    # system.plot()
+    system = system.balance(1e-9)
+    normal = system.normal()
+    # normal.plot()
+
+    t = clock()
+    solution, res = normal.solve_minres()
+    print('solution time:', clock() - t)
+
+    flux = solution.merge()
+
+    from examples.flow.stream import setup_stream, solve_stream
+    phi = solve_stream(setup_stream(mesh), flux)
+    mesh.plot_primal_0_form(phi - phi.min(), cmap='jet', plot_contour=True, levels=29)
+    import matplotlib.pyplot as plt
+    plt.show()
+    quit()
 
 
-# formulate normal equations and solve
-normal = system.normal_equations()
-# normal.precondition().plot()
-t = clock()
-print('starting solving')
-# adding amg in any way here makes things aweful; what gives?
-solution, residual = normal.precondition().solve_minres(tol=1e-16)
-# print(residual)
-print('solving time: ', clock() - t)
-solution = [s / np.sqrt(d) for s, d in zip(solution, normal.diag())]
-# solution, residual = normal.solve_direct()
-flux, = solution
-
-# plot result
-tris = mesh.subdivide_simplicial()
-
-# now we compute a streamfunction after all; just for visualization.
-# no streamfunctions were harmed in the finding of the flowfield.
-primal_flux = mesh.hodge_PD[1] * (mesh.topology.dual.selector[1] * flux)
-phi = stream(mesh, primal_flux)
-phi = tris.topology.transfer_operators[0] * phi
-tris.as_2().plot_primal_0_form(phi, cmap='jet', plot_contour=True, levels=49)
-
-plt.show()

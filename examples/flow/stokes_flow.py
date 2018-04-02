@@ -50,6 +50,8 @@ we can also use this as a model for isotropic linear elasticity
 
 """
 
+import matplotlib.pyplot as plt
+
 from examples.linear_system import *
 
 
@@ -105,7 +107,7 @@ def stokes_system(complex, regions):
     equations = dict(vorticity=0, momentum=1, continuity=2)
     variables = dict(vorticity=0, flux=1, pressure=2)
 
-    # FIXME: encapsulate this direct acces with some modifier methods
+    # FIXME: encapsulate this direct access with some modifier methods
     system.A.block[equations['momentum'], variables['flux']] *= 0   # no direct force relation with flux
     system.A.block[equations['continuity'], variables['pressure']] *= 0   # no compressibility
 
@@ -126,11 +128,10 @@ if __name__ == '__main__':
     mesh = concave()
     regions = get_regions(mesh)
     # mesh.plot()
-
     system = stokes_system(mesh, regions)
+
     system = system.balance(1e-9)
     # system.plot()
-
     # without vorticity constraint, we have an asymmetry in the [1,0] block
     # is this a problem for elimination?
     # FIXME: not working yet
@@ -138,13 +139,11 @@ if __name__ == '__main__':
     # system_up.plot()
     normal = system.normal()
     # normal.plot()
-
     solution, residual = normal.solve_minres()
     flux = solution[-2].merge()
 
-
+    # visualize
     from examples.flow.stream import setup_stream, solve_stream
     phi = solve_stream(setup_stream(mesh), flux)
     mesh.plot_primal_0_form(phi - phi.min(), cmap='jet', plot_contour=True, levels=29)
-    import matplotlib.pyplot as plt
     plt.show()

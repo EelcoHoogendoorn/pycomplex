@@ -128,7 +128,7 @@ class System(object):
             R=self.R[item[1]],
         )
 
-    def set_dia_boundary(self, i, j, d):
+    def set_dia_boundary(self, i, j, d, rows=None):
         """Set a boundary on a 'diagonal' term of the cochain complex
 
         Parameters
@@ -159,7 +159,7 @@ class System(object):
                 shape=shape
             )
         self.A.block[i, j] = self.A.block[i, j] + d_matrix(
-            d, self.A.block[i, j].shape, self.complex.topology.n_elements[self.L[i]])
+            d, self.A.block[i, j].shape, self.complex.topology.n_elements[self.L[i]], rows)
 
     def set_off_boundary(self, i, j, o):
         """Set a boundary on a 'off-diagonal' term of the cochain complex
@@ -271,7 +271,7 @@ class System(object):
         return block.DenseBlockArray(b)
 
     def eliminate(self, rows, cols):
-        """eliminate rows from the block with nonzero diagonal
+        """Eliminate the rows specified
 
         Parameters
         ----------
@@ -279,7 +279,7 @@ class System(object):
             rows to be eliminated
         cols : List[int]
             cols to be eliminated
-            is it ever different?
+            is it ever different from rows?
 
         Returns
         -------
@@ -289,6 +289,7 @@ class System(object):
         Examples
         --------
         what elimination looks like for a streamfunction:
+
         [0, δ] [phi ] = [r]
         [d, I] [flux] = [0]
 
@@ -315,9 +316,7 @@ class System(object):
         [f] = [I, 0] [f]
         [p] = [0, I]
 
-
         """
-        # FIXME: only works for single elimination at a time still
         # FIXME: check that each eq to be eliminated has full diag, and no dependence on other elim vars
         rows_retained = np.delete(np.arange(len(self.L)), rows)
         cols_retained = np.delete(np.arange(len(self.R)), cols)
@@ -355,8 +354,7 @@ class System(object):
                         elim[i, j] = pycomplex.sparse.sparse_zeros(shape)
 
         elim = block.SparseBlockMatrix(elim)
-        return System(
-            complex=self.complex,
+        return self.copy(
             A=(self.A * elim)[rows_retained, :],
             rhs=self.rhs[rows_retained],
             L=self.L[rows_retained],
@@ -372,8 +370,7 @@ class System(object):
             normal equations belonging to self
         """
         AT = self.A.transpose()
-        return System(
-            complex=self.complex,
+        return self.copy(
             A=AT * self.A,
             rhs=AT * self.rhs,
             R=self.R,
@@ -384,12 +381,9 @@ class System(object):
         """Divide each row by l1 norm through left-premultiplication"""
         bal = 1.0 / (self.A.norm_l1(axis=1) + reg)
         bal = block.SparseBlockMatrix.as_diagonal(bal)
-        return System(
-            complex=self.complex,
+        return self.copy(
             A=bal * self.A,
             rhs=bal * self.rhs,
-            L=self.L,
-            R=self.R
         )
 
     def solve_minres(self, tol=1e-12, M=None):

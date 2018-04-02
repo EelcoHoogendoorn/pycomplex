@@ -34,6 +34,7 @@ note that we could make the mesh spacing variable to efficiently simulate open f
 """
 
 import scipy.sparse
+import matplotlib.pyplot as plt
 
 from examples.linear_system import *
 from pycomplex import synthetic
@@ -154,6 +155,7 @@ if __name__ == '__main__':
     # mesh.plot(plot_dual=False, plot_vertices=False)
 
     system = setup_magnetostatics(mesh, regions)
+
     system = system.balance(1e-9)
     normal = system.normal()
     solution, res = normal.solve_minres()
@@ -163,9 +165,6 @@ if __name__ == '__main__':
 
     from examples.flow.stream import setup_stream, solve_stream
     phi = solve_stream(setup_stream(mesh), regions['mu_1'] * -flux)
-
     mesh.plot_primal_0_form(phi - phi.min(), cmap='jet', plot_contour=True, levels=29)
-
-    import matplotlib.pyplot as plt
     plt.show()
 
