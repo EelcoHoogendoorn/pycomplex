@@ -33,12 +33,21 @@ note that we could make the mesh spacing variable to efficiently simulate open f
 
 """
 
-import numpy as np
 import scipy.sparse
 
-from pycomplex import synthetic
-from pycomplex.topology import sign_dtype
 from examples.linear_system import *
+from pycomplex import synthetic
+
+
+def setup_mesh(levels=6):
+    # generate a mesh
+    mesh = synthetic.n_cube(n_dim=2).as_22().as_regular()
+    hierarchy = [mesh]
+    # subdivide
+    for i in range(levels):
+        mesh = mesh.subdivide_cubical()
+        hierarchy.append(mesh)
+    return mesh, hierarchy
 
 
 def setup_domain(mesh):
@@ -82,7 +91,12 @@ def setup_domain(mesh):
     plate_width = 0.3
     plate_height = 0.1
     plate_2 = (PP[2][:, 0] < plate_width) * (PP[2][:, 1] > magnet_height) * (PP[2][:, 1] < magnet_height + plate_height)
+    # primal 1-form
     plate_1 = mesh.topology.averaging_operators_N[1] * plate_2
+
+    mu = plate_1 * 10000 + 1
+    S = mesh.topology.dual.selector
+    mu = S[-2].T * mu
 
     return dict(
         all_1=all_1,
@@ -90,33 +104,35 @@ def setup_domain(mesh):
         bottom_0=bottom_0,
         bottom_1=bottom_1,
         current_0=current_0,
-        plate_1=plate_1
+        plate_1=plate_1,
+        mu_1=mu,
     )
 
 
-# generate a mesh
-mesh = synthetic.n_cube(n_dim=2).as_22().as_regular()
-hierarchy = [mesh]
-# subdivide
-for i in range(3):
-    mesh = mesh.subdivide_cubical()
-    hierarchy.append(mesh)
-
-
-
-regions = setup_domain(mesh)
-# mesh.plot(plot_dual=False, plot_vertices=False)
-mu = regions['plate_1'] * 10000 + 1
-
-
 def setup_magnetostatics(complex, regions):
-    """new style magnetostatics setup"""
+    """new style magnetostatics setup
+
+    Parameters
+    ----------
+    complex : Complex
+        complex with topological dimension > 2
+    regions : dict[str, ndarray]
+        dict of chains specifying regions of interest
+
+    Returns
+    -------
+    system : System
+        complete first order system describing magnetostatics problem
+    """
     assert complex.topology.n_dim >= 2  # makes no sense in lower-dimensional space
     # unknown is a dual 1-form; two equations to close from from both sides
     system = System.canonical(complex)[-3:, :][:, [-2]]
     equations = dict(rotation=0, flux=1, divergence=2)  # should these names be tracked by system?
     variables = dict(flux=0)
 
+
+    # add in mu; variable
+    system.A.block[equations['divergence'], variables['flux']] *= scipy.sparse.diags(regions['mu_1'])
     system.A.block[equations['flux'], variables['flux']] *= 0   # flux is mostly unspecified
 
     # NOTE: boundary conditions begin here
@@ -132,65 +148,11 @@ def setup_magnetostatics(complex, regions):
     return system
 
 
-def setup_stream(complex):
-    """
-    [0, δ] [phi ] = [r]
-    [d, I] [flux] = [0]
+if __name__ == '__main__':
+    mesh, hierarchy = setup_mesh()
+    regions = setup_domain(mesh)
+    # mesh.plot(plot_dual=False, plot_vertices=False)
 
-    Parameters
-    ----------
-    complex
-
-    Returns
-    -------
-    System
-        representing a stream function
-    """
-    assert complex.topology.n_dim == 2  # only makes sense in 2d
-    system = System.canonical(complex)[:2, :2]
-    system.A.block[0, 0] *= 0
-    # set all tangent fluxes to zero explicitly
-    system.set_dia_boundary(1, 1, complex.topology.boundary.chain(n=1, fill=1))
-
-    return system
-
-
-def solve_stream(stream, flux_d1):
-    """
-
-    Parameters
-    ----------
-    stream : System
-        first order stream system
-    flux_d1 : ndarray
-        dual flux 1-form
-
-    Returns
-    -------
-    phi : ndarray
-        primal 0-form
-    """
-    S = stream.complex.topology.dual.selector[1]
-    # filter out tangent fluxes; must be zero
-    vorticity = stream.A.block[0, 1] * S.T * S * flux_d1
-    stream.rhs.block[0] = vorticity
-
-    if False:
-        # FIXME: we dont have a symmetric system to start with, since δ term has no knowledge of zero tangent flux
-        # FIXME: this renders eliminated system effectively non-symmetric too
-        # stream.plot()
-        laplace = stream.eliminate(1, 1)
-        # laplace.plot()
-        x, r = laplace.solve_minres()
-    else:
-        # stream = stream.balance(1e-9)
-        normal = stream.normal()
-        normal.plot()
-        x, r = normal.solve_minres()
-    return stream.complex.hodge_PD[0] * x.block[0]
-
-
-if True:
     system = setup_magnetostatics(mesh, regions)
     system = system.balance(1e-9)
     normal = system.normal()
@@ -199,124 +161,11 @@ if True:
 
     flux = solution.merge()
 
-    # from examples.flow.stream import stream
-    stream = setup_stream(mesh)
-    phi = solve_stream(stream, flux)
+    from examples.flow.stream import setup_stream, solve_stream
+    phi = solve_stream(setup_stream(mesh), regions['mu_1'] * -flux)
 
-    mesh.plot_primal_0_form(phi, cmap='jet', plot_contour=True, levels=29)
+    mesh.plot_primal_0_form(phi - phi.min(), cmap='jet', plot_contour=True, levels=29)
 
     import matplotlib.pyplot as plt
-
     plt.show()
 
-    quit()
-
-
-def magnetostatics(complex2):
-    """Set up 2d magnetostatics
-
-    Note that it does not actually involve any potentials
-    And note the similarity, if not identicality, to potential flow problem
-    """
-
-    # grab the chain complex
-    primal = complex2.topology
-    boundary = primal.boundary
-    assert boundary.is_oriented
-    dual = primal.dual
-    # make sure our boundary actually makes sense topologically
-    primal.check_chain()
-    dual.check_chain()
-
-    P01, P12 = primal.matrices
-    D01, D12 = dual.matrices_2
-
-    P2P1 = P12.T
-    D2D1 = D12.T
-
-    P0, P1, P2 = primal.n_elements
-    D0, D1, D2 = dual.n_elements
-    B0, B1 = boundary.n_elements
-
-    P0D2 = sparse_diag(complex2.hodge_PD[0])
-    P1D1 = sparse_diag(complex2.hodge_PD[1])
-
-    S = complex2.topology.dual.selector
-
-    # compliance = scipy.sparse.diags(1/mu)
-    rotation   = [P0D2 * D2D1]
-    continuity = [P2P1 * P1D1 * scipy.sparse.diags(mu) * S[1]]   # dual boundary tangent fluxes are not involved in continuity
-
-    # set up boundary equations
-    rotation_bc   = [sparse_zeros((B0, d)) for d in [D1]]
-    continuity_bc = [sparse_zeros((B1, d)) for d in [D1]]
-
-    # antisymmetry on the bottom axis; set tangent flux to zero
-    rotation_bc[0] = d_matrix(bottom_0, rotation_bc[0].shape, P1)
-
-    # symmetry on the left axis; set normal flux to zero
-    # the former only happens to work with minres; fails with mg solver
-    # continuity_bc[0] = o_matrix(left_1, boundary.parent_idx[1], continuity_bc[0].shape)
-    continuity_bc[0] = o_matrix(all_1 - bottom_1, boundary.parent_idx[1], continuity_bc[0].shape)
-
-    equations = [
-        rotation,
-        rotation_bc,
-        continuity,
-        continuity_bc,
-    ]
-
-    flux = np.zeros(D1)   # one flux unknown for each dual edge
-    unknowns = [flux]
-
-    # set up right hand side
-    # current = current          # rotation dependent on current
-    current_bc = np.zeros(B0)
-    source = np.zeros(P2)        # divergence is zero everywhere
-    source_bc = np.zeros(B1)     # we only set zero fluxes in this example
-    knowns = [
-        current_0,
-        current_bc,
-        source,
-        source_bc,
-    ]
-
-    system = BlockSystem(equations=equations, knowns=knowns, unknowns=unknowns)
-    return system
-
-
-system = magnetostatics(mesh)
-# system.plot()
-
-
-# formulate normal equations and solve
-normal = system.balance(1e-6).normal_equations()
-if False:
-    # optionaly reorder the unknowns to show coupling between horizontal and vertical dofs
-    dual_edges = mesh.topology.dual.matrices_2[0].T * mesh.dual_position[0]
-    order = np.dot(dual_edges, [1, 0])
-    order = np.argsort(np.abs(order))
-else:
-    order = None
-
-# normal.precondition().plot(order=order, kind='mergesort'))
-from time import clock
-solution, residual = normal.precondition().solve_amg(tol=1e-8)
-t = clock()
-print('starting solving')
-solution, residual = normal.precondition().solve_minres(tol=1e-9)
-print(residual)
-print('solving time: ', clock() - t)
-solution = [s / np.sqrt(d) for s, d in zip(solution, normal.diag())]
-# solution, residual = normal.solve_direct()
-flux, = solution
-
-
-from examples.flow.stream import stream
-primal_flux = mu * mesh.hodge_PD[1] * (mesh.topology.dual.selector[1] * flux)
-phi = stream(mesh, primal_flux)
-
-mesh.plot_primal_0_form(phi, cmap='jet', plot_contour=True, levels=29)
-
-import matplotlib.pyplot as plt
-plt.show()

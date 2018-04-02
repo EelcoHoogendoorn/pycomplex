@@ -105,6 +105,7 @@ regions = get_regions(mesh)
 
 
 def stokes_system(complex, regions):
+    """New style stokes system setup"""
     from examples.linear_system import System
 
     assert complex.topology.n_dim >= 2  # makes no sense in lower-dimensional space
@@ -128,9 +129,26 @@ def stokes_system(complex, regions):
     return system
 
 system = stokes_system(mesh, regions)
+system = system.balance(1e-9)
 # system.plot()
+
+# without vorticity constraint, we have an asymmetry in the [1,0] block
+# is this a problem for elimination?
+system_up = system.eliminate([0], [0])
+system_up.plot()
 normal = system.normal()
 normal.plot()
+
+solution, residual = normal.solve_minres()
+flux = solution[-2].merge()
+from examples.flow.stream import stream
+primal_flux = mesh.hodge_PD[1] * (mesh.topology.dual.selector[1] * flux)
+phi = stream(mesh, primal_flux)
+mesh.plot_primal_0_form(phi, cmap='jet', plot_contour=True)
+
+import matplotlib.pyplot as plt
+
+plt.show()
 print()
 print()
 quit()

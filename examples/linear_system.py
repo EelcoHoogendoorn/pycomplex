@@ -277,11 +277,14 @@ class System(object):
         ----------
         rows : List[int]
             rows to be eliminated
+        cols : List[int]
+            cols to be eliminated
+            is it ever different?
 
         Returns
         -------
         System
-            equivalent system with rows eliminated
+            equivalent system with variable eliminations applied
 
         Examples
         --------
@@ -292,27 +295,73 @@ class System(object):
         [phi ] = [I] [phi]
         [flux] = [d]
 
-        [I, d]
-        """
+        [I, d] from the left as well? or just plain selection of retained equations?
 
-        eq = self.A[[rows], :]
-        diag = eq[:, [cols]]
-        diag = diag.merge().todia()
+        or for vector laplace:
+        [I, δ, 0] [r] = [0]
+        [d, 0, δ] [f] = [0]
+        [0, d, I] [p] = [0]
+
+        [r] = [δ]
+        [f] = [I] [f]
+        [p] = [d]
+
+        or for stokes:
+        [I, δ, 0] [r] = [0]
+        [d, 0, δ] [f] = [0]
+        [0, d, I] [p] = [0]
+
+        [r] = [δ, 0]
+        [f] = [I, 0] [f]
+        [p] = [0, I]
+
+
+        """
+        # FIXME: only works for single elimination at a time still
+        # FIXME: check that each eq to be eliminated has full diag, and no dependence on other elim vars
+        rows_retained = np.delete(np.arange(len(self.L)), rows)
+        cols_retained = np.delete(np.arange(len(self.R)), cols)
+
+        # setup elimination transformation matrix
+        n_unknowns = len(self.R)
+        n_retained = len(cols_retained)
+        elim = np.zeros((n_unknowns, n_retained), np.object)
+
         import pycomplex.sparse
-        diag = pycomplex.sparse.inv_diag(-diag)
-        assert np.all(np.isfinite(diag.data))
-        b = np.empty((1, 1), dtype=np.object)
-        b[0, 0] = diag
-        diag = block.SparseBlockMatrix(b)
-        elim = diag * eq
+        def get_diag(i, j):
+            diag = self.A.block[i, j]
+            diag = diag.todia()
+            diag = pycomplex.sparse.inv_diag(-diag)
+            assert np.all(np.isfinite(diag.data))
+            return diag
+
+        for i, sr in enumerate(self.R): # loop over columns of A and rows of elim
+            if i in rows:
+                # eliminated row; invert relationship
+                for j, nr in enumerate(cols_retained):
+                    b = self.A.block[i, nr]
+                    if b.nnz > 0:
+                        elim[i, j] = get_diag(i, i) * b  # identity is retained
+                    else:
+                        elim[i, j] = pycomplex.sparse.sparse_zeros(b.shape)
+            else:
+                # this is retained; set identity row
+                for j, nr in enumerate(cols_retained):
+                    b = self.A.block[i, nr]
+                    shape = b.shape
+                    if shape[0] == shape[1]:
+                        elim[i, j] = scipy.sparse.identity(shape[0])
+                    else:
+                        elim[i, j] = pycomplex.sparse.sparse_zeros(shape)
+
+        elim = block.SparseBlockMatrix(elim)
         return System(
             complex=self.complex,
-            A=elim * self.A * elim.transpose(),
-            rhs=elim * self.rhs,
-            L=np.delete(self.L, rows),
-            R=np.delete(self.R, cols),
+            A=(self.A * elim)[rows_retained, :],
+            rhs=self.rhs[rows_retained],
+            L=self.L[rows_retained],
+            R=self.R[cols_retained],
         )
-
 
     def normal(self):
         """Form normal equations
