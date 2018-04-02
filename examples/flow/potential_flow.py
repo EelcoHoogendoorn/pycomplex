@@ -80,7 +80,7 @@ def grid(shape):
     return mesh.as_22().as_regular()
 
 
-def setup_mesh(levels=5):
+def setup_mesh(levels=4):
     # generate a mesh
     mesh = grid(shape=(3, 3))
     # make a hole in it
@@ -164,6 +164,11 @@ def setup_potential_flow(complex, regions):
     -------
     system : System
         complete first order system describing potential flow problem
+
+    Notes
+    -----
+    The mathematical structure of this system is wholly identical to magnetostatics/electrostatics.
+    The only differences arise insofar different boundary conditions are used
     """
     assert complex.topology.n_dim >= 2  # makes no sense in lower-dimensional space
     # unknown is a dual 1-form; two equations to close from from both sides
@@ -177,13 +182,15 @@ def setup_potential_flow(complex, regions):
 
     # impose a circulation around both boundaries
     # cannot set tangent directly; important that we specify the sum
-    # FIXME: make a less hacky interface for this on system class
+    # FIXME: make a less hacky interface for these circulation bcs on system class
     system.set_dia_boundary(equations['flux'], variables['flux'], regions['interior_0'], rows=0)
     q = np.zeros_like(regions['all_1'])
-    q[0] = -1e5
-    q[1] = 0#-1e5
+    q[0] = -1e2
+    q[1] = 0#+1e9
     system.set_rhs_boundary(equations['flux'], q)
-    system.set_dia_boundary(equations['flux'], variables['flux'], regions['exterior_0'], rows=1)
+    # no point setting a second constraint; circulation should be preserverd
+    # system.set_dia_boundary(equations['flux'], variables['flux'], regions['exterior_0'], rows=1)
+
     # activate normal flux constraint everywhere
     system.set_off_boundary(equations['divergence'], variables['flux'], regions['all_1'])
     system.set_rhs_boundary(equations['divergence'], regions['left_1'] - regions['right_1'])
@@ -198,7 +205,7 @@ if __name__ == '__main__':
 
     system = setup_potential_flow(mesh, regions)
     # system.plot()
-    system = system.balance(1e-9)
+    system = system.balance(1e-9)   # NOTE: this first-order preconditioning solves about 30 times faster than previous method
     normal = system.normal()
     # normal.plot()
 
