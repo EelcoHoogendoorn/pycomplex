@@ -153,6 +153,7 @@ class Dual(BaseTopology):
         selectors : list of len self.n_dim + 1
             selectors mapping dual forms to primal subset
             first element of this list is square; maps dual n-forms to primal 0-forms, which are one-to-one
+            list is indexed by primal form
         """
         # FIXME: rename to interior_selector or somesuch? bit more descriptive
         def s(np, nd):
@@ -170,6 +171,7 @@ class Dual(BaseTopology):
         selectors : list of len self.n_dim + 1
             selectors mapping dual forms to dual boundary subset
             first element of this list is trivial
+            list is indexed by primal form
         """
         # FIXME: rename to boundary_selector or somesuch? bit more descriptive
         def s(np, nd):

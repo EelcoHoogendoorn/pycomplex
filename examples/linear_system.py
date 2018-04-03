@@ -140,7 +140,7 @@ class System(object):
             R=self.R[item[1]],
         )
 
-    def set_dia_boundary(self, i, j, d, rows=None):
+    def set_dia_boundary(self, i, j, d):
         """Set a boundary on a 'diagonal' term of the cochain complex
         This influences a dual boundary variable
 
@@ -157,29 +157,10 @@ class System(object):
         ------------
         modifies the A matrix
         """
-        # FIXME: seperate setter for the not-default row case? really is a different beast
         assert self.L[i] == self.R[j]   # this implies diagonal of the cochain complex
 
-        def d_matrix(chain, shape, offset, rows=None):
-            """Dual boundary term"""
-            if rows is None:
-                rows = np.arange(len(chain), dtype=index_dtype) + offset
-            else:
-                rows = np.ones(len(chain), dtype=index_dtype) * rows + offset
-            cols = np.arange(len(chain), dtype=index_dtype) + offset
-            return scipy.sparse.csr_matrix((
-                chain.astype(np.float),
-                (rows, cols)),
-                shape=shape
-            )
-        if False:
-            # FIXME: can this be rewritten in terms of selector matrix?
-            # FIXME: does not work yet for case where rows is given
-            S = self.complex.topology.dual.selector_b[self.L[i]]
-            self.A.block[i, j] = self.A.block[i, j] + scipy.sparse.diags(S.T * d)
-
-        self.A.block[i, j] = self.A.block[i, j] + d_matrix(
-            d, self.A.block[i, j].shape, self.complex.topology.n_elements[self.L[i]], rows)
+        S = self.complex.topology.dual.selector_b[self.L[i]]
+        self.A.block[i, j] = self.A.block[i, j] + scipy.sparse.diags(S.T * d)
 
     def set_off_boundary(self, i, j, o):
         """Set a boundary on a 'off-diagonal' term of the cochain complex
@@ -198,33 +179,13 @@ class System(object):
         ------------
         modifies the A matrix
         """
-        # FIXME: need to get hodge involved?
+        assert self.L[i] == self.R[j] + 1   # this implies entry below the diagonal, or primal exterior derivative
 
-        assert self.L[i] == self.R[j] + 1   # this implies entry below the diagonal
+        Srd = self.complex.topology.dual.selector[self.R[j]]
+        Srp = self.complex.topology.selector_b[self.R[j]]
+        Sld = self.complex.topology.dual.selector_b[self.L[i]]
 
-        if False:
-            # FIXME: how to elegantly map primal boundary chain to correct sparse matrix?
-            S = self.complex.topology.selector_b[self.L[i]]
-            Sb = self.complex.topology.selector_b[self.R[j]]
-            Q = scipy.sparse.diags(o) * S * S.T * S
-            self.A.block[i, j] = self.A.block[i, j] + Q
-
-        def o_matrix(chain, cols, shape, offset, rows=None):
-            """Primal boundary term"""
-            if rows is None:
-                rows = np.arange(len(chain), dtype=index_dtype) + offset
-            else:
-                rows = np.ones(len(chain), dtype=index_dtype) * rows + offset
-            return scipy.sparse.coo_matrix((
-                chain.astype(np.float),
-                (rows, cols)),
-                shape=shape
-            )
-
-        # idx that primal boundary connects to
-        idx = self.complex.topology.boundary.parent_idx[self.R[j]]
-        self.A.block[i, j] = self.A.block[i, j] + o_matrix(
-            o, idx, self.A.block[i, j].shape, self.complex.topology.n_elements[self.L[i]])
+        self.A.block[i, j] = self.A.block[i, j] + Sld.T * scipy.sparse.diags(o) * Srp * Srd
 
     def set_rhs_boundary(self, i, r):
         """Set a boundary term on the rhs
@@ -260,6 +221,20 @@ class System(object):
         S = self.complex.topology.dual.selector[self.L[i]]
         self.rhs.block[i] = self.rhs.block[i] + S * r
 
+    def set_sum_boundary(self, i, j, s, row, sum):
+        assert self.L[i] == self.R[j]   # this implies diagonal of the cochain complex
+        # FIXME: is there also some S matrix magic for this?
+        cols = np.flatnonzero(s).astype(index_dtype)
+        rows = np.ones_like(cols) * row
+        data = s[cols]
+        b = scipy.sparse.coo_matrix((data, (rows, cols)), shape=(len(s),)*2)
+
+        S = self.complex.topology.dual.selector_b[self.L[i]]
+        self.A.block[i, j] = self.A.block[i, j] + S.T * b * S
+
+        q = np.zeros_like(s)
+        q[row] = sum
+        self.set_rhs_boundary(i, q)
 
     def plot(self, dense=True, order=None):
         """Visualize the structure of the linear system

@@ -191,14 +191,8 @@ def setup_potential_flow(complex, regions):
 
     # impose a circulation around both boundaries
     # cannot set tangent directly; important that we specify the sum
-    # FIXME: make a less hacky interface for these circulation bcs on system class
-    system.set_dia_boundary(equations['flux'], variables['flux'], regions['interior_0'], rows=0)
-    q = np.zeros_like(regions['all_1'])
-    q[0] = -1e2
-    q[1] = 0#+1e9
-    system.set_rhs_boundary(equations['flux'], q)
+    system.set_sum_boundary(equations['flux'], variables['flux'], regions['interior_0'], row=0, sum=1e2)
     # no point setting a second constraint; circulation should be preserverd
-    # system.set_dia_boundary(equations['flux'], variables['flux'], regions['exterior_0'], rows=1)
 
     # activate normal flux constraint everywhere
     system.set_off_boundary(equations['divergence'], variables['flux'], regions['all_1'])
