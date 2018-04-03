@@ -109,39 +109,23 @@ class Dual(BaseTopology):
 
     @cached_property
     def matrices_original(self):
+        """Topology matrices without any dual boundary topology attached"""
         return [T.T for T in self.primal.matrices[::-1]]
 
     @cached_property
     def matrices_2(self):
         """Construct dual topology matrices stripped of dual boundary topology
-        This leaves us at liberty to construct custom boundary conditions
+        This is the discrete derivative operator that we are usually interested in
 
         Returns
         -------
         array_like, [n_dim], sparse matrix
+            n-th element describes incidence of dual n-elements to dual n+1 elements
         """
         # FIXME: come up with a descriptive name for this. call it matrices; and rename matrices to matrices_full?
         M = self.matrices    # [D0D1 ... DnDN]
         S = self.selector    # [P0DN ... PND0]
         return [m * s.T for m, s in zip(M, S[::-1][1:])]
-
-    @cached_property
-    def matrices_blocked(self):
-        """topology matrices, with i/p/d split"""
-        raise NotImplementedError
-        return
-
-    # @cached_property
-    # def matrices_3(self):
-    #     """Construct dual topology matrices stripped of dual boundary topology
-    #     This leaves us at liberty to construct custom boundary conditions
-    #
-    #     Returns
-    #     -------
-    #     array_like, [n_dim], sparse matrix
-    #     """
-    #     S = self.selector[::-1]
-    #     return [l * m * r.T for l, m, r in zip(S[:-1], self.matrices, S[1:])]
 
     @cached_property
     def selector(self):
@@ -194,6 +178,7 @@ class Dual(BaseTopology):
         Note that this requires that both the primal and its boundary are oriented
         """
         assert self.primal.is_oriented
+        assert self.primal.boundary.is_oriented
 
         def dual_T(T, B, idx):
             """Compose dual topology matrix in presence of boundaries
@@ -207,6 +192,7 @@ class Dual(BaseTopology):
             orientation = np.ones_like(idx)
 
             # FIXME: seems like we are just recreating primal selection matrix here again. due for a rewrite?
+            # NOTE: one difference; pure I term is from boundary space of one type of element to interior space of another
             I = scipy.sparse.coo_matrix(
                 (orientation,
                  (np.arange(len(idx)), idx)),
@@ -227,6 +213,9 @@ class Dual(BaseTopology):
         boundary = self.primal.boundary
         CBT = []
         T = [self.primal.matrix(i) for i in range(self.primal.n_dim)]
+        S = self.primal.selector
+        Sb = self.primal.selector_b
+
         if not boundary is None:
             BT = [boundary.matrix(i) for i in range(boundary.n_dim)]
 
@@ -236,6 +225,7 @@ class Dual(BaseTopology):
                 dual_T(
                     T[::-1][d].T,
                     BT[::-1][d].T if d < len(BT) else None,
+                    # (S[::-1][d+1] * Sb[::-1][d+1].T).T
                     boundary.parent_idx[::-1][d]
                 )
             )

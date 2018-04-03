@@ -52,12 +52,18 @@ or with V dual-0
 [0, I, δ] [E] = [0]
 [I, d, 0] [V]   [r0]
 
+or without V; this can still be written as a cochain slice
+[δ, 0] [E]   [0]
+[0, 0] [r] = [0]
+[d, I]       [r0]
+
 note that top and right row/col accomplish the same. if i had to choose would rather
 keep V in this scenario as it can be useful in bcs; rotation of E is never relevant though
 note the absence of the curl of rho term; makes sense physically, but curious mathematically
 
 additional constraints are E zero inside the conductor,
 and rho zero outside the conductor
+these can both be set on the middle equation
 rho and V are both forms of the same kind, so we cannot slice the system from the canonical one;
 need to concat the rho-related section
 
