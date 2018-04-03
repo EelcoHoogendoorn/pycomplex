@@ -325,3 +325,23 @@ class PrimalTopology(BaseTopology):
             return selection_matrix(d)
 
         return [s(i) for i in range(self.n_dim + 1)]
+
+    @cached_property
+    def selector_b(self):
+        """Operators to select boundary, or to strip interior elements
+
+        Returns
+        -------
+        selectors : list of len self.n_dim + 1
+            selectors mapping all elements to the boundary subset
+            first element of this list is trivial; maps dual n-forms to primal 0-forms, which have no boundary terms
+        """
+        def s(i):
+            d = self.chain(n=i, fill=0, dtype=sign_dtype)
+            try:
+                d[self.boundary.parent_idx[i]] = 1
+            except:
+                pass
+            return selection_matrix(d)
+
+        return [s(i) for i in range(self.n_dim + 1)]

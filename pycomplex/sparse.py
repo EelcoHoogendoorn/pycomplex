@@ -42,6 +42,7 @@ def sparse_zeros(shape):
     q = np.zeros(0, dtype=sign_dtype)
     return scipy.sparse.coo_matrix((q, (q, q)), shape=shape)
 
+
 def zeros_like(arr):
     return sparse_zeros(arr.shape)
 

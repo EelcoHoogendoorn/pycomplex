@@ -82,6 +82,7 @@ def selection_matrix(s):
     Parameters
     ----------
     s : ndarray, [n], bool
+        indicates variables to be selected
 
     Returns
     -------

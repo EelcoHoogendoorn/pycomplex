@@ -3,9 +3,9 @@ import numpy_indexed as npi
 import scipy.sparse
 from cached_property import cached_property
 
-from pycomplex.block import SparseBlockMatrix
 from pycomplex.topology.base import BaseTopology
 from pycomplex.topology import sign_dtype, index_dtype
+import pycomplex.sparse
 
 
 class ClosedDual(BaseTopology):
@@ -39,8 +39,16 @@ class ClosedDual(BaseTopology):
 
     @cached_property
     def selector(self):
+        """Mapping to interior of closed always is identity mapping"""
         def s(np):
             return scipy.sparse.eye(np)
+        return [s(np) for np in self.primal.n_elements]
+
+    @cached_property
+    def selector_b(self):
+        """Mapping to boundary of closed always gives vanishing vector"""
+        def s(np):
+            return pycomplex.sparse.sparse_zeros((0, np))
         return [s(np) for np in self.primal.n_elements]
 
     def __getitem__(self, item):
@@ -153,6 +161,23 @@ class Dual(BaseTopology):
         return [s(np, nd) for np, nd in zip(self.primal.n_elements, self.n_elements[::-1])]
 
     @cached_property
+    def selector_b(self):
+        """Operators to select interior elements; or to strip boundary elements,
+        or those that do not have a corresponding primal element
+
+        Returns
+        -------
+        selectors : list of len self.n_dim + 1
+            selectors mapping dual forms to dual boundary subset
+            first element of this list is trivial
+        """
+        # FIXME: rename to boundary_selector or somesuch? bit more descriptive
+        def s(np, nd):
+            return scipy.sparse.eye(nd).tocsr()[np:, :]
+
+        return [s(np, nd) for np, nd in zip(self.primal.n_elements, self.n_elements[::-1])]
+
+    @cached_property
     def matrices(self):
         """Construct dual topology matrices, including the topology of the boundary, and its connection to the interior
 
@@ -173,14 +198,16 @@ class Dual(BaseTopology):
 
             FIXME: make block structure persistent? would be more self-documenting to vectors
             also would be cleaner to split primal topology in interior/boundary blocks first
+            alternatively; make more principled use of selection matrices
 
             """
 
             orientation = np.ones_like(idx)
 
+            # FIXME: seems like we are just recreating primal selection matrix here again. due for a rewrite?
             I = scipy.sparse.coo_matrix(
                 (orientation,
-                 (np.arange(len(idx)), idx )),
+                 (np.arange(len(idx)), idx)),
                 shape=(B.shape[0], T.shape[1]) if not B is None else (len(idx), T.shape[1])
             )
             if B is None:
