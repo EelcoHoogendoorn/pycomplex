@@ -366,12 +366,13 @@ class ComplexRegular1(ComplexRegularMixin, ComplexCubical1Euclidian1):
 
 class ComplexRegular2(ComplexRegularMixin, ComplexCubical2Euclidian2):
     """Regular cubical 2-complex"""
-    def plot_primal_0_form(self, c0, **kwargs):
+
+    def plot_primal_0_form(self, p0, **kwargs):
         """Plot a primal 0-form
 
         Parameters
         ----------
-        c0 : ndarray, [n_vertices], float
+        p0 : ndarray, [n_vertices], float
             a primal 0-form
 
         Notes
@@ -380,7 +381,28 @@ class ComplexRegular2(ComplexRegularMixin, ComplexCubical2Euclidian2):
         If this function is to be called repeatedly it is much preferrable to cache this subdivision
         """
         tris = self.subdivide_simplicial()
-        tris.as_2().plot_primal_0_form(tris.topology.transfer_operators[0] * c0, **kwargs)
+        tris.as_2().plot_primal_0_form(tris.topology.transfer_operators[0] * p0, **kwargs)
+
+    def plot_primal_1_form(self, p2, **kwargs):
+        # streamfunction-based plot here? should be in the base class; not unique to regular
+        # then again base class isnt 2d. do we need a 2d complex mixin?
+        raise NotImplementedError
+
+    def plot_primal_2_form(self, p2, **kwargs):
+        """Plot a primal 2-form
+
+        Parameters
+        ----------
+        p0 : ndarray, [n_faces], float
+            a primal 2-form
+
+        Notes
+        -----
+        This functionality is built on top of the primal 2-form plotting of a triangular complex
+        If this function is to be called repeatedly it is much preferrable to cache this subdivision
+        """
+        tris = self.subdivide_simplicial()
+        tris.as_2().plot_primal_2_form(tris.topology.transfer_operators[2] * p2, **kwargs)
 
 
 class ComplexRegular3(ComplexRegularMixin, ComplexCubical3Euclidian3):

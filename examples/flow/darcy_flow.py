@@ -77,10 +77,23 @@ def setup_regions(complex):
 
 
 def generate_pattern(complex):
-    # Use reaction-diffusion to set up an interesting permeability-pattern
-    # high min/max mu ratios make the equations very stiff, but gives the coolest looking results
-    # Solving the resulting equations may take a while; about a minute on my laptop
-    # Efficiently solving these equations is a known hard problem.
+    """Use reaction-diffusion to set up an interesting permeability-pattern
+
+    Parameters
+    ----------
+    complex
+
+    Returns
+    -------
+    mu : ndarray
+        dual 1-form
+
+    Notes
+    -----
+    high min/max mu ratios make the equations very stiff, but gives the coolest looking results
+    Solving the resulting equations may take a while; about a minute on my laptop
+    Efficiently solving these equations is a known hard problem.
+    """
     from examples.diffusion.reaction_diffusion import ReactionDiffusion
     rd = ReactionDiffusion(complex, key='labyrinth')
     rd.simulate(300)
@@ -110,7 +123,7 @@ def setup_darcy_flow(complex, regions):
 
     # FIXME: encapsulate this direct access with some modifier methods
     system.A.block[equations['continuity'], variables['pressure']] *= 0   # no compressibility
-    # FIXME: implementation of mu not quite successfull yet
+    # FIXME: implementation of mu not quite successfull yet?
     # system.A.block[equations['momentum'], variables['flux']] *= sparse_diag(1. / regions['mu'])
     system.A.block[equations['momentum'], variables['pressure']] = \
         sparse_diag(regions['mu']) * system.A.block[equations['momentum'], variables['pressure']]
@@ -140,22 +153,31 @@ if __name__ == '__main__':
     system = setup_darcy_flow(mesh, regions)
     system = system.balance(1e-9)
     # system.plot()
-    # without vorticity constraint, we have an asymmetry in the [1,0] block
-    # is this a problem for elimination?
-    # FIXME: not working yet; should be possible
-    # system_up = system.eliminate([0], [0])
-    # system_up.plot()
-    normal = system.normal()
-    # normal.plot()
-    solution, residual = normal.solve_minres()
-    flux = solution[-2].merge()
 
-    # visualize
-    from examples.flow.stream import setup_stream, solve_stream
-    phi = solve_stream(setup_stream(mesh), flux)
-    mesh.plot_primal_0_form(phi - phi.min(), cmap='jet', plot_contour=True, levels=29)
-    plt.show()
-    quit()
+    if True:
+        # solve by elimination; seems to be working
+        system_up = system.eliminate([0], [0])
+        solution, residual = system_up.solve_minres()
+        pressure = solution.merge()
+        # system_up.plot()
+
+        pressure = mesh.topology.dual.selector[2] * pressure
+        pressure = mesh.hodge_PD[2] * pressure
+        mesh.plot_primal_2_form(pressure)
+
+        plt.show()
+    else:
+        normal = system.normal()
+        # normal.plot()
+        solution, residual = normal.solve_minres()
+        flux = solution[-2].merge()
+
+        # visualize
+        from examples.flow.stream import setup_stream, solve_stream
+        phi = solve_stream(setup_stream(mesh), flux)
+        mesh.plot_primal_0_form(phi - phi.min(), cmap='jet', plot_contour=True, levels=29)
+        plt.show()
+quit()
 
 
 

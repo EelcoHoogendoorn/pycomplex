@@ -332,7 +332,7 @@ class BaseComplex(object):
         Parameters
         ----------
         flux_d1 : ndarray, [n_dual_edges, ...], float
-            dual-1-form including boundary terms
+            dual-1-form including boundary terms (which are currently ignored)
 
         Returns
         -------
@@ -399,42 +399,15 @@ class BaseComplex(object):
         # NOTE: dual selectors are indexed by primal element order!
         S = self.topology.dual.selector[-2]     # map from dual-1-elements to primal-n-1-elements; drop boundary fluxes
         P = self.topology.dual.selector[-1].T   # map from primal-n-elements to dual-0-elements; pad boundary with zeros
+
         def dual_flux_to_dual_velocity(flux_d1):
-            # lots of reshaping to support gufunc dimensions
+            # lots of reshaping to support gufunc dimensions; otherwise quite simple product
             gu = flux_d1.shape[1:]
             gun = np.prod(gu, dtype=int)
             s1 = len(flux_d1), gun
             s2 = self.topology.n_elements[-1], self.n_dim * gun
             s3 = (self.topology.dual.n_elements[0], self.n_dim) + gu
             return (P * (core * (S * flux_d1.reshape(s1))).reshape(s2)).reshape(s3)
-        return dual_flux_to_dual_velocity
-
-        def dual_flux_to_dual_velocity(flux_d1):
-            # cast away boundary fluxes
-            flux_d1 = self.topology.dual.selector[1] * flux_d1
-            # compute velocity component in the direction of the dual edge
-            # tangent_velocity_component = (flux_d1 )[B] * O
-            normal_flux = self.hodge_PD[1] * flux_d1
-            # grab flux and sign per element;
-            # reshape from [n_dual_edges] to [n_dual_vertices, n_corners]
-            # can this be represented as a sparse matrix? maps vector to matrix
-            # needs to be contracted with einsum below
-            # need to flatten first to use sparse matrix
-            normal_flux = normal_flux[B] * O
-            # given these flows incident on the dual vertex, reconstruct the velocity vector there
-            velocity_d0 = np.einsum('...ij,...j->...i', pinv, normal_flux)
-
-            # # project out part not on the sphere
-            # if isinstance(self.complex, ComplexSpherical):
-            #     velocity_d0 = velocity_d0 - dual_vertex * (velocity_d0 * dual_vertex).sum(axis=1, keepdims=True)
-
-            # rec_flux = np.einsum('...ij,...j->...i', gradients, velocity_d0)
-            # assert np.allclose(rec_flux, normal_flux, atol=1e-6)
-            # cast away dual boundary flux, then pad velocity with zeros... not quite right, should use the boundary information
-            velocity_d0 = self.topology.dual.selector[-1].T * velocity_d0
-
-            return velocity_d0
-
         return dual_flux_to_dual_velocity
 
     @abstractmethod

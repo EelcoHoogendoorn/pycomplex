@@ -61,7 +61,7 @@ def setup_stream(complex):
     return system
 
 
-def solve_stream(stream, flux_d1):
+def solve_stream(stream, flux_d1, eliminate=True):
     """
 
     Parameters
@@ -70,19 +70,22 @@ def solve_stream(stream, flux_d1):
         first order stream system
     flux_d1 : ndarray
         dual flux 1-form
+    eliminate : bool
+        if true, solve by elimination
 
     Returns
     -------
     phi : ndarray
         primal 0-form
     """
+    # set the rhs to match the problem at hand
     S = stream.complex.topology.dual.selector[1]
     # filter out tangent fluxes; must be zero
     vorticity = stream.A.block[0, 1] * S.T * S * flux_d1
     # FIXME: this mutable design is disgusting
     stream.rhs.block[0] = vorticity
 
-    if False:
+    if eliminate:
         # solve through elimination
         # stream.plot()
         laplace = stream.eliminate([1], [1])    # eliminate the flux variables
