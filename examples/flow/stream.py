@@ -97,3 +97,65 @@ def solve_stream(stream, flux_d1, eliminate=True):
         # normal.plot()
         x, r = normal.solve_minres()
     return stream.complex.hodge_PD[0] * x.block[0]
+
+
+def setup_potential(complex):
+    """Formulate potential function system
+
+    [I, δ] [flux] = [0]
+    [d, 0] [P] = [d]
+
+    Parameters
+    ----------
+    complex : Complex
+
+    Returns
+    -------
+    System
+        representing a potential function
+    """
+    system = System.canonical(complex)[-2:, -2:]
+    system.A.block[1, 1] *= 0
+    # set all tangent fluxes to zero explicitly
+    # FIXME: this is nonsense. can potential be reconstructed from flux alone? maybe not..
+    system.set_dia_boundary(0, 0, complex.topology.boundary.chain(n=-2, fill=1))
+
+    return system
+
+
+def solve_potential(potential, flux_d1, eliminate=True):
+    """
+
+    Parameters
+    ----------
+    potential : System
+        first order stream system
+    flux_d1 : ndarray
+        dual flux 1-form
+    eliminate : bool
+        if true, solve by elimination
+
+    Returns
+    -------
+    P : ndarray
+        dual 0-form
+    """
+    # set the rhs to match the problem at hand
+    S = potential.complex.topology.dual.selector
+    # filter out tangent fluxes; must be zero
+    divergence = potential.A.block[1, 0] * flux_d1
+    # FIXME: this mutable design is disgusting
+    potential.rhs.block[1] = divergence
+
+    if eliminate:
+        # solve through elimination
+        # stream.plot()
+        laplace = potential.eliminate([0], [0])    # eliminate the flux variables
+        # laplace.plot()
+        P, r = laplace.solve_minres()
+    else:
+        potential = potential.balance(1e-9)
+        normal = potential.normal()
+        # normal.plot()
+        P, r = normal.solve_minres()
+    return S[-1] * P.block[-1]

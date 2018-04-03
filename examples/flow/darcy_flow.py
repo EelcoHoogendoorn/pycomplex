@@ -155,7 +155,7 @@ if __name__ == '__main__':
     # system.plot()
 
     if True:
-        # solve by elimination; seems to be working
+        # solve by elimination; seems to be working. even including mu terms we get a symmetric result
         system_up = system.eliminate([0], [0])
         solution, residual = system_up.solve_minres()
         pressure = solution.merge()

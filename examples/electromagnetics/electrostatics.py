@@ -40,5 +40,25 @@ for E to zero here; will violate closedness of form without explicit
 modelling of surface current though, I think
 lines of electric field always at right angles to the surface
 
+can use the following system:
+
+with V primal-0
+[0, δ, 0] [V]   [0]     curl(E)=0
+[d, I, 0] [E] = [0]     grad(V)=E
+[0, d, I] [r]   [r0]    div(E)=r
+
+or with V dual-0
+[0, δ, 0] [r]   [0]
+[0, I, δ] [E] = [0]
+[I, d, 0] [V]   [r0]
+
+note that top and right row/col accomplish the same. if i had to choose would rather
+keep V in this scenario as it can be useful in bcs; rotation of E is never relevant though
+note the absence of the curl of rho term; makes sense physically, but curious mathematically
+
+additional constraints are E zero inside the conductor,
+and rho zero outside the conductor
+rho and V are both forms of the same kind, so we cannot slice the system from the canonical one;
+need to concat the rho-related section
 
 """

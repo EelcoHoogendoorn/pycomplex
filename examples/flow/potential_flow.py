@@ -169,6 +169,15 @@ def setup_potential_flow(complex, regions):
     -----
     The mathematical structure of this system is wholly identical to magnetostatics/electrostatics.
     The only differences arise insofar different boundary conditions are used
+
+    note that we could also opt to solve this instead, and get potential and stream straight away
+
+    [0, δ, 0] [phi]    [0]
+    [d, I, δ] [flux] = [0]
+    [0, d, 0] [P]      [0]
+
+    does this influence bc handling? mostly just nice for visualization
+    speed decreases by more than a factor ten
     """
     assert complex.topology.n_dim >= 2  # makes no sense in lower-dimensional space
     # unknown is a dual 1-form; two equations to close from from both sides
@@ -214,6 +223,12 @@ if __name__ == '__main__':
     print('solution time:', clock() - t)
 
     flux = solution.merge()
+
+    from examples.flow.stream import setup_potential, solve_potential
+    P = solve_potential(setup_potential(mesh), flux)
+    mesh.plot_primal_2_form(P - P.min(), cmap=None)
+    import matplotlib.pyplot as plt
+    plt.show()
 
     from examples.flow.stream import setup_stream, solve_stream
     phi = solve_stream(setup_stream(mesh), flux)

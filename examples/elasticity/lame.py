@@ -168,7 +168,8 @@ also, integration coarse correction in a more nuanced way than just subtracting;
 treating it as a direction on the fine grid and rescaling it there for optimum effect should help;
 maybe it would even be enough to solve the topology change problem? doubtfull of that
 """
-from pycomplex.topology import sign_dtype
+import matplotlib.pyplot as plt
+
 from examples.linear_system import *
 
 
@@ -178,13 +179,13 @@ def grid(shape=(32, 32)):
     return mesh.as_22().as_regular()
 
 
-def concave():
+def concave(levels=3):
     # take a 2x2 grid
     mesh = grid(shape=(2, 2))
     # discard a corner
     mesh = mesh.select_subset([1, 1, 1, 0])
 
-    for i in range(2):  # subdiv 5 is already pushing our solvers...
+    for i in range(levels):  # subdiv 5 is already pushing our solvers...
         mesh = mesh.subdivide_cubical()
         # left = mesh.topology.transfer_matrices[1] * left
         # right = mesh.topology.transfer_matrices[1] * right
@@ -217,36 +218,51 @@ def get_regions(mesh):
     )
 
 
-mesh = concave()
-regions = get_regions(mesh)
-# mesh.plot()
-
-
 def lame_system(complex, regions):
+    """Lame system setup"""
     assert complex.topology.n_dim >= 2  # makes no sense in lower-dimensional space
     system = System.canonical(complex)[-3:, -3:]
-    equations = dict(rotation=0, momentum=1, divergence=2)
+    equations = dict(rotation=0, momentum=1, bulk=2)
     variables = dict(rotation=0, displacement=1, pressure=2)
-    # desciption = dict(
-    #     equations=[('vorticity', -3)]
-    # )
-    system.A.block[1, 1] *= 0   # no direct force relation with flux
 
-    # TODO: set up some physically interesting scenario
-    # FIXME: index by var instead of eq?
+    # FIXME: encapsulate this direct access with some modifier methods
+    system.A.block[equations['momentum'], variables['displacement']] *= 0   # no direct force relation with flux
+
     # prescribe tangent flux on entire boundary
-    system.set_dia_boundary(equations['momentum'], regions['all_0'])
+    system.set_dia_boundary(equations['momentum'], variables['displacement'], regions['all_0'])
     # set normal flux to zero
-    system.set_off_boundary(equations['divergence'], regions['closed_1'])
+    system.set_off_boundary(equations['bulk'], variables['displacement'], regions['closed_1'])
     # prescribe pressure on inlet and outlet
     inlet, outlet = regions['left_1'], regions['right_1']
-    system.set_dia_boundary(equations['divergence'], inlet + outlet)
-    system.set_rhs_boundary(equations['divergence'], outlet.astype(np.float) - inlet.astype(np.float))
+    system.set_dia_boundary(equations['bulk'], variables['pressure'], inlet + outlet)
+    system.set_rhs_boundary(equations['bulk'], outlet.astype(np.float) - inlet.astype(np.float))
 
-    system.plot()
+    return system
 
-    print()
-    print()
 
-lame_system(mesh, regions)
-quit()
+if __name__ == '__main__':
+    mesh = concave()
+    regions = get_regions(mesh)
+    # mesh.plot()
+    system = lame_system(mesh, regions)
+
+    system = system.balance(1e-9)
+    # system.plot()
+    # FIXME: not working yet; should be possible; need to symmetrize first?
+    # system_up = system.eliminate([0, 2], [0, 2])
+    # system_up.plot()
+
+    normal = system.normal()
+    # normal.plot()
+    solution, residual = normal.solve_minres()
+    flux = solution[-2].merge()
+
+    # visualize
+    S = mesh.topology.dual.selector
+    mesh.plot_dual_flux(S[1] * flux * 4e-1, plot_lines=True)
+    ax = plt.gca()
+
+    # ax.set_xlim(*mesh.box[:, 0])
+    # ax.set_ylim(*mesh.box[:, 1])
+    plt.axis('off')
+    plt.show()
