@@ -104,6 +104,11 @@ this approach to bcs leaves the domain bcs quite inconsequential;
 mixed ones probably good for diagonal dominance
 better yet; just zero the dual vars; make MG easier too
 
+rethinking this; on boundary where shear is zero corresponding row in A[1,0] curl term can be zeroed out
+can be expressed as a multiplication from the left with a diag mask
+not clear what this would do for algebraic structure; maybe no issue at all under normal equations?
+would be a big win for first-order approach
+initial experiment is disappointing
 
 
 Would like to use geometric multigrid here;
@@ -173,7 +178,7 @@ import matplotlib.pyplot as plt
 from examples.linear_system import *
 
 
-def grid(shape=(32, 32)):
+def grid(shape):
     from pycomplex import synthetic
     mesh = synthetic.n_cube_grid(shape)
     return mesh.as_22().as_regular()
@@ -199,19 +204,27 @@ def get_regions(mesh):
     -------
     dict[chain]
     """
+    PP = mesh.primal_position
+    BPP = mesh.boundary.primal_position
+
     # identify sides of the domain
-    BP1 = mesh.boundary.primal_position[1]
-    left_1  = (BP1[:, 0] == BP1[:, 0].min()).astype(sign_dtype)
-    right_1 = (BP1[:, 0] == BP1[:, 0].max()).astype(sign_dtype)
+    # BP1 = mesh.boundary.primal_position[1]
+    left_1  = (BPP[1][:, 0] == BPP[1][:, 0].min()).astype(sign_dtype)
+    right_1 = (BPP[1][:, 0] == BPP[1][:, 0].max()).astype(sign_dtype)
     # construct closed part of the boundary
     all_1 = mesh.boundary.topology.chain(1, fill=1)
     all_0 = mesh.boundary.topology.chain(0, fill=1)
     closed_1 = all_1 - left_1 - right_1
 
+    bottom_1 = (BPP[1][:, 1] == BPP[1][:, 1].min()).astype(sign_dtype)
+    bottom_0 = (BPP[0][:, 1] == BPP[0][:, 1].min()).astype(sign_dtype)
+
     # FIXME: 0-1 nomenclature is ndim-specific
     return dict(
         left_1=left_1,
         right_1=right_1,
+        bottom_0=bottom_0,
+        bottom_1=bottom_1,
         closed_1=closed_1,
         all_1=all_1,
         all_0=all_0
@@ -219,7 +232,7 @@ def get_regions(mesh):
 
 
 def lame_system(complex, regions):
-    """Lame system setup"""
+    """Lame elasticity system setup"""
     assert complex.topology.n_dim >= 2  # makes no sense in lower-dimensional space
     system = System.canonical(complex)[-3:, -3:]
     equations = dict(rotation=0, momentum=1, bulk=2)
@@ -245,17 +258,23 @@ if __name__ == '__main__':
     regions = get_regions(mesh)
     # mesh.plot()
     system = lame_system(mesh, regions)
-
     system = system.balance(1e-9)
     # system.plot()
-    # FIXME: not working yet; should be possible; need to symmetrize first?
-    # system_up = system.eliminate([0, 2], [0, 2])
-    # system_up.plot()
 
-    normal = system.normal()
-    # normal.plot()
-    solution, residual = normal.solve_minres()
-    flux = solution[-2].merge()
+    if False:
+        # FIXME: not working yet; should be possible; need to symmetrize first?
+        # for the given system, pressure does not have full bcs; means we cannot eliminate
+        # so what do we do for elimination in absence of diagonal?
+
+        system_up = system.eliminate([0, 2], [0, 2])
+        solution, residual = system_up.solve_minres()
+        flux = solution.merge()
+        # system_up.plot()
+    else:
+        normal = system.normal()
+        # normal.plot()
+        solution, residual = normal.solve_minres()
+        flux = solution[-2].merge()
 
     # visualize
     S = mesh.topology.dual.selector

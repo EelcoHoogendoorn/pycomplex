@@ -132,15 +132,20 @@ if __name__ == '__main__':
 
     system = system.balance(1e-9)
     # system.plot()
-    # without vorticity constraint, we have an asymmetry in the [1,0] block
-    # is this a problem for elimination?
-    # FIXME: not working yet; should be possible
-    system_up = system.eliminate([0], [0])
-    # system_up.plot()
-    normal = system.normal()
-    # normal.plot()
-    solution, residual = normal.solve_minres()
-    flux = solution[-2].merge()
+
+    if True:
+        # without vorticity constraint, we have an asymmetry in the [1,0] block
+        # is this a problem for elimination?
+        # FIXME: not working yet; should be possible
+        system_up = system.eliminate([0], [0])
+        # system_up.plot()
+        solution, residual = system_up.solve_minres()
+        flux = solution[-2].merge()
+    else:
+        normal = system.normal()
+        # normal.plot()
+        solution, residual = normal.solve_minres()
+        flux = solution[-2].merge()
 
     # visualize
     from examples.flow.stream import setup_stream, solve_stream

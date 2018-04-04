@@ -323,11 +323,19 @@ class System(object):
         or for stokes:
         [I, δ, 0] [r] = [0]
         [d, 0, δ] [f] = [0]
-        [0, d, I] [p] = [0]
+        [0, d, 0] [p] = [0]
 
         [r] = [δ, 0]
         [f] = [I, 0] [f]
         [p] = [0, I]
+
+        seek to handle arbitrary laplace-type equations this way
+        but what about incomplete diagonals then?
+        like for instance a normal-flux constraint
+        can rewrite those dual pressure vars as terms of laplace of flux... this is the goal in the end; to rewrite as flux
+        alternatively, view like this: either we have a nonzero diag, in which case row can be eliminated,
+        or we have a simple off-diag constraint; can also be used to eliminate?
+        current laplace implementation simply assumed diag constrained to zero everywhere
 
         """
         # FIXME: check that each eq to be eliminated has full diag, and no dependence on other elim vars
