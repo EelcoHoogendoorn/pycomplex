@@ -43,6 +43,39 @@ class System(object):
 
     altenative to block datastructure is to let a class like this encapsulate all offsetting logic,
     the way selection matrices are now used to manage substructure of first order operators
+
+
+    full cochain complex in 3d; var idx refer to primal index
+
+    [I , 01, 0 , 0 ]
+    [01, I , 12, 0 ]
+    [0 , 12, I,  23]
+    [0 , 0 , 23, I ]
+
+    δpp block is denoted b; boundary topology
+    δpd block is an identity term
+    dip block is always zero; interior verts do not connect to boundary edges; and so on
+    dpi block is never zero; interior edges do connect to boundary verts; and so on
+
+    [[I, 0], [δ, 0, 0], [0, 0, 0], [0, 0]] [0i]   [0i]
+    [[0, I], [δ, b, I], [0, 0, 0], [0, 0]] [0p]   [0p]
+
+    [[d, d], [I, 0, 0], [δ, 0, 0], [0, 0]] [1i]   [1i]
+    [[0, b], [0, I, 0], [δ, b, I], [0, 0]] [1p]   [1p]
+    [[0, _], [0, 0, _], [0, 0, 0], [0, 0]] [1d]   [_]
+
+    [[0, 0], [d, d, 0], [I, 0, 0], [δ, 0]] [2i]   [2i]
+    [[0, 0], [0, b, 0], [0, I, 0], [I, I]] [2p] = [2p]
+    [[0, 0], [0, _, 0], [0, 0, _], [0, 0]] [2d]   [_]
+
+    [[0, 0], [0, 0, 0], [d, I, 0], [I, 0]] [3i]   [3i]
+    [[0, 0], [0, 0, 0], [0, _, 0], [0, _]] [3d]   [_]
+
+    can we think of a third order system that actually models something interesting?
+    would it have interesting dynamics that may not relate to any model of physics?
+    or is this mathematically precluded since chaining exterior derivatives trivialize?
+    not a clue, but would be fun to play with.
+
     """
     def __init__(self, complex, A, B=None, L=None, R=None, rhs=None):
         """
@@ -293,6 +326,7 @@ class System(object):
         cols : List[int]
             cols to be eliminated
             is it ever different from rows?
+            yes it is! current implementation only considers diag elimination but there are other types
 
         Returns
         -------
@@ -336,6 +370,57 @@ class System(object):
         alternatively, view like this: either we have a nonzero diag, in which case row can be eliminated,
         or we have a simple off-diag constraint; can also be used to eliminate?
         current laplace implementation simply assumed diag constrained to zero everywhere
+        if normal flux is prescribed, we can zero out the corresponding column and move it to rhs
+
+        do we have a general theory of elimination? each to eliminate a group of vars,
+        if we have a set of equations that are easily inverted wrt the appearance of that group of vars
+        like an I block, it should be possible.
+        note that eliminating P via rewrie of middle eq also requires elimination of normal flux col
+        this should be easy tho
+        altogether still quite involved tho
+        can work in two passes; retain pd in first pass
+
+        [r]  = [δ, 0]
+        [f]  = [I, 0] [f]
+        [pi] = [d, 0] [pd]
+        [pd] = [0, I]
+
+        then we retain a sys of the form:
+
+        [L, L  , 0  ] [f]
+        [L, Lpp, Ipd] [f]
+        [0, Idp, 0  ] [pd]
+
+        so
+        [f]    [I]
+        [f]  = [I] [f]
+        [pd]   [L]
+
+        this transform from the right will trivialize the middle eq and drop the third column
+        after this we only need to reorg eqs to be done;
+        just hoist the Idp term into trivialized middle eq, and we are done!
+
+        not any easier to implement tho; can we do this as a single transform?
+        can implement a selector for those dual P with zero diag; expression is then something like:
+
+        pd = S I.I δ I.I d f, where the left I.I derives from the Ipd term
+
+        can also perform left-elimination first
+        [[L, L, 0], [δ, 0]] [vi]   [fi]
+        [[L, L, 0], [I, I]] [vp] = [fp]
+        [[0, 0, _], [0, 0]] [vd]   [_]
+
+        [[d, I, 0], [I, 0]] [Pi]   [si] source/sink
+        [[0, _, 0], [0, _]] [Pd]   [_]
+
+        can have two selectors; P with and without diagonal term
+        can we process both at the same time? kinda hard since they are coupled in I<->I term
+        note that Pi can be eliminated just as easy as Pd if all Pd is known;
+        can eliminate Pd first, after which Pi I term can be inverted;
+        wait; it isnt really an I term; only touches primal boundary, does not cover interior
+
+        right I term is a 'true' I term though, even though spread over rows. but every dual vertex
+        has a primal edge/face associated with it in 2d/3d respc.
 
         """
         # FIXME: check that each eq to be eliminated has full diag, and no dependence on other elim vars
@@ -343,6 +428,7 @@ class System(object):
         cols_retained = np.delete(np.arange(len(self.R)), cols)
 
         # setup elimination transformation matrix
+        # FIXME: current implementation ignores / assumes zero RHS!
         n_unknowns = len(self.R)
         n_retained = len(cols_retained)
         elim = np.zeros((n_unknowns, n_retained), np.object)

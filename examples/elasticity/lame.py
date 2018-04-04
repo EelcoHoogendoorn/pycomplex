@@ -243,6 +243,8 @@ def lame_system(complex, regions):
 
     # prescribe tangent flux on entire boundary
     system.set_dia_boundary(equations['momentum'], variables['displacement'], regions['all_0'])
+    # prescribe rotation on entire boundary
+    # system.set_off_boundary(equations['momentum'], variables['rotation'], regions['all_0'])
     # set normal flux to zero
     system.set_off_boundary(equations['bulk'], variables['displacement'], regions['closed_1'])
     # prescribe pressure on inlet and outlet
@@ -261,14 +263,16 @@ if __name__ == '__main__':
     system = system.balance(1e-9)
     # system.plot()
 
-    if False:
+    if True:
         # FIXME: not working yet; should be possible; need to symmetrize first?
         # for the given system, pressure does not have full bcs; means we cannot eliminate
         # so what do we do for elimination in absence of diagonal?
+        # even jsut elimination of rotation runs into same problem as stokes;
+        # we start out without symmetry and need gmres to solve
 
-        system_up = system.eliminate([0, 2], [0, 2])
+        system_up = system.eliminate([0], [0])
         solution, residual = system_up.solve_minres()
-        flux = solution.merge()
+        flux = solution[-2].merge()
         # system_up.plot()
     else:
         normal = system.normal()

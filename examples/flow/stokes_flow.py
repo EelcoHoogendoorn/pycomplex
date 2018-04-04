@@ -38,6 +38,21 @@ does not provably give us all possible consistent boundary conditions
 However, rather than making the first order equation symmetrical, we can simply solve the normal equations.
 This is at least conceptually even simpler
 
+in 3d, there is such a thing as vorticity on the dual boundary
+is it strange that it does not seem to matter in any way?
+think this is fine; we can just set that diag to identity and it will not influence anything
+
+[[I, 0, 0], [δ, 0, 0], [0, 0]] [ωi]   [mi]
+[[0, I, 0], [δ, b, I], [0, 0]] [ωp]   [mp]
+[[0, 0, 0], [0, 0, 0], [0, 0]] [ωd]   [mp]
+
+[[d, d, 0], [0, 0, 0], [δ, 0]] [vi]   [fi]
+[[0, b, 0], [0, 0, 0], [I, I]] [vp] = [fp]
+[[0, _, 0], [0, 0, _], [0, 0]] [vd]   [_]
+
+[[0, 0, 0], [d, I, 0], [0, 0]] [Pi]   [si] source/sink
+[[0, 0, 0], [0, _, 0], [0, _]] [Pd]   [_]
+
 
 Note that the equations discussed so far describe incompressible time-invariant stokes flow
 Compressible time-variant stokes flow would use every 'slot' available on the 2d chain complex,
@@ -125,18 +140,19 @@ def stokes_system(complex, regions):
 
 
 if __name__ == '__main__':
-    mesh = concave()
+    mesh = concave(levels=2)
     regions = get_regions(mesh)
     # mesh.plot()
     system = stokes_system(mesh, regions)
 
-    system = system.balance(1e-9)
-    # system.plot()
+    # system = system.balance(1e-9)
+    system.plot()
 
     if True:
-        # without vorticity constraint, we have an asymmetry in the [1,0] block
-        # is this a problem for elimination?
         # FIXME: not working yet; should be possible
+        # without vorticity constraint, we have an asymmetry in the [1,0] block
+        # is this a problem for elimination? yes it is; gmres instead of minres works fine
+        # just need to symmetrize bcs first before elimination
         system_up = system.eliminate([0], [0])
         # system_up.plot()
         solution, residual = system_up.solve_minres()
