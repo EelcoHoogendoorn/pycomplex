@@ -267,7 +267,7 @@ if __name__ == '__main__':
         # FIXME: not working yet; should be possible; need to symmetrize first?
         # for the given system, pressure does not have full bcs; means we cannot eliminate
         # so what do we do for elimination in absence of diagonal?
-        # even jsut elimination of rotation runs into same problem as stokes;
+        # even just elimination of rotation runs into same problem as stokes;
         # we start out without symmetry and need gmres to solve
 
         system_up = system.eliminate([0], [0])

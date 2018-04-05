@@ -124,7 +124,7 @@ class BlockArray(object):
         A, B = np.broadcast_arrays(A, B)
         block = [op(a, b) for a, b in zip(A.flatten(), B.flatten())]
         block = np.asarray(block, np.object).reshape(A.shape)
-        return type(self)(block)
+        return type(other)(block)
 
     def __add__(self, other):
         """Add two block matrices"""
@@ -287,7 +287,7 @@ class SparseBlockMatrix(BlockMatrix):
     def diags(diag):
         """Turn dense block vector into diagonal block structure"""
         assert diag.ndim == 1
-        output_shape = diag.block.shape, * 2
+        output_shape = diag.block.shape * 2
         output = np.zeros(output_shape, dtype=np.object)
         for i, b in enumerate(diag.block):
             output[i, i] = scipy.sparse.diags(b)

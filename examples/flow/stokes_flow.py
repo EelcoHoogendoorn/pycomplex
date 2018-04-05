@@ -118,7 +118,7 @@ def get_regions(mesh):
 def stokes_system(complex, regions):
     """New style stokes system setup"""
     assert complex.topology.n_dim >= 2  # makes no sense in lower-dimensional space
-    system = SystemMid.canonical(complex)[-3:, -3:]
+    system = System.canonical(complex)[-3:, -3:]
     equations = dict(vorticity=0, momentum=1, continuity=2)
     variables = dict(vorticity=0, flux=1, pressure=2)
 
@@ -140,13 +140,14 @@ def stokes_system(complex, regions):
 
 
 if __name__ == '__main__':
-    mesh = concave(levels=4)
+    mesh = concave(levels=2)
     regions = get_regions(mesh)
     # mesh.plot()
     system = stokes_system(mesh, regions)
 
-    system = system.balance(1e-9)
-    # system.plot()
+    system = system.scale_balance(l=0.5**2)
+    # system = system.balance(1e-9)
+    system.plot()
 
     if False:
         # FIXME: not working yet; should be possible
@@ -156,13 +157,13 @@ if __name__ == '__main__':
         # or need to symmetrize in general, if not starting with symmetry
         system_up = system.eliminate([0], [0])
         # system_up.plot()
-        solution, residual = system_up.solve_minres()
+        solution, residual = system_up.solve_gmres()
         flux = solution[-2].merge()
     else:
         normal = system.normal()
         # normal.plot()
         solution, residual = normal.solve_minres()
-        flux = solution[-2].merge() * mesh.dual_metric_closed[1]
+        flux = solution[-2].merge()# * mesh.dual_metric_closed[1]
 
     # visualize
     from examples.flow.stream import setup_stream, solve_stream

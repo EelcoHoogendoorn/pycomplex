@@ -231,6 +231,13 @@ class BaseSystem(object):
         r = A * x - rhs
         return self.allocate_x().split(x), self.rhs.split(r)
 
+    def solve_gmres(self, tol=1e-12, M=None):
+        A = self.A.merge()
+        rhs = self.rhs.merge()
+        x = scipy.sparse.linalg.gmres(A, rhs, tol=tol, M=M)[0]
+        r = A * x - rhs
+        return self.allocate_x().split(x), self.rhs.split(r)
+
 
 class System(BaseSystem):
     """Generalized linear system
@@ -348,6 +355,11 @@ class System(BaseSystem):
         2: +1
         3: +3
 
+        [-3, -3, +0, +0]
+        [-3, -1, -1, +0]
+        [+0, -1, +1, +1]
+        [+0, +0, +1, +3]
+
         Is this an argument in favor of working in 'dimensionless midpoint space' by default?
         worked for eschereque
         if doing so, we should not expect refinement to influence the scaling of our equations at all?
@@ -356,25 +368,36 @@ class System(BaseSystem):
         so every operator scales as 1/l
         may also be more elegant in an mg-transfer scenario?
 
+        note that this problem resolves itself after variable elimination to form laplace
+        otoh, absence of symmetry does not resolve itself in midpoint method, after elimination
+        is there a standard scaling we can apply, that rebalances this type of system without affecting symmetry?
+        left/right multiplication by l^-k factor seems like itd work
+
+        [-3, -4, +0, +0]
+        [-4, -3, -4, +0]
+        [+0, -4, -3, -4]
+        [+0, +0, -4, -3]
 
         """
         # make sure we are not engaging in nonsense here
         complex.topology.check_chain()
         complex.topology.dual.check_chain()
+        complex.topology.boundary.check_chain()
 
-        T = complex.topology.dual.matrices_2[::-1]
+        Tp = complex.topology.matrices
+        Td = complex.topology.dual.matrices_2[::-1]
         N = complex.n_dim + 1
 
         NE = complex.topology.dual.n_elements[::-1]
         A = block.SparseBlockMatrix(
             [[pycomplex.sparse.sparse_zeros((NE[i], NE[j])) for j in range(N)] for i in range(N)])
         S = complex.topology.dual.selector
-        # FIXME: make these available as properties on the System?
+        # FIXME: make these available as properties on the System? need them more often
         PD = [scipy.sparse.diags(pd) for pd in complex.hodge_PD]
         # these terms are almost universally required
-        for i, t in enumerate(T):
-            A.block[i, i + 1] = S[i].T * PD[i] * t.T
-            A.block[i + 1, i] = S[i+1].T * S[i+1] * t * PD[i] * S[i]    # selector zeros out the boundary conditions
+        for i, (tp, td) in enumerate(zip(Tp, Td)):
+            A.block[i, i + 1] = S[i].T * PD[i] * td.T
+            A.block[i + 1, i] = S[i+1].T * tp.T * PD[i] * S[i]
 
         # put hodges on diag by default; easier to zero out than to fill in
         for i in range(N):
@@ -540,8 +563,39 @@ class System(BaseSystem):
             R=self.R[cols_retained],
         )
 
+    def scale_balance(self, l):
+        """Perform scaling A=DAD, where D is a diagonal scaling matrix
+        intended to give each equation comparable weight
+
+        Parameters
+        ----------
+        l : float
+            scale factor; or typical edge length compared to unit scale
+
+        Returns
+        -------
+        System
+            rebalanced system
+            retains symmetry, but variables are now transformed and need to be mapped back before interpretation
+        """
+        scale = l ** -np.arange(self.complex.topology.n_dim + 1)
+        D = block.DenseBlockArray(scale)
+        L = D[self.L]
+        R = D[self.R]
+        return self.copy(
+            A=L[:, None] * R[None, :] * self.A,
+            rhs=L * self.rhs
+        )
+
 
 class SystemMid(BaseSystem):
+
+    """Linear system, where both variables and equations are formulated in the space between primal and dual
+
+    This means the resulting linear system is not entirely symmetrical,
+    even though it comes close to being so and every operator scales as 1 / l
+
+    """
 
     @staticmethod
     def canonical(complex):

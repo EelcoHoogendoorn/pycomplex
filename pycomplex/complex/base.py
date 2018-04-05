@@ -218,10 +218,7 @@ class BaseComplex(object):
         """Dual metric, including dual boundary elements"""
         if self.boundary is None:
             return self.dual_metric
-        Md = self.dual_metric
-        Mb = self.boundary.dual_metric + [[]]
-        Md = [np.concatenate([i, b]) for i, b in zip(Md, Mb)]
-        return Md
+        return [np.concatenate(p) for p in zip(self.dual_metric, self.boundary.dual_metric + [[]])]
 
     @cached_property
     def hodge_PD(self):
@@ -241,7 +238,7 @@ class BaseComplex(object):
 
     @cached_property
     def is_well_centered(self):
-        """Test that all circumcenters are inside each simplex"""
+        """Test that all circumcenters are inside each element"""
         return all([np.all(b > 0) for b in self.primal_barycentric])
 
     @cached_property
