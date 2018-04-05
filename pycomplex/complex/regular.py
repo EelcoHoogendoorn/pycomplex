@@ -292,6 +292,15 @@ class ComplexRegularMixin(object):
         """Compute metrics from fundamental domain contributions
 
         A bit ugly and not super efficient, but it does work in n-d
+
+        Returns
+        -------
+        PM : List[ndarray]
+            primal metric of all n-cubes
+            nth list item is primal n-metric
+        DM : List[ndarray]
+            dual metric of all interior n-cubes (excluding boundary terms)
+            nth list item is dual n-metric
         """
         topology = self.topology
         assert topology.is_oriented
@@ -317,7 +326,7 @@ class ComplexRegularMixin(object):
         groups = [npi.group_by(domains[idx(c)]) for c in corners]   # cache groupings since they may get reused
 
         # do summation of primal terms; feels like there should be a simpler way
-        for i, c in list(enumerate(corners))[1:-1]:
+        for i, c in list(enumerate(corners))[1:-1]:     # loop over corners of the cubical domains
             n = c.sum()
             hypervolume = regular.hypervolume(cubes[idx(corners[0])], cubes[idx(c)], n=n)
             g, sums = groups[i].sum(hypervolume)
@@ -334,7 +343,7 @@ class ComplexRegularMixin(object):
             DM[n][g] += sums / (2 ** c.sum())
 
         # do summation over N-cubes; these are simple
-        V = regular.hypervolume(cubes[idx(corners[0])], cubes[idx(corners[-1])])
+        V = regular.hypervolume(cubes[idx(corners[0])], cubes[idx(corners[-1])], n=self.topology.n_dim)
         PM[-1] = groups[-1].sum(V)[1]
         DM[-1] = groups[+0].sum(V)[1]
 

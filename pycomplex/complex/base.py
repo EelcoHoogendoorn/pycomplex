@@ -213,6 +213,15 @@ class BaseComplex(object):
     @cached_property
     def dual_metric(self):
         return self.metric[1]
+    @cached_property
+    def dual_metric_closed(self):
+        """Dual metric, including dual boundary elements"""
+        if self.boundary is None:
+            return self.dual_metric
+        Md = self.dual_metric
+        Mb = self.boundary.dual_metric + [[]]
+        Md = [np.concatenate([i, b]) for i, b in zip(Md, Mb)]
+        return Md
 
     @cached_property
     def hodge_PD(self):

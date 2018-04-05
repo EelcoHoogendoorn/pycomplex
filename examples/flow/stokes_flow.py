@@ -118,7 +118,7 @@ def get_regions(mesh):
 def stokes_system(complex, regions):
     """New style stokes system setup"""
     assert complex.topology.n_dim >= 2  # makes no sense in lower-dimensional space
-    system = System.canonical(complex)[-3:, -3:]
+    system = SystemMid.canonical(complex)[-3:, -3:]
     equations = dict(vorticity=0, momentum=1, continuity=2)
     variables = dict(vorticity=0, flux=1, pressure=2)
 
@@ -140,19 +140,20 @@ def stokes_system(complex, regions):
 
 
 if __name__ == '__main__':
-    mesh = concave(levels=2)
+    mesh = concave(levels=4)
     regions = get_regions(mesh)
     # mesh.plot()
     system = stokes_system(mesh, regions)
 
-    # system = system.balance(1e-9)
-    system.plot()
+    system = system.balance(1e-9)
+    # system.plot()
 
-    if True:
+    if False:
         # FIXME: not working yet; should be possible
         # without vorticity constraint, we have an asymmetry in the [1,0] block
         # is this a problem for elimination? yes it is; gmres instead of minres works fine
         # just need to symmetrize bcs first before elimination
+        # or need to symmetrize in general, if not starting with symmetry
         system_up = system.eliminate([0], [0])
         # system_up.plot()
         solution, residual = system_up.solve_minres()
@@ -161,10 +162,11 @@ if __name__ == '__main__':
         normal = system.normal()
         # normal.plot()
         solution, residual = normal.solve_minres()
-        flux = solution[-2].merge()
+        flux = solution[-2].merge() * mesh.dual_metric_closed[1]
 
     # visualize
     from examples.flow.stream import setup_stream, solve_stream
     phi = solve_stream(setup_stream(mesh), flux)
     mesh.plot_primal_0_form(phi - phi.min(), cmap='jet', plot_contour=True, levels=29)
     plt.show()
+
