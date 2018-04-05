@@ -563,27 +563,34 @@ class System(BaseSystem):
             R=self.R[cols_retained],
         )
 
-    def scale_balance(self, l):
-        """Perform scaling A=DAD, where D is a diagonal scaling matrix
-        intended to give each equation comparable weight
+    def block_balance(self, l=0, k=0):
+        """Perform block based scaling A=DAD, where D is a diagonal scaling matrix
+        intended to give each block comparable weight
 
         Parameters
         ----------
-        l : float
+        l : float, optional
             scale factor; or typical edge length compared to unit scale
+            if none is given, the average primal edge length is used
+        k : int, optional
+            primal k-form that experiences identity transform
 
         Returns
         -------
         System
             rebalanced system
-            retains symmetry, but variables are now transformed and need to be mapped back before interpretation
+            retains symmetry, but unknowns are transformed
         """
-        scale = l ** -np.arange(self.complex.topology.n_dim + 1)
+        if l == 0:
+            l = self.complex.primal_metric[1].mean()
+        k = self.complex.topology.n_dim + 1 + k if k < 0 else k
+        scale = l ** -(np.arange(self.complex.topology.n_dim + 1) - k)
+
         D = block.DenseBlockArray(scale)
         L = D[self.L]
         R = D[self.R]
         return self.copy(
-            A=L[:, None] * R[None, :] * self.A,
+            A=block.SparseBlockMatrix((L[:, None] * R[None, :] * self.A).block),
             rhs=L * self.rhs
         )
 

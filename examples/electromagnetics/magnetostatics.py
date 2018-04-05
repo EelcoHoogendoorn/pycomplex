@@ -156,6 +156,7 @@ if __name__ == '__main__':
 
     system = setup_magnetostatics(mesh, regions)
 
+    system = system.block_balance(k=-2) # should not add much compared to row based balance here
     system = system.balance(1e-9)
     normal = system.normal()
     solution, res = normal.solve_minres()

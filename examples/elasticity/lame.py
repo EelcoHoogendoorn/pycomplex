@@ -260,10 +260,11 @@ if __name__ == '__main__':
     regions = get_regions(mesh)
     # mesh.plot()
     system = lame_system(mesh, regions)
+    system = system.block_balance(k=-2)
     system = system.balance(1e-9)
     # system.plot()
 
-    if True:
+    if False:
         # FIXME: not working yet; should be possible; need to symmetrize first?
         # for the given system, pressure does not have full bcs; means we cannot eliminate
         # so what do we do for elimination in absence of diagonal?

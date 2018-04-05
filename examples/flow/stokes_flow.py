@@ -97,19 +97,29 @@ def get_regions(mesh):
     dict[chain]
     """
     # identify sides of the domain
-    BP1 = mesh.boundary.primal_position[1]
-    left_1  = (BP1[:, 0] == BP1[:, 0].min()).astype(sign_dtype)
-    right_1 = (BP1[:, 0] == BP1[:, 0].max()).astype(sign_dtype)
+    BPP = mesh.boundary.primal_position
+    left_1  = (BPP[1][:, 0] == BPP[1][:, 0].min()).astype(sign_dtype)
+    right_1 = (BPP[1][:, 0] == BPP[1][:, 0].max()).astype(sign_dtype)
+    # left_0  = (BPP[0][:, 0] == BPP[0][:, 0].min()).astype(sign_dtype)
+    # right_0 = (BPP[0][:, 0] == BPP[0][:, 0].max()).astype(sign_dtype)
     # construct closed part of the boundary
     all_1 = mesh.boundary.topology.chain(1, fill=1)
     all_0 = mesh.boundary.topology.chain(0, fill=1)
     closed_1 = all_1 - left_1 - right_1
 
+    A = mesh.boundary.topology.averaging_operators_N
+    closed_0 = A[0] * closed_1
+    left_0 = A[0] * left_1
+    right_0 = A[0] * right_1
+
     # FIXME: 0-1 nomenclature is ndim-specific
     return dict(
+        left_0=left_0,
+        right_0=right_0,
         left_1=left_1,
         right_1=right_1,
         closed_1=closed_1,
+        closed_0=closed_0,
         all_1=all_1,
         all_0=all_0
     )
@@ -127,8 +137,14 @@ def stokes_system(complex, regions):
     system.A.block[equations['continuity'], variables['pressure']] *= 0   # no compressibility
 
     # NOTE: setup pipe flow with step diameter change
-    # prescribe tangent flux on entire boundary
-    system.set_dia_boundary(equations['momentum'], variables['flux'], regions['all_0'])
+    if False:
+        # FIXME: vorticity bcs not working yet; what gives?
+        # set vorticity to zero in inlet and outlet
+        system.set_dia_boundary(equations['momentum'], variables['flux'], regions['closed_0'])
+        system.set_off_boundary(equations['momentum'], variables['vorticity'], regions['left_0'] + regions['right_0'])
+    else:
+        # prescribe tangent flux on entire boundary
+        system.set_dia_boundary(equations['momentum'], variables['flux'], regions['all_0'])
     # set normal flux to zero
     system.set_off_boundary(equations['continuity'], variables['flux'], regions['closed_1'])
     # prescribe pressure on inlet and outlet
@@ -136,18 +152,22 @@ def stokes_system(complex, regions):
     system.set_dia_boundary(equations['continuity'], variables['pressure'], inlet + outlet)
     system.set_rhs_boundary(equations['continuity'], outlet.astype(np.float) - inlet.astype(np.float))
 
+
     return system
 
 
 if __name__ == '__main__':
-    mesh = concave(levels=2)
+    levels = 5
+    mesh = concave(levels=levels)
     regions = get_regions(mesh)
     # mesh.plot()
     system = stokes_system(mesh, regions)
 
-    system = system.scale_balance(l=0.5**2)
+    # balance all operator blocks; leave flux untouched
+    system = system.block_balance(k=-2)
+    # this will balance out bcs; will destroy symmetry though
     # system = system.balance(1e-9)
-    system.plot()
+    # system.plot()
 
     if False:
         # FIXME: not working yet; should be possible

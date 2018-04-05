@@ -124,7 +124,7 @@ class BlockArray(object):
         A, B = np.broadcast_arrays(A, B)
         block = [op(a, b) for a, b in zip(A.flatten(), B.flatten())]
         block = np.asarray(block, np.object).reshape(A.shape)
-        return type(other)(block)
+        return type(self)(block)
 
     def __add__(self, other):
         """Add two block matrices"""
