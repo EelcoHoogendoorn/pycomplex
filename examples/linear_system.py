@@ -317,7 +317,7 @@ class System(object):
         return block.DenseBlockArray(b)
 
     def eliminate(self, rows, cols):
-        """Eliminate the rows specified
+        """Symbolically eliminate the rows specified
 
         Parameters
         ----------
@@ -327,6 +327,7 @@ class System(object):
             cols to be eliminated
             is it ever different from rows?
             yes it is! current implementation only considers diag elimination but there are other types
+            but maybe that should be a seperate method
 
         Returns
         -------
