@@ -56,6 +56,11 @@ class System(object):
     δpd block is an identity term
     dip block is always zero; interior verts do not connect to boundary edges; and so on
     dpi block is never zero; interior edges do connect to boundary verts; and so on
+    note that ddd block is always initialized at zero now; perhaps we should include it in setup,
+    and have a seperate function to zero out dual equations and columns to set custom bcs?
+    perhaps the full structure would be usefull in deriving mg smoother;
+    not obvious what the bcs for that ought to be;
+    although 'anything not involving the central form directly' may be a good bet?
 
     [[I, 0], [δ, 0, 0], [0, 0, 0], [0, 0]] [0i]   [0i]
     [[0, I], [δ, b, I], [0, 0, 0], [0, 0]] [0p]   [0p]
@@ -128,6 +133,8 @@ class System(object):
             system of full cochain complex
             default boundaries are blank
             maps from dual to primal
+            as a result the first order system is symmetric
+            and we avoid needing to have a dual boundary metric
 
         Examples
         --------
@@ -137,6 +144,30 @@ class System(object):
         [ d*, *  , *δ , 0  ]
         [ 0 , d* , *  , *δ ]
         [ 0 , 0  , d* , *  ]
+
+        note that the inclusion of hodges can make rows/cols kinda unbalanced
+        primal hodges scales as l^k
+        and corresponding dual as l^(n-k)
+        with l a characteristic edge length
+        so f.i. hodge mapping from dual to primal on 2d complex scales as
+        0: -2
+        1: 0
+        2: +2
+
+        on 3d:
+        0: -3
+        1: -1
+        2: +1
+        3: +3
+
+        Is this an argument in favor of working in 'dimensionless midpoint space' by default?
+        worked for eschereque
+        if doing so, we should not expect refinement to influence the scaling of our equations at all?
+        every extterior derivative would be wrapped left and right by metric.
+        multiply with k-metric, exterior derivative, and then divide by k+1 metric;
+        so every operator scales as 1/l
+        may also be more elegant in an mg-transfer scenario?
+
 
         """
         # make sure we are not engaging in nonsense here
@@ -160,6 +191,66 @@ class System(object):
         # put hodges on diag by default; easier to zero out than to fill in
         for i in range(N):
             A.block[i, i] = S[i].T * PD[i] * S[i]
+
+        LR = np.arange(N, dtype=index_dtype)
+        return System(complex, A=A, B=None, L=LR, R=LR)
+
+    @staticmethod
+    def canonical_midpoint(complex):
+        """Set up the full cochain complex, in midpoint-space
+
+        Parameters
+        ----------
+        complex : BaseComplex
+
+        Returns
+        -------
+        System
+            system of full cochain complex
+            default boundaries are blank
+            maps from midpoint to midpoint
+            as a consequence, equations are naturally balanced
+            however, the first order system will not be symmetrical;
+            needs to be solved by elimination or normal equations
+
+            and we need a dual boundary metric, unlike the dual-to-primal formulation
+
+        Examples
+        --------
+        for a 3d complex, the full structure is thus, and scales according to this pattern with dimension
+
+        [ I , δ , 0 , 0 ]
+        [ d,  I , δ , 0 ]
+        [ 0 , d , I , δ ]
+        [ 0 , 0 , d , I ]
+        """
+        # FIXME: should this be a seperate or subclass? probably many  methods in the curret system calss are tied to assumptions in the canonical method
+        # make sure we are not engaging in nonsense here
+        complex.topology.check_chain()
+        complex.topology.dual.check_chain()
+
+        # these are matrices with dual boundary term dropped; use full and leave this as seperate steo?
+        T = complex.topology.dual.matrices_2[::-1]
+        N = complex.n_dim + 1
+
+        NE = complex.topology.dual.n_elements[::-1]
+        A = block.SparseBlockMatrix(
+            [[pycomplex.sparse.sparse_zeros((NE[i], NE[j])) for j in range(N)] for i in range(N)])
+        S = complex.topology.dual.selector
+        # FIXME: make these available as properties on the System?
+        Mp, Md = complex.metric
+        Md = Md[::-1]
+        # FIXME: boundary metric needs to be available to complete dual metric operator
+        # FIXME: current dual boundary metric for regular complex seems broken; zeros on edges?
+        Mb = complex.boundary.metric
+        D = scipy.sparse.diags
+        for i, t in enumerate(T):
+            A.block[i, i + 1] = S[i].T * (D(1/Md[i]) * t.T * D(Md[i+1])) * S[i+1]
+            A.block[i + 1, i] = S[i+1].T * S[i+1] * (D(1/Mp[i+1]) * t * D(Mp[i])) * S[i]    # selector zeros out the boundary conditions
+
+        # put identity on diag by default; easier to zero out than to fill in
+        for i in range(N):
+            A.block[i, i] = S[i].T * scipy.sparse.eye(NE[i]) * S[i]
 
         LR = np.arange(N, dtype=index_dtype)
         return System(complex, A=A, B=None, L=LR, R=LR)
@@ -422,6 +513,10 @@ class System(object):
 
         right I term is a 'true' I term though, even though spread over rows. but every dual vertex
         has a primal edge/face associated with it in 2d/3d respc.
+
+        remember: goal is to set up generalized laplacian, with arbitrary bcs and arbitrary degree
+        still unclear what the correct laplacian and bcs are to derive a multigrid smoother including boundary terms
+        note that we dont have the eliminate equations to perform smoothing on our laplacian
 
         """
         # FIXME: check that each eq to be eliminated has full diag, and no dependence on other elim vars
