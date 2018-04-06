@@ -19,14 +19,15 @@ def setup_mesh(levels=3):
 
 mesh, hierarchy = setup_mesh()
 # 1-form laplacian with default boundary conditions
-laplace = System.laplace(mesh, 1)
-# this works alright for laplace with default boundaries. elimination only preserves symmetry though, and does not produce it
+laplace = System.laplace(mesh, k=1, dirichlet_dual=True, dirichlet_primal=True)
+# this works alright for laplace with default boundaries.
+# elimination only preserves symmetry though, and does not produce it
+# elimination still fails for dirichlet_primal=True
 laplace = laplace.eliminate([0, 2], [0, 2])
 # test symmetry of the eqs
-A = laplace.A.merge()
-Q = A - A.T
-assert Q.nnz == 0
+assert laplace.is_symmetric
 
+# laplace = laplace.balance()
 # there is something appealing about normal equations, but laplacian form fits neater into eigen framework
 # can we create a linear operator that represents the action of the eliminated laplacian?
 # laplacian maps displacements to forces

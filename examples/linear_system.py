@@ -251,24 +251,22 @@ class System(BaseSystem):
     does it handle naming of things?
     should we make specific physics a subclass hereof?
     generally initialized with slice of cochain complex
-    would like to know what dimension each form is; maybe that should be input?
+
     note that 4-th order potentials, or multiple loops around the cochain complex,
     cannot be sliced directly as such; may need alternative constructors. thats ok
-
-    can we efficiently construct laplace-beltrami this way, through elimination
-    of noncentral equation(s)?
 
     is the B matrix really required in this scope?
     seems to only come into play for eigensolver, really
     note that once we start talking about eliminating variables,
-    this class is no longer the right abstraction;
+    this class is no longer the right abstraction per se
     this class is very much about the direct connection to the cochain complex
-
-    default setup is that system matrix takes dual from rhs and primal from lhs
+    making a seperate class to manage laplace or higher order system makes sense
+    that said eliminated stokes is sort of an inbetween
 
     make this class encapsulate boundary condition manipulation
     relies on mutability atm; can we make immutable design?
     also should have interface for material parameter variations / metric-warps
+    need to experiment some to find an elegant and general design for that
 
     can use nested block structure; but start with plain block structure.
     just use this class to abstract away the accessing of the logically different subblocks
@@ -280,7 +278,7 @@ class System(BaseSystem):
 
     altenative to block datastructure is to let a class like this encapsulate all offsetting logic,
     the way selection matrices are now used to manage substructure of first order operators
-
+    block structure works fine though; also helps keep mutating operators more local and efficient
 
     full cochain complex in 3d; var idx refer to primal index
 
@@ -582,7 +580,7 @@ class System(BaseSystem):
 
     def block_balance(self, l=0, k=0):
         """Perform block based scaling A=DAD, where D is a diagonal scaling matrix
-        intended to give each block comparable weight
+        intended to give each block comparable weight, to counterbalance the scaling implied by default hodges
 
         Parameters
         ----------
@@ -612,20 +610,35 @@ class System(BaseSystem):
         )
 
     @staticmethod
-    def laplace(complex, k):
-        """Form laplace-beltrami operator
+    def laplace(complex, k, dirichlet_dual=False, dirichlet_primal=False):
+        """Form laplace-beltrami operator of degree k
 
+        complex : Complex
         k : int
             primal k-form that defines the laplacian
+        dirichlet_dual : bool, optional
+            if True, dual-boundary elements of k-form are constrained
+            if False, complementary k-1 form is
+        dirichlet_primal : bool, optional
+            if True, primal-boundary elements of k-form are constrained
+            if False, complementary k+1 form is
 
         Returns
         -------
         System
             Laplacian as a first order system
+
+        Notes
+        -----
+        The default boundary conditions leave the central k-form untouched;
+        they are of a generalized-Neumann type
+        These defaults should result in simple elimination
+        and are likely a good default to derive a geometric multigrid smoother
+
         """
         self = System.canonical(complex, symmetry=True)
         laplace = self[k-1:k+2, k-1:k+2]
-        # FIXME: this fails for scalar laplacian already
+        # FIXME: this fails for scalar laplacians; need to make both left and right loop potentially optional
         c = list(laplace.L).index(self.L[k])
         l = c - 1   # check if these are in range; might deactivate left or right side
         r = c + 1
@@ -633,30 +646,31 @@ class System(BaseSystem):
         # block-balance, leaving the central k-form unaffected
         laplace = laplace.block_balance(k=k)
 
-        # FIXME: flexible way to configure bcs? set up so it works for scalar laplace too
-        # default boundaries should be those that leave the central k-form untouched;
-        # off-diagonal on the central equation, and diagonal on the bottom equation
-        # these default boundaries should result in simple elimination
-
-        # for terms to be symmetric, they would have to be scaled with dual boundary metric
-        # is this an argument in favor of setting up canonical complex with bc terms filled in?
-        # or does this affect convenience of filling in the conditions?
-        # wait in primal-dual symmetric formulation we do not scale the dual boundary vars
-        z = self.complex.topology.dual.selector_b[laplace.L[r]].nnz    # FIXME: there should be a cleaner way to compute this
-        laplace.set_dia_boundary(r, r, np.ones(z))
-
-        z = self.complex.topology.dual.selector_b[laplace.L[c]].nnz
-        # laplace.set_off_boundary(c, l, np.ones(z))
-        # laplace.set_dia_boundary(c, c, np.zeros(z))
-        # laplace.set_dia_boundary(c, c, np.ones(z))
-
         # central term is always zero
         laplace.A.block[c, c] *= 0
-        # zero out off-diag boundary equations
-        S = self.complex.topology.dual.selector[laplace.L[2]]
-        laplace.A.block[r, c] = S.T * S * laplace.A.block[r, c]
-        # laplace.A.block[c, r] = laplace.A.block[r, c].T
+
+        # FIXME: set up so it works for scalar laplace too
+        if dirichlet_dual:
+            laplace.set_dia_boundary(c, c, np.ones(self.n_boundary_elements(laplace.L[c])))
+            # zero out od-term
+            S = self.complex.topology.dual.selector[laplace.L[1]]
+            laplace.A.block[c, l] = S.T * S * laplace.A.block[c, l] # zero out boundary equations
+            laplace.A.block[l, c] = laplace.A.block[c, l].T # interesting how we need this for symmetry in the dirichlet_dual case
+        else:
+            pass
+
+        if dirichlet_primal:
+            pass
+        else:
+            laplace.set_dia_boundary(r, r, np.ones(self.n_boundary_elements(laplace.L[r])))
+            # zero out od-term
+            S = self.complex.topology.dual.selector[laplace.L[2]]
+            laplace.A.block[r, c] = S.T * S * laplace.A.block[r, c]
         return laplace
+
+    def n_boundary_elements(self, k):
+        """Number of boundary elements belonging to primal form of degree k"""
+        return [self.complex.topology.dual.selector_b[k].nnz]
 
     def symmetrize(self):
         """Adjust boundary terms such as to achieve a symmetric system"""
@@ -666,8 +680,10 @@ class System(BaseSystem):
         # to restore explicit symmetry; although this tends to be unnecessary when doing subsequent elimination
 
         sym = self.copy()
+        raise NotImplementedError
         assert sym.is_symmetric
         return sym
+
 
 class SystemMid(BaseSystem):
 

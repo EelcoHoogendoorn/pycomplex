@@ -46,7 +46,7 @@ class ClosedDual(BaseTopology):
 
     @cached_property
     def selector_b(self):
-        """Mapping to boundary of closed always gives vanishing vector"""
+        """Mapping to boundary of closed always gives vanishing chain"""
         def s(np):
             return pycomplex.sparse.sparse_zeros((0, np))
         return [s(np) for np in self.primal.n_elements]
