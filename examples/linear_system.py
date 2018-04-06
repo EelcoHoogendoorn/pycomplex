@@ -105,8 +105,8 @@ class BaseSystem(object):
         """
         assert self.L[i] == self.R[j]   # this implies diagonal of the cochain complex
 
-        S = self.complex.topology.dual.selector_b[self.L[i]]
-        self.A.block[i, j] = self.A.block[i, j] + scipy.sparse.diags(S.T * d)
+        Sb = self.complex.topology.dual.selector_b[self.L[i]]
+        self.A.block[i, j] = self.A.block[i, j] + scipy.sparse.diags(Sb.T * d)
 
     def set_off_boundary(self, i, j, o):
         """Set a boundary on a 'off-diagonal' term of the cochain complex
@@ -582,7 +582,7 @@ class System(BaseSystem):
             retains symmetry, but unknowns are transformed
         """
         if l == 0:
-            l = self.complex.primal_metric[1].mean()
+            l = self.complex.primal_metric[1].mean()    # average primal edge length
         k = self.complex.topology.n_dim + 1 + k if k < 0 else k
         scale = l ** -(np.arange(self.complex.topology.n_dim + 1) - k)
 
@@ -593,6 +593,25 @@ class System(BaseSystem):
             A=block.SparseBlockMatrix((L[:, None] * R[None, :] * self.A).block),
             rhs=L * self.rhs
         )
+
+    def laplace(self, k):
+        """Form laplace-beltrami operator from full system"""
+        laplace = self[k-1:k+2, k-1:k+2]
+        # FIXME: this fails for scalar laplacian already
+        laplace.A.block[1, 1] *= 0
+
+        # FIXME: flexible way to configure bcs? set up so it works for scalar laplace too
+        # default boundaries should be those that leave the central k-form untouched
+        q = laplace.L[2]
+        z = self.complex.topology.dual.selector_b[q].nnz    # FIXME: there should be a cleaner way to compute this
+        laplace.set_dia_boundary(2, 2, np.ones(z))
+        q = laplace.L[1]
+        z = self.complex.topology.dual.selector_b[q].nnz
+        laplace.set_off_boundary(1, 0, np.ones(z))
+
+        laplace = laplace.block_balance()
+
+        return laplace
 
 
 class SystemMid(BaseSystem):

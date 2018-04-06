@@ -105,6 +105,8 @@ class Elastic(SymmetricEquation):
         Dl, Dr = np.transpose(Pl), np.transpose(Pr)
 
         # left term is shear, right term is pressure
+        # FIXME: is zero-vorticity bc just a matter of replacing left term with dual?
+        # FIXME: also need to wrap right term in selectors
         A = mi * Pl * PDl * l * Dl * mi + \
             mi * PDm * Dr * DPr * r * Pr * PDm * mi
 
@@ -129,7 +131,9 @@ class Elastic(SymmetricEquation):
     def null_space(self):
         """Depends on bcs.
 
-        if constant rotation patterns is in nullspace, why constant compression isnt?"""
+        if constant rotation patterns is in nullspace, why constant compression isnt?
+        depends on the topology of the domain; constant compression can be null on an annulus
+        """
         return
 
     def operate(self, x):
