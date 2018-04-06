@@ -238,6 +238,12 @@ class BaseSystem(object):
         r = A * x - rhs
         return self.allocate_x().split(x), self.rhs.split(r)
 
+    @cached_property
+    def is_symmetric(self):
+        """Return true if the system is symmetric"""
+        A = self.A.merge()
+        return (A - A.T).nnz == 0
+
 
 class System(BaseSystem):
     """Generalized linear system
@@ -315,12 +321,15 @@ class System(BaseSystem):
     """
 
     @staticmethod
-    def canonical(complex):
+    def canonical(complex, symmetry=False):
         """Set up the full cochain complex
 
         Parameters
         ----------
         complex : BaseComplex
+        symmetry : bool, optional
+            if True, boundary equations are pre-filled such that the system has pure symmetry
+            if False, boundary equations are left blank
 
         Returns
         -------
@@ -397,14 +406,22 @@ class System(BaseSystem):
         # these terms are almost universally required
         for i, (tp, td) in enumerate(zip(Tp, Td)):
             A.block[i, i + 1] = S[i].T * PD[i] * td.T
-            A.block[i + 1, i] = S[i+1].T * tp.T * PD[i] * S[i]
+            if symmetry:
+                # pre-set off-diag boundary terms according to explicitly symmetric pattern
+                A.block[i + 1, i] = A.block[i, i + 1].T
+            else:
+                # leave off-diag boundary terms blank
+                A.block[i + 1, i] = S[i+1].T * tp.T * PD[i] * S[i]
 
         # put hodges on diag by default; easier to zero out than to fill in
         for i in range(N):
             A.block[i, i] = S[i].T * PD[i] * S[i]
 
         LR = np.arange(N, dtype=index_dtype)
-        return System(complex, A=A, B=None, L=LR, R=LR)
+        system = System(complex, A=A, B=None, L=LR, R=LR)
+        if symmetry:
+            assert system.is_symmetric
+        return system
 
     def eliminate(self, rows, cols):
         """Symbolically eliminate the rows specified
@@ -594,25 +611,63 @@ class System(BaseSystem):
             rhs=L * self.rhs
         )
 
-    def laplace(self, k):
-        """Form laplace-beltrami operator from full system"""
+    @staticmethod
+    def laplace(complex, k):
+        """Form laplace-beltrami operator
+
+        k : int
+            primal k-form that defines the laplacian
+
+        Returns
+        -------
+        System
+            Laplacian as a first order system
+        """
+        self = System.canonical(complex, symmetry=True)
         laplace = self[k-1:k+2, k-1:k+2]
         # FIXME: this fails for scalar laplacian already
-        laplace.A.block[1, 1] *= 0
+        c = list(laplace.L).index(self.L[k])
+        l = c - 1   # check if these are in range; might deactivate left or right side
+        r = c + 1
+
+        # block-balance, leaving the central k-form unaffected
+        laplace = laplace.block_balance(k=k)
 
         # FIXME: flexible way to configure bcs? set up so it works for scalar laplace too
-        # default boundaries should be those that leave the central k-form untouched
-        q = laplace.L[2]
-        z = self.complex.topology.dual.selector_b[q].nnz    # FIXME: there should be a cleaner way to compute this
-        laplace.set_dia_boundary(2, 2, np.ones(z))
-        q = laplace.L[1]
-        z = self.complex.topology.dual.selector_b[q].nnz
-        laplace.set_off_boundary(1, 0, np.ones(z))
+        # default boundaries should be those that leave the central k-form untouched;
+        # off-diagonal on the central equation, and diagonal on the bottom equation
+        # these default boundaries should result in simple elimination
 
-        laplace = laplace.block_balance()
+        # for terms to be symmetric, they would have to be scaled with dual boundary metric
+        # is this an argument in favor of setting up canonical complex with bc terms filled in?
+        # or does this affect convenience of filling in the conditions?
+        # wait in primal-dual symmetric formulation we do not scale the dual boundary vars
+        z = self.complex.topology.dual.selector_b[laplace.L[r]].nnz    # FIXME: there should be a cleaner way to compute this
+        laplace.set_dia_boundary(r, r, np.ones(z))
 
+        z = self.complex.topology.dual.selector_b[laplace.L[c]].nnz
+        # laplace.set_off_boundary(c, l, np.ones(z))
+        # laplace.set_dia_boundary(c, c, np.zeros(z))
+        # laplace.set_dia_boundary(c, c, np.ones(z))
+
+        # central term is always zero
+        laplace.A.block[c, c] *= 0
+        # zero out off-diag boundary equations
+        S = self.complex.topology.dual.selector[laplace.L[2]]
+        laplace.A.block[r, c] = S.T * S * laplace.A.block[r, c]
+        # laplace.A.block[c, r] = laplace.A.block[r, c].T
         return laplace
 
+    def symmetrize(self):
+        """Adjust boundary terms such as to achieve a symmetric system"""
+        # divide each boundary row such that off-diagonal terms match their dual counterpart
+        # off-diagonal terms may be zero; that is ok too
+        # in that case we may explicitly eliminiate those rows and cols if diag is nonzero
+        # to restore explicit symmetry; although this tends to be unnecessary when doing subsequent elimination
+
+        sym = self.copy()
+        assert sym.is_symmetric
+        return sym
 
 class SystemMid(BaseSystem):
 

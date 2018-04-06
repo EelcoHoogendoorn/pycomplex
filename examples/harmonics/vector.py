@@ -19,5 +19,20 @@ def setup_mesh(levels=3):
 
 mesh, hierarchy = setup_mesh()
 # 1-form laplacian with default boundary conditions
-laplace = System.canonical(mesh).laplace(1)
+laplace = System.laplace(mesh, 1)
+# this works alright for laplace with default boundaries. elimination only preserves symmetry though, and does not produce it
+laplace = laplace.eliminate([0, 2], [0, 2])
+# test symmetry of the eqs
+A = laplace.A.merge()
+Q = A - A.T
+assert Q.nnz == 0
+
+# there is something appealing about normal equations, but laplacian form fits neater into eigen framework
+# can we create a linear operator that represents the action of the eliminated laplacian?
+# laplacian maps displacements to forces
+# eigenvectors of the first order system; does that even make sense? only if we can make it symmetrical,
+# but then again that is also a precondition for ending with a symmetric system after elimination
+# so the crux is to render the first order system symmetric
+# either way, we could preconditon an eigendecomposition on the second order eliminated system,
+# by inverting the first order normal equations using mg, padding the target rhs with zeros
 laplace.plot()
