@@ -7,7 +7,7 @@ source:
 
 package:
   name: pycomplex
-  version: 0.0.5
+  version: 0.1.0
 requirements:
   build:
   - python
@@ -28,9 +28,9 @@ build:
   noarch: python
 
 test:
-#  commands:
-#  - py.test --pyargs pycomplex
+  requires:
+  - pytest
   imports:
   - pycomplex
-#  requires:
-#  - pytest
+  commands:
+  - pytest --pyargs pycomplex --show_plot=False

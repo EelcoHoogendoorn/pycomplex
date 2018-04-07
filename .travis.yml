@@ -21,9 +21,5 @@ install:
   # Useful for debugging any issues with conda
   - conda info -a
 
-  # create conda environment
-  - conda env create
-  - source activate pycomplex
-
 script:
-  - pytest --show_plot=False
+  - conda build .

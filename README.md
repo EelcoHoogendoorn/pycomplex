@@ -1,3 +1,5 @@
+|Build Status|
+
 pycomplex
 =========
 
@@ -66,3 +68,7 @@ Testing
 -------
 To invoke the tests from the command line, run pytest --show_plot=False
 Many tests have a visual component that will be suppressed by using this flag
+
+
+.. |Build Status| image:: https://travis-ci.org/EelcoHoogendoorn/pycomplex.svg?branch=master
+   :target: https://travis-ci.org/EelcoHoogendoorn/pycomplex
