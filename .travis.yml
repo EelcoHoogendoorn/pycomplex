@@ -3,6 +3,8 @@ python:
   # We don't actually use the Travis Python, but this keeps it organized.
   - "2.7"
   - "3.6"
+env:
+  - SHOW_PLOT = 0
 install:
   - sudo apt-get update
   # some boilerplate to setup conda in travis
