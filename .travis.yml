@@ -27,3 +27,6 @@ install:
 script:
   - cat > .matplotlibrc <<< "backend : Agg"
   - conda build .
+
+notifications:
+  email: false
