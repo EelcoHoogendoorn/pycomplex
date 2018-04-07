@@ -25,5 +25,5 @@ install:
   - conda info -a
 
 script:
-  - echo "backend : Agg" > .matplotlibrc
+  - cat > .matplotlibrc <<< "backend : Agg"
   - conda build .
