@@ -1,13 +1,15 @@
+package:
+  name: pycomplex
+  version: "0.1.0"
+
 about:
   home: https://github.com/EelcoHoogendoorn/pycomplex
   license: Freely Distributable
   summary: Library for working with simplicial and cubical complexes
+
 source:
   path: ..
 
-package:
-  name: pycomplex
-  version: 0.1.0
 requirements:
   build:
   - python
@@ -24,10 +26,12 @@ requirements:
   - funcsigs
 
 build:
-  number: 1
+  number: 0
   noarch: python
 
 test:
+  source_files:
+  - conftest.py
   requires:
   - pytest
   imports:

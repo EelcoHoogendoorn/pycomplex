@@ -8,4 +8,5 @@ setup(
     license='LGPL',
     # long_description=open('README.rst').read(),
     platforms='any',
+    zip_safe=False,
 )
