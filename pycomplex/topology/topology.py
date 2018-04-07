@@ -1,5 +1,4 @@
-
-import pycosat
+"""All of this is currently unused. bin it?"""
 
 import numpy as np
 from cached_property import cached_property
@@ -40,6 +39,8 @@ class BaseTopology2(PrimalTopology):
         ManifoldException
             If the topology does not describe a valid manifold
         """
+        # FIXME: generalize this to arbitrary topologies
+
         # all edges must be well-formed, having a single start and end
         if np.any(np.abs(self.T01).sum(axis=0) != 2) or np.any(self.T01.sum(axis=0) != 0):
             raise ManifoldException('Every 1-simplex must be defined in terms of a single start and end 0-simplex')

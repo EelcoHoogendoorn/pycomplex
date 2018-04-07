@@ -53,6 +53,3 @@ def test_dense():
 
     print(np.dot(a, b))
     print(Sparse.fromdense(a).dot(Sparse.fromdense(b)).todense()[1])
-
-
-test_dot()

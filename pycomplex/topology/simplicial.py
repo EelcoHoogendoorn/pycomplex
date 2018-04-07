@@ -185,11 +185,11 @@ class TopologySimplicial(PrimalTopology):
         ValueError
             if the topology is not orientable
         """
-        orientation = self.relative_orientation()
+        parity = self.relative_parity()
         E = self.elements[-1]
         F = E.copy()
         F[:, [1, 0]] = F[:, [0, 1]]
-        return type(self).from_simplices(np.where(orientation, E, F))
+        return type(self).from_simplices(np.where(parity[:, None], E, F))
 
     def as_2(self):
         if not self.n_dim == 2:

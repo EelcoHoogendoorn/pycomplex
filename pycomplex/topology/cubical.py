@@ -484,10 +484,11 @@ class TopologyCubical(PrimalTopology):
             if the topology is not orientable
         """
         E = self.elements[-1]
-        orientation = self.relative_orientation()
-        orientation = orientation.reshape((len(E),) + (1,) * self.n_dim)
+        parity = self.relative_parity()
+        # broadcast parity to all cube corners
+        parity = parity.reshape((len(parity),) + (1,) * self.n_dim)
         # FIXME: this type of edge flipping only works if from_cubes does internal sorting
-        return type(self).from_cubes(np.where(orientation, E, E[:, ::-1]))
+        return type(self).from_cubes(np.where(parity, E, E[:, ::-1]))
 
     def as_2(self):
         return TopologyCubical2(elements=self._elements, boundary=self._boundary, orientation=self._orientation)

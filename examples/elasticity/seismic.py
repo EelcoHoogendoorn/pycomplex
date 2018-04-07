@@ -107,6 +107,7 @@ class Elastic(SymmetricEquation):
         # left term is shear, right term is pressure
         # FIXME: is zero-vorticity bc just a matter of replacing left term with dual?
         # FIXME: also need to wrap right term in selectors
+        # more interesting still; need a mass term for dual boundary unknowns too. any ideas here?
         A = mi * Pl * PDl * l * Dl * mi + \
             mi * PDm * Dr * DPr * r * Pr * PDm * mi
 

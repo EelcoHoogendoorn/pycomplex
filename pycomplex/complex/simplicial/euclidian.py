@@ -638,7 +638,8 @@ class ComplexTriangularEuclidian3(ComplexTriangularEuclidian):
 
         Returns
         -------
-        cls
+        complex : cls
+            A triangular euclidian complex
         """
         dtype = [('normal', '<f4', 3,), ('vertex', '<f4', (3, 3)), ('abc', '<u2', 1,)]
 

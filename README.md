@@ -26,7 +26,7 @@ Features
 - (almost all) functionality is agnostic to the number of dimensions used
 - Complete separation of topology and geometry
 - Handling of simplicial and cubical complexes
-- Handling of different geometries (spherical, Euclidian, and perhaps others)
+- Handling of different geometries (spherical, Euclidian, and potentially others)
 - Hierarchical subdivision logic, for use in subdivision surfaces and multigrid solvers
 
 Possible novelties
@@ -49,10 +49,14 @@ Todo
 - Add 3d electrodynamics example
 - Multigrid support
     - Black box multigrid on simplicial and regular meshes, for all k-forms
-- Clean up boundary condition handling in examples
 - Replace ugly casting system with some more automagic dynamic dispatch
 
 Speculative todo
 ----------------
 - Cylindrical coordinates and corresponding metric calculations
 - Hybrid triangle-quad meshes
+
+Testing
+-------
+To invoke the tests from the command line, run pytest --show_plot=False
+Many tests have a visual component that will be suppressed by using this flag

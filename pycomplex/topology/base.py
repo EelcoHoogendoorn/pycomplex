@@ -143,21 +143,24 @@ class BaseTopology(object):
         else:
             c.fill(fill)
         return c
+
     def range(self, n):
         """Construct an n-chain filled with an integer range"""
         return np.arange(self.n_elements[n], dtype=index_dtype)
+
     def form(self, n, fill=0, dtype=np.float32):
         """Construct an n-form"""
         c = np.empty(self.n_elements[n], dtype=dtype)
         c.fill(fill)
         return c
 
-    def relative_orientation(self):
-        """Try to find the relative orientation of all n-elements
+    def relative_parity(self):
+        """Try to find the relative parity of all n-elements
 
         Returns
         -------
-        n_chain : ndarray, [n_elements], bool
+        parity : ndarray, [n_elements], bool
+            n-chain denoting the relative parity of each n-element
 
         Raises
         ------
@@ -169,27 +172,30 @@ class BaseTopology(object):
 
         inc = self.matrix(-1)
 
-        # filter out relevant edges
+        # filter out the relevant interior n-1-elements
+        # FIXME: can use selector matrix here? nope; introduces cyclic dependency
         interior = inc.getnnz(axis=1) == 2
         inc = inc[interior]
-        # warning: obviously correct code ahead
+        # translate connectivity between n-elements and n-1 elements
+        # into clauses constraining the relative orientation of n-elements
         clauses = ((inc.indices + 1) * inc.data).reshape(-1, 2)
         if not len(clauses):
-            # FIXME: this is needed for loose triangles; but what about loose disjoint triangle plus other connection component?
-            # would prob fail; need to handle remapping back from tris lost in interior filtering
+            # FIXME: this is needed for loose n-elements;
+            # but what about loose disjoint n-element plus other connection component?
+            # would prob fail; need to handle remapping back from n-elements lost in interior filtering
             return self.chain(-1)
         orientation = pycosat.solve(clauses.tolist() + (-clauses).tolist())
         if orientation == 'UNSAT':
             raise ValueError('Topology is a non-orientable manifold.')
 
-        # reorient the faces according to the solution found
-        orientation = np.array(orientation)[:, None] > 0
-        return orientation
+        # convert to parity description
+        from pycomplex.topology.primal import orientation_to_parity
+        return orientation_to_parity(orientation)
 
     @cached_property
     def is_oriented(self):
         """Return true if the topology is oriented"""
-        return npi.all_equal(self.relative_orientation())
+        return npi.all_equal(self.relative_parity())
 
     def check_chain(self):
         """Some basic sanity checks on a topology matrix; check that topology is closed

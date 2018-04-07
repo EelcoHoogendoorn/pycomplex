@@ -1,3 +1,5 @@
+"""Some dense linear algebra utility functions"""
+
 import numpy
 import numpy as np
 

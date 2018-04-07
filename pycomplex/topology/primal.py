@@ -11,11 +11,11 @@ from pycomplex.topology.base import BaseTopology
 
 
 def parity_to_orientation(parity):
-    return ((parity * 2) - 1).astype(sign_dtype)
+    return ((np.asarray(parity) * 2) - 1).astype(sign_dtype)
 
 
 def orientation_to_parity(parity):
-    return parity < 0
+    return np.asarray(parity) < 0
 
 
 def indices(shape, dtype):

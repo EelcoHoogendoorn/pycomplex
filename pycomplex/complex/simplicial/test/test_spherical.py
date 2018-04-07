@@ -1,4 +1,6 @@
 
+import pytest
+
 import numpy as np
 import numpy.testing as npt
 import matplotlib.pyplot as plt
@@ -8,7 +10,7 @@ from pycomplex.complex.simplicial.spherical import ComplexSpherical2
 from pycomplex.math import linalg
 
 
-def test_single():
+def test_single(show_plot):
     """Test a single spherical triangle"""
     sphere = ComplexSpherical2(vertices=np.eye(3), simplices=[[0, 1, 2]])
     sphere = sphere.subdivide_loop()
@@ -17,22 +19,22 @@ def test_single():
     for i in range(1):
         sphere = sphere.subdivide_loop()
         sphere.plot(ax=ax, primal_color='c', dual_color='m')
-    plt.show()
+    show_plot()
 
 
-def test_icosahedron():
+def test_icosahedron(show_plot):
     """Test a full icosahedron"""
     sphere = synthetic.icosahedron()
-    sphere = sphere.copy(vertices = np.dot(sphere.vertices, linalg.orthonormalize(np.random.randn(3, 3))))
+    sphere = sphere.transform(linalg.orthonormalize(np.random.randn(3, 3)))
     fig, ax = plt.subplots(1, 1)
     sphere.plot(ax=ax, backface_culling=True)
     for i in range(1):
         sphere = sphere.subdivide_loop()
         sphere.plot(ax=ax, primal_color='c', dual_color='m', backface_culling=True)
-    plt.show()
+    show_plot()
 
 
-def test_icosahedron_subset():
+def test_icosahedron_subset(show_plot):
     """Test that a concave boundary works just the same on a sphere"""
     sphere = synthetic.icosahedron()
     sphere = sphere.copy(vertices = np.dot(sphere.vertices, linalg.orthonormalize(np.random.randn(3, 3))))
@@ -43,36 +45,41 @@ def test_icosahedron_subset():
     sphere = sphere.subdivide_loop()
 
     sphere.plot(plot_dual=True, backface_culling=True)
+    show_plot()
 
 
-def test_subdivide():
+def test_subdivide(show_plot):
     """Test if subdivision works well for big triangles up to 90deg angle too"""
     sphere = ComplexSpherical2(vertices=linalg.normalized(np.eye(3)), simplices=[[0, 1, 2]])
     sphere = sphere.subdivide_loop()
     sphere = sphere.subdivide_loop()
     sphere = sphere.subdivide_loop()
     sphere.plot(plot_dual=True)
+    show_plot()
 
 
-def test_tetrahedron():
+def test_tetrahedron(show_plot):
+    """Test a tetrahedron projected on a spherical space"""
     n_dim = 3
-    tet = synthetic.n_simplex(n_dim).boundary.as_spherical().as_2()
-    tet = tet.fix_orientation()
-    tet = tet.copy(vertices = np.dot(tet.vertices, linalg.orthonormalize(np.random.randn(n_dim, n_dim))))
-    for i in range(0):      # subdivision on a tet gives rather ugly tris
-        tet = tet.subdivide_loop()
+    tet = synthetic.n_simplex(n_dim).boundary.as_spherical()
+    assert tet.topology.is_oriented
+    tet = tet.transform(linalg.orthonormalize(np.random.randn(n_dim, n_dim)))
     tet.plot(backface_culling=True, plot_dual=True)
+    show_plot()
 
 
-def test_circle():
+def test_circle(show_plot):
+    """Simple circle test"""
     n_dim = 2
     circle = synthetic.n_simplex(n_dim).boundary.as_spherical()
+    assert circle.topology.is_oriented
     # circle.topology = circle.topology.fix_orientation()
     circle.plot(backface_culling=False, plot_dual=True)
+    show_plot()
 
 
-def test_hexacosichoron():
-
+def test_hexacosichoron(show_plot):
+    """Test that this beast performs as expected"""
     complex = synthetic.hexacosichoron()
 
     deg = complex.topology.degree[0]
@@ -86,19 +93,23 @@ def test_hexacosichoron():
     npt.assert_allclose(length, length[0])
 
     n_dim = complex.n_dim
-    complex = complex.copy(vertices = np.dot(complex.vertices, linalg.orthonormalize(np.random.randn(n_dim, n_dim))))
+    complex = complex.transform(linalg.orthonormalize(np.random.randn(n_dim, n_dim)))
+    # not the most insightful visualization, but good to test still
     complex.plot(plot_dual=True, backface_culling=False)
+    show_plot()
 
 
-def test_n_cube_dual():
+def test_n_cube_dual(show_plot):
+    """Test n-cube-duals; these form simple n-sphere tesselations"""
     for n_dim in [2, 3, 4, 5]:
         complex = synthetic.n_cube_dual(n_dim)
-
-        complex = complex.copy(vertices = np.dot(complex.vertices, linalg.orthonormalize(np.random.randn(n_dim, n_dim))))
+        complex = complex.transform(linalg.orthonormalize(np.random.randn(n_dim, n_dim)))
         complex.plot(plot_dual=True, backface_culling=n_dim==3)
+        show_plot()
 
 
 def test_picking():
+    """Test primal picking on the sphere"""
     for n_dim in [2, 3, 4, 5]:
         sphere = synthetic.n_cube_dual(n_dim)
         points = linalg.normalized(np.random.randn(10, n_dim))
@@ -110,22 +121,8 @@ def test_picking():
         assert np.allclose(bary.sum(axis=1), 1)
 
 
-def test_picking_alt():
-    for n_dim in [2, 3, 4, 5]:
-        sphere = synthetic.n_cube_dual(n_dim)
-
-        points = linalg.normalized(np.random.randn(10, n_dim))
-
-        sphere.pick_fundamental(points)
-
-        simplex_idx, bary = sphere.pick_primal(points)
-        simplex_idx_alt, bary_alt = sphere.pick_primal_alt(points)
-
-        npt.assert_equal(simplex_idx, simplex_idx_alt)
-        npt.assert_allclose(bary, bary_alt)
-
-
-def test_picking_alt_visual():
+def test_primal_picking_visual(show_plot):
+    """Visual check of primal picking of the sphere"""
     for n_dim in [3]:
         sphere = synthetic.optimal_delaunay_sphere(100, n_dim, iterations=20, push_iterations=20, condition=None)
         assert sphere.topology.is_oriented
@@ -152,14 +149,14 @@ def test_picking_alt_visual():
             # color = p[color]
             color = bary.reshape(len(p), len(p), 3)
 
-        import matplotlib.pyplot as plt
         plt.imshow(np.swapaxes(color, 0, 1)[::-1], cmap='jet')
         sphere.plot(backface_culling=True)
         plt.autoscale(tight=True)
-        plt.show()
+        show_plot()
 
 
-def test_picking_fundamental_visual():
+def test_picking_fundamental_visual(show_plot):
+    """Visual check of fundamental-domain picking of the sphere"""
     sphere = synthetic.optimal_delaunay_sphere(300, 3, iterations=5, weights=False, condition=None)
 
     print(sphere.is_well_centered)
@@ -167,12 +164,6 @@ def test_picking_fundamental_visual():
 
     sphere.plot(backface_culling=True)
     plt.autoscale(tight=True)
-
-    sphere = sphere.optimize_weights()
-
-    sphere.plot(backface_culling=True)
-    plt.autoscale(tight=True)
-    plt.show()
 
     p = np.linspace(-1, +1, 512, endpoint=True)
     x, y = np.meshgrid(p, p)
@@ -188,25 +179,26 @@ def test_picking_fundamental_visual():
 
     plt.figure()
     plt.imshow(np.swapaxes(color, 0, 1)[::-1], cmap='jet')
-    plt.show()
+    show_plot()
 
 
-def test_fundamental_subdivide():
+def test_fundamental_subdivide(show_plot):
+    """Test fundamental domain subdivision"""
     sphere = synthetic.icosphere(1)
-    sphere = sphere.copy(vertices = np.dot(sphere.vertices, linalg.orthonormalize(np.random.randn(3, 3))))
+    sphere = sphere.transform(linalg.orthonormalize(np.random.randn(3, 3)))
     sphere = sphere.subdivide_fundamental()
     sphere.plot(backface_culling=True, plot_vertices=False)
     # FIXME: does not yet work for n > 3
     n = 3
     sphere = synthetic.n_cube_dual(n)
-    sphere = sphere.copy(vertices = np.dot(sphere.vertices, linalg.orthonormalize(np.random.randn(n, n))))
+    sphere = sphere.transform(linalg.orthonormalize(np.random.randn(n, n)))
     sphere = sphere.subdivide_fundamental().optimize_weights()
     sphere.plot(backface_culling=True, plot_vertices=False)
-    plt.show()
+    show_plot()
 
 
-def test_overlap():
-    # drawing to intuit multigrid transfer operators
+def test_overlap(show_plot):
+    """Visualization to intuit multigrid transfer operators"""
     sphere = synthetic.icosahedron()#.subdivide_fundamental()
     sphere = sphere.select_subset(np.eye(20)[0])
     for i in range(1):
@@ -220,10 +212,11 @@ def test_overlap():
     sphere.plot(ax=ax)
     # subsphere = subsphere.optimize_weights()
     subsphere.plot(ax=ax, primal_color='c', dual_color='m')
-    plt.show()
+    show_plot()
 
 
-def test_multigrid_tri():
+def test_multigrid_tri(show_plot):
+    """Display algebraic structure of multigrid operator"""
     sphere = synthetic.icosahedron().subdivide_fundamental()
     sphere_0 = sphere.select_subset(np.eye(20*6)[1])
     sphere_1 = sphere_0.subdivide_loop()
@@ -231,25 +224,24 @@ def test_multigrid_tri():
     sphere_3 = sphere_2.subdivide_loop()
     sphere_4 = sphere_3.subdivide_loop()
 
-
     t = sphere.multigrid_transfer_dual(sphere_0, sphere_1).T
     from pycomplex.sparse import normalize_l1
 
     # t = normalize_l1(t)
 
     t = t.tocoo()
+    print(t)
     plt.scatter(t.row, t.col, c=t.data)
     plt.gca().invert_yaxis()
 
     plt.axis('equal')
 
     plt.colorbar()
-    plt.show()
-
-    print(t)
+    show_plot()
 
 
-def test_multigrid_form():
+@pytest.mark.skip("broken; underlying functionality still a WIP")
+def test_multigrid_form(show_plot):
     sphere_0 = synthetic.icosahedron().subdivide_fundamental()#.copy(radius=30)
     sphere_1 = sphere_0.subdivide_loop()
     sphere_2 = sphere_1.subdivide_loop()
@@ -259,8 +251,8 @@ def test_multigrid_form():
 
     t = sphere_0.multigrid_transfer_dual(coarse, fine).T
 
-    npt.assert_allclose(t.sum(axis=0), coarse.dual_metric[-1][None, :])
-    npt.assert_allclose(t.sum(axis=1), fine.dual_metric[-1][:, None])
+    npt.assert_allclose(t.sum(axis=1), coarse.dual_metric[-1][None, :])
+    npt.assert_allclose(t.sum(axis=0), fine.dual_metric[-1][:, None])
 
     from pycomplex.sparse import normalize_l1
     c2f = normalize_l1(t, axis=0)
@@ -276,7 +268,7 @@ def test_multigrid_form():
     coarse.as_euclidian().plot_primal_0_form(P0, ax=ax, vmin=0, vmax=1)
     fig, ax = plt.subplots(1, 1)
     fine.as_euclidian().plot_primal_0_form(p0, ax=ax, vmin=0, vmax=1)
-    plt.show()
+    show_plot()
 
 
     p0 = np.random.rand(fine.topology.n_elements[0])
@@ -290,8 +282,7 @@ def test_multigrid_form():
     coarse.as_euclidian().plot_primal_0_form(P0, ax=ax, vmin=0, vmax=1)
     fig, ax = plt.subplots(1, 1)
     fine.as_euclidian().plot_primal_0_form(p0, ax=ax, vmin=0, vmax=1)
-    plt.show()
-    plt.show()
+    show_plot()
 
 
     if False:
@@ -300,11 +291,11 @@ def test_multigrid_form():
         plt.gca().invert_yaxis()
         plt.axis('equal')
         plt.colorbar()
-    plt.show()
+    show_plot()
 
 
-def test_flux_to_vector():
-    """Test if a constant gradient potential produces constant vectors"""
+def test_flux_to_vector(show_plot):
+    """Test if a constant gradient potential produces the expected vector field"""
     sphere = synthetic.optimal_delaunay_sphere(n_dim=3, n_points=200, condition='centered')
     # potential that is a linear gradient
     phi_p0 = sphere.primal_position[0][:, 0]
@@ -318,10 +309,8 @@ def test_flux_to_vector():
     flux_d1 = sphere.topology.dual.selector[1].T * flux_d1
     velocity_d0 = sphere.dual_flux_to_dual_velocity(flux_d1)
 
-    # npt.assert_allclose(velocity_d0, [[0, 1]]*len(velocity_d0), atol=1e-9, rtol=1)
-
     sphere.plot(plot_dual=True, backface_culling=True)
     p = sphere.primal_position[2]
     mask = p[:, 2] > 0
     plt.quiver(*p[mask, :2].T, *velocity_d0[mask, :2].T)
-    plt.show()
+    show_plot()

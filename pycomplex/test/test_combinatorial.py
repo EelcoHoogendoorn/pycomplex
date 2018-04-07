@@ -1,12 +1,11 @@
 
 from pycomplex.math.combinatorial import permutations, combinations
 
+
 def test_parmutation_parity():
-
     l = [1, 2, 3, 4]
-    l=[0, 1, 2]
+    l = [0, 1, 2]
     r = list(permutations(l))
-
     print(r)
 
 

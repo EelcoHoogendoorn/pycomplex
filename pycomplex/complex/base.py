@@ -355,9 +355,10 @@ class BaseComplex(object):
         B = B.reshape(len(B), -1)
         O = O.reshape(len(O), -1)
 
-        from pycomplex.complex.simplicial.euclidian import ComplexSimplicialEuclidian
+        # from pycomplex.complex.simplicial.euclidian import ComplexSimplicialEuclidian
+        from pycomplex.complex.simplicial.base import BaseComplexSimplicial
         from pycomplex.complex.regular import ComplexRegularMixin
-        if isinstance(self, ComplexSimplicialEuclidian):
+        if isinstance(self, BaseComplexSimplicial):
             from pycomplex.geometry import euclidian
             # FIXME: this only works for simplices; or can it be generalized to cubes too? gradients are per vertex-opposing-face pair;
             # FIXME can think of it as volume gradient of moving vertex, or gradient of moving opposing face
@@ -371,6 +372,8 @@ class BaseComplex(object):
 
             gradients = linalg.normalized(gradients)
             gradients *= self.primal_metric[-2][B][..., None]
+        else:
+            raise NotImplementedError
 
 
         u, s, v = np.linalg.svd(gradients)

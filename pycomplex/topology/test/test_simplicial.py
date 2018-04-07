@@ -1,6 +1,8 @@
 
 import numpy as np
 import numpy.testing as npt
+import pytest
+from conftest import show_plot
 
 from pycomplex import synthetic
 from pycomplex.topology.simplicial import *
@@ -85,7 +87,7 @@ def test_from_cubical():
     assert not topology.is_closed
 
 
-def test_fundamental_domains():
+def test_fundamental_domains(show_plot):
     for n in [2, 3, 4]:
         simplex = synthetic.n_simplex(n)
         simplex = simplex.transform(linalg.orthonormalize(np.random.randn(n, n)))
@@ -93,7 +95,7 @@ def test_fundamental_domains():
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots(1,1)
         simplex.plot_domains(ax)
-        plt.show()
+        show_plot()
 
 
 def test_subdivide_fundamental():
@@ -111,9 +113,7 @@ def test_subdivide_direct():
     print(sub.is_oriented)
 
 
-def test_subdivide_direct():
-    import matplotlib.pyplot as plt
-
+def test_subdivide_direct(show_plot):
     triangle = synthetic.n_simplex(2).as_2()
     sub = triangle.subdivide_loop()
     sub2 = sub.subdivide_loop()
@@ -121,4 +121,4 @@ def test_subdivide_direct():
     # test that directionality is inherited as expected
     sub.plot(plot_dual=True, plot_arrow=True)
     sub2.plot(plot_dual=True, plot_arrow=True)
-    plt.show()
+    show_plot()

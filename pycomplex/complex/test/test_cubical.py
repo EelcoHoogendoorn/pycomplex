@@ -1,6 +1,4 @@
 
-import matplotlib.pyplot as plt
-
 from pycomplex.complex.cubical import *
 from pycomplex.math import linalg
 from pycomplex.synthetic import n_cube, n_cube_grid
@@ -16,7 +14,7 @@ def test_regular_2():
         print(p)
 
 
-def test_quad_3():
+def test_quad_3(show_plot):
     """test of three connected quads"""
     vertices = np.indices((3, 3))
     vertices = vertices.reshape(2, -1).T[:-1]
@@ -34,9 +32,10 @@ def test_quad_3():
     for i in range(1):
         complex = complex.subdivide()
     complex.plot(plot_dual=True)
+    show_plot()
 
 
-def test_2cube_3space():
+def test_2cube_3space(show_plot):
     """Test the surface of a cube embedded in 3-space"""
     quads = n_cube(3, centering=True).boundary.as_23()
     for i in range(3):
@@ -46,10 +45,10 @@ def test_2cube_3space():
     quads.plot()
 
     quads.subdivide_simplicial().as_3().plot_3d(plot_vertices=False, backface_culling=True, plot_dual=False)
-    plt.show()
+    show_plot()
 
 
-def test_cube():
+def test_cube(show_plot):
     """Test 3d cube embedded in 3-space"""
     cube = n_cube(3)
     # random rotation
@@ -59,10 +58,10 @@ def test_cube():
     for i in range(2):
         cube = cube.subdivide_cubical()
     cube.boundary().plot(plot_dual=True)
-    plt.show()
+    show_plot()
 
 
-def test_triangulated_cube():
+def test_triangulated_cube(show_plot):
     cube = n_cube(3)
     # cube = cube.transform(linalg.orthonormalize(np.random.randn(3, 3)))
 
@@ -80,30 +79,33 @@ def test_triangulated_cube():
 
     assert surface.topology.is_oriented
     surface.plot(plot_dual=False)
-    plt.show()
+    show_plot()
 
 
-def test_cube_grid_2():
+def test_cube_grid_2(show_plot):
     grid = n_cube_grid((2, 3))
     grid.plot()
+    show_plot()
 
 
-def test_cube_grid_3():
+def test_cube_grid_3(show_plot):
     grid = n_cube_grid((1, 2, 3))
     grid = grid.transform(linalg.orthonormalize(np.random.randn(3, 3)))
-    grid.plot(plot_dual=True)
     assert grid.topology.is_oriented
+    grid.plot(plot_dual=True)
+    show_plot()
 
 
-def test_product_2():
+def test_product_2(show_plot):
     d1 = n_cube_grid((3,))
     d2 = n_cube_grid((5,))
 
     grid = d1.product(d2)
     grid.plot()
+    show_plot()
 
 
-def test_product_2_1():
+def test_product_2_1(show_plot):
     d1 = n_cube_grid((3,))
     d2 = n_cube_grid((2, 4))
 
@@ -114,10 +116,10 @@ def test_product_2_1():
 
     grid = grid.transform(linalg.orthonormalize(np.random.randn(3, 3)))
     grid.plot()
-    plt.show()
+    show_plot()
 
 
-def test_n_cube():
+def test_n_cube(show_plot):
     for n_dim in [2, 3, 4, 5, 6]:
         cube = n_cube(n_dim).subdivide_cubical()
 
@@ -131,10 +133,10 @@ def test_n_cube():
         np.random.seed(1)
         cube = cube.transform(linalg.orthonormalize(np.random.randn(n_dim, n_dim)))
         cube.plot(plot_dual=True)
-        plt.show()
+        show_plot()
 
 
-def test_transfer():
+def test_transfer(show_plot):
     """Test the direct transfer matrices """
     n_dim = 2
     cube = n_cube(n_dim)
@@ -148,7 +150,7 @@ def test_transfer():
         # test that directionality is inherited as expected
         hierarchy[-2].plot(plot_dual=True, plot_arrow=True)
         hierarchy[-1].plot(plot_dual=True, plot_arrow=True)
-        plt.show()
+        show_plot()
 
     # no formal tests yet; just check that we do not crash
     DT = hierarchy[-1].topology.dual.transfer_matrices()
