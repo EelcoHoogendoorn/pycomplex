@@ -206,7 +206,7 @@ class Dual(BaseTopology):
             else:
                 blocks = [
                     [T, None],
-                    [I, B]      # it is far from obvious any application actually needs the B term...
+                    [I, -B]      # it is far from obvious any application actually needs the B term...
                 ]
             return (blocks)
 

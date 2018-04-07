@@ -37,17 +37,22 @@ class BaseTopology(object):
 
     @cached_property
     def regions_per_vertex(self):
-        """Slow but readable code for eaching how many connected regions each vertex has"""
-        # convert to column format for fast face-slicing
+        """Slow but readable code for counting how many connected regions each vertex has
+
+        Returns
+        -------
+
+        """
+        # convert to column format for fast slicing from the right
         TnN = self.matrix(-1).tocsc()
-        # iterate over the faces of each vertex
-        T0N = self.matrix(0, -1).tocoo()
+        # iterate over the N-elements of each 0-element
+        T0N = self.averaging_operators_N[0].tocoo()
         I0, IN = T0N.row, T0N.col
-        regions = np.zeros(self.n_vertices, np.int)
+        regions = self.chain(n=0, fill=0, dtype=index_dtype)
         for i0, iN in zip(*npi.group_by(I0, IN)):
-            # edge-face incidence matrix of faces incident to this vertex
+            # n-1-n incidence matrix of n-element incident to this 0-element
             subset = TnN[:, iN]
-            # face adjacency matrix of the faces incident to this vertex
+            # n-element adjacency matrix of the n-elements incident to this 0-element
             g = subset.T * subset
             n_components = scipy.sparse.csgraph.connected_components(g, return_labels=False)
             regions[i0] = n_components
@@ -126,8 +131,14 @@ class BaseTopology(object):
         n, c = self.label_connections()
         return n == 1
 
+    def check_manifold(self):
+        """Raises if a violation of manifoldness is found."""
+        if not np.all(self.regions_per_vertex == 1):
+            raise ManifoldException
+
     @cached_property
     def is_manifold(self):
+        """True if the topology is manifold."""
         try:
             self.check_manifold()
             return True
@@ -198,14 +209,12 @@ class BaseTopology(object):
         return npi.all_equal(self.relative_parity())
 
     def check_chain(self):
-        """Some basic sanity checks on a topology matrix; check that topology is closed
-
-        Should this be part of is_oriented check?
+        """Some basic sanity checks on a topology matrix; check that the chain complex satisfies its defining properties
         """
         for i in range(self.n_dim - 2):
             a, b = self.matrices[i], self.matrices[i+1]
             if not (a * b).nnz == 0:
-                raise ValueError('chain [{i}, {i+1}] to [{i+1}, {i+2}] does not match'.format(i=i))
+                raise ValueError('chain {i} does not match'.format(i=i+1))
 
     def accumulated_operators_0(self):
         """Accumulated topology matrices from 0 to n

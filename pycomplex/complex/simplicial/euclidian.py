@@ -43,8 +43,6 @@ class ComplexSimplicialEuclidian(BaseComplexSimplicial):
                 ax.arrow(*edge[0], *(edge[1]-edge[0]),
                          head_width=0.05, head_length=-0.1, fc='k', ec='k')
 
-
-
         if plot_dual:
             dual_vertices, dual_edges = self.dual_position[0:2]
             if plot_lines:

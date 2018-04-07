@@ -35,6 +35,7 @@ def test_delaunay(show_plot):
     import scipy.spatial
     delaunay = scipy.spatial.Delaunay(points)
 
+    from pycomplex.complex.simplicial.euclidian import ComplexTriangularEuclidian2
     quad = ComplexTriangularEuclidian2(vertices=points, triangles=delaunay.simplices)
     assert quad.topology.is_oriented
     assert quad.topology.is_connected

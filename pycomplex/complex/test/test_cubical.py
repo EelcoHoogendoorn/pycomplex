@@ -15,7 +15,7 @@ def test_regular_2():
 
 
 def test_quad_3(show_plot):
-    """test of three connected quads"""
+    """Test the construction and subdivision of a domain with three connected quads"""
     vertices = np.indices((3, 3))
     vertices = vertices.reshape(2, -1).T[:-1]
     quads = [
@@ -27,10 +27,11 @@ def test_quad_3(show_plot):
          [6, 7]],
     ]
 
+    from pycomplex.complex.cubical import ComplexCubical2Euclidian2
     complex = ComplexCubical2Euclidian2(vertices=vertices, cubes=quads)
 
     for i in range(1):
-        complex = complex.subdivide()
+        complex = complex.subdivide_cubical()
     complex.plot(plot_dual=True)
     show_plot()
 
@@ -51,17 +52,18 @@ def test_2cube_3space(show_plot):
 def test_cube(show_plot):
     """Test 3d cube embedded in 3-space"""
     cube = n_cube(3)
-    # random rotation
     cube = cube.transform(linalg.orthonormalize(np.random.randn(3, 3)))
 
     cube.plot()
     for i in range(2):
         cube = cube.subdivide_cubical()
-    cube.boundary().plot(plot_dual=True)
+    cube.boundary.plot(plot_dual=True)
+
     show_plot()
 
 
 def test_triangulated_cube(show_plot):
+    """This produces some funky patterns"""
     cube = n_cube(3)
     # cube = cube.transform(linalg.orthonormalize(np.random.randn(3, 3)))
 
@@ -83,12 +85,14 @@ def test_triangulated_cube(show_plot):
 
 
 def test_cube_grid_2(show_plot):
+    """Simple test of a regular 2d grid"""
     grid = n_cube_grid((2, 3))
     grid.plot()
     show_plot()
 
 
 def test_cube_grid_3(show_plot):
+    """Simple test of a regular 3d grid"""
     grid = n_cube_grid((1, 2, 3))
     grid = grid.transform(linalg.orthonormalize(np.random.randn(3, 3)))
     assert grid.topology.is_oriented
@@ -97,6 +101,7 @@ def test_cube_grid_3(show_plot):
 
 
 def test_product_2(show_plot):
+    """Test creating a 2d grid as product of 2 1d grids"""
     d1 = n_cube_grid((3,))
     d2 = n_cube_grid((5,))
 
@@ -106,6 +111,7 @@ def test_product_2(show_plot):
 
 
 def test_product_2_1(show_plot):
+    """Test creating a 3d grid as product of 1d and 2d grids"""
     d1 = n_cube_grid((3,))
     d2 = n_cube_grid((2, 4))
 
@@ -120,6 +126,7 @@ def test_product_2_1(show_plot):
 
 
 def test_n_cube(show_plot):
+    """Test cube grids and their subdivisions in a range of dimensions"""
     for n_dim in [2, 3, 4, 5, 6]:
         cube = n_cube(n_dim).subdivide_cubical()
 

@@ -27,6 +27,7 @@ Features
 - Complete separation of topology and geometry
 - Handling of simplicial and cubical complexes
 - Handling of different geometries (spherical, Euclidian, and potentially others)
+- Handling of boundary topology, geometry and boundary conditions in a unified manner
 - Hierarchical subdivision logic, for use in subdivision surfaces and multigrid solvers
 
 Possible novelties
@@ -46,7 +47,7 @@ which will become the first real use-cases of this package.
 
 Todo
 ----
-- Add 3d electrodynamics example
+- Add 3d electrodynamics example; preferably also by means of implementing a complex with spacetime-metric
 - Multigrid support
     - Black box multigrid on simplicial and regular meshes, for all k-forms
 - Replace ugly casting system with some more automagic dynamic dispatch
@@ -55,6 +56,11 @@ Speculative todo
 ----------------
 - Cylindrical coordinates and corresponding metric calculations
 - Hybrid triangle-quad meshes
+
+Development
+-----------
+Pycomplex currently targets both python 2 and 3
+It has been successfully (but not systematically) tested on all major platforms
 
 Testing
 -------

@@ -29,7 +29,7 @@ def test_unsigned_volume():
 
 def test_simplex_circumcenter():
     n_dim = 3
-    simplex = synthetic.n_simplex(n_dim).boundary().select_subset(np.eye(n_dim+1)[0])
+    simplex = synthetic.n_simplex(n_dim).boundary.select_subset(np.eye(n_dim+1)[0])
 
     from pycomplex.geometry.euclidian import circumcenter
     circ_e = linalg.normalized(circumcenter(simplex.vertices))
