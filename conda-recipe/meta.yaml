@@ -37,4 +37,4 @@ test:
   imports:
   - pycomplex
   commands:
-  - pytest --pyargs pycomplex
+  - pytest --pyargs pycomplex --show_plot=False
