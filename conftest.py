@@ -16,8 +16,14 @@ def show_plot(request):
     except:
         import os
         flag = os.environ['SHOW_PLOT']
-    import matplotlib.pyplot as plt
+
     if flag == 'True':
+        # import matplotlib
+        # matplotlib.use('Agg')
+        import matplotlib.pyplot as plt
         return plt.show
     else:
+        # import matplotlib
+        # matplotlib.use('Agg')
+        import matplotlib.pyplot as plt
         return lambda: plt.close('all')
