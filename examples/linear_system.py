@@ -1,3 +1,6 @@
+
+# -*- coding: utf-8 -*-
+
 import numpy
 import numpy as np
 import scipy.sparse

@@ -1,3 +1,6 @@
+
+# -*- coding: utf-8 -*-
+
 """
 Lame parameter based elasticity model
 

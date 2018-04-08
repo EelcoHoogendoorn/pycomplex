@@ -1,3 +1,6 @@
+
+# -*- coding: utf-8 -*-
+
 """
 Set up scenario showing s and p waves in isotropic elastic material,
 as a function of position and velocity fields p and v
