@@ -1,73 +1,10 @@
 
 import numpy as np
-import numpy.testing as npt
 import numpy_indexed as npi
-import scipy.sparse
-
 from cached_property import cached_property
 
 from pycomplex.topology import index_dtype, sign_dtype, topology_matrix, selection_matrix
 from pycomplex.topology.base import BaseTopology
-
-
-def parity_to_orientation(parity):
-    return ((np.asarray(parity) * 2) - 1).astype(sign_dtype)
-
-
-def orientation_to_parity(parity):
-    return np.asarray(parity) < 0
-
-
-def indices(shape, dtype):
-    """mem-efficient version of np.indices"""
-    n_dim = len(shape)
-    idx = [np.arange(s, dtype=dtype) for s in shape]
-    for q, (i, s) in enumerate(zip(idx, shape)):
-        strides = [0] * n_dim
-        strides[q] = i.strides[0]
-        idx[q] = np.ndarray(buffer=i.data, shape=shape, strides=strides, dtype=i.dtype)
-    return idx
-
-
-def sort_and_argsort(arr, axis):
-    """Potentially faster method to sort and argsort; hasnt been profiled though
-
-    Parameters
-    ----------
-    arr : ndarray, [shape]
-    axis : int
-        axis to sort along
-
-    Returns
-    -------
-    sorted : ndarray, [shape]
-    argsort : ndarray, [shape], int
-        indices along axis of arr
-    """
-    argsort = np.argsort(arr, axis=axis)
-    I = indices(arr.shape, index_dtype)
-    I[axis] = argsort
-    return arr[I], argsort
-
-
-def relative_permutations(self, other):
-    """Combine two permutations of indices to get relative permutation
-
-    Parameters
-    ----------
-    self : ndarray, [n, m], int
-    other : ndarray, [n, m], int
-
-    Returns
-    -------
-    relative : ndarray, [n, m], int
-    """
-    assert self.shape == other.shape
-    assert self.ndim == 2
-    I = np.indices(self.shape)
-    relative = np.empty_like(self)
-    relative[I[0], other] = self
-    return relative
 
 
 class PrimalTopology(BaseTopology):
@@ -124,12 +61,13 @@ class PrimalTopology(BaseTopology):
 
     @cached_property
     def matrices(self):
-        """
+        """All topology matrices forming the chain complex
+
         Returns
         -------
         array_like, [n_dim], sparse matrix
+            n-th element has shape [n_elements[n], n_elements[n+1]
         """
-        # FIXME: this should go to baseclass
         return [self.matrix(i) for i in range(self.n_dim)]
 
     @cached_property
@@ -138,21 +76,14 @@ class PrimalTopology(BaseTopology):
         return self.matrices
 
     @cached_property
-    def matrices_blocked(self):
-        """Topology matrices, with i/p split
-
-        Does this even make sense? would need to reorder all unknowns to group boundary;
-        possible but not very efficient. leave block construction to derived equation objects?
-        """
-        raise NotImplementedError
-        return
-
-    @cached_property
     def elements(self):
         return self._elements
 
     @cached_property
     def corners(self):
+        """Element arrays viewed as 2d arrays, lumping all vertices as a single set of corners.
+        This is as opposed to the (2,)**n_dim structure the element arrays have in the cubical case
+        """
         return [e.reshape(n, -1) for e, n in zip(self._elements, self.n_elements)]
 
     @cached_property
@@ -172,7 +103,13 @@ class PrimalTopology(BaseTopology):
 
     # FIXME: add caching here?
     def matrix(self, n, m=None):
-        """Construct topological relations between elements as sparse matrix"""
+        """Construct topological relations between elements as sparse matrix
+
+        Returns
+        -------
+        scipy.sparse, [n_elements[n], n_elements[m]], sign_dtype
+            topology matrix relating n- and m-elements
+        """
         if n < 0:
             n = self.n_dim + n
         if m is None:

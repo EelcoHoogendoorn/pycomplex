@@ -1,11 +1,13 @@
-from fastcache import clru_cache
-
 import numpy as np
 import numpy_indexed as npi
+from fastcache import clru_cache
+from cached_property import cached_property
 
 import pycomplex.math.combinatorial
-from pycomplex.topology import index_dtype, sign_dtype, transfer_matrix, generate_boundary_indices
-from pycomplex.topology.primal import *
+from pycomplex.topology import sign_dtype, index_dtype
+from pycomplex.topology import transfer_matrix, element_indices
+from pycomplex.topology.primal import PrimalTopology
+from pycomplex.topology.util import parity_to_orientation, sort_and_argsort, relative_permutations
 
 
 def generate_cube_boundary(cubes, degree=1, return_corners=False, mirror=True):
@@ -406,7 +408,7 @@ class TopologyCubical(PrimalTopology):
             IN0 = generate_cube_boundary(IN0.reshape((-1,)+cube_shape), mirror=True)
             cube_shape = cube_shape[1:]
             IN0 = IN0.reshape(tuple(s[:i]) + cube_shape)
-            domains[..., -i] = generate_boundary_indices(self.elements[-i], IN0).reshape(s)
+            domains[..., -i] = element_indices(self.elements[-i], IN0).reshape(s)
         domains[..., 0] = IN0
 
         return domains
@@ -438,7 +440,7 @@ class TopologyCubical(PrimalTopology):
             IN0, corners = generate_cube_boundary(E, degree=d, return_corners=True)
 
             for i, c in enumerate(corners):
-                idx = generate_boundary_indices(self.elements[-(d + 1)], IN0[:, i])
+                idx = element_indices(self.elements[-(d + 1)], IN0[:, i])
                 shape = (-1, ) + tuple(1 + c)   # select broadcasting pattern
                 c = (Ellipsis, ) + tuple(1 - c) # indexing with this leave shape [n] + cube_shape; picks the type of n-cube to write to
                 domains[c] = idx.reshape(shape)

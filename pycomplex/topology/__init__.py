@@ -1,18 +1,5 @@
 """Discrete topology module
 
-
-Add support for subdomains? can they be made sense of without circumcenter in cell?
-shouldnt matter wrt topology, in any case
-
-try and find an elegant method of supporting boundary topology
-
-Make sure that easy conversion between all representations are available
-Matrix form, and index form
-
-how to represent a simplex? would like to be able to map dual boundary back and stuff
-right now each collection of simplices is implicitly numbered as an arange,
-but having an int label would be cleaner
-
 """
 import numpy as np
 import numpy_indexed as npi
@@ -29,21 +16,27 @@ class ManifoldException(Exception):
     pass
 
 
-def transfer_matrix(idx, t, shape):
+def transfer_matrix(r, c, shape):
     """Construct a transfer matrix
+    Essentially a simple wrapper around the sparse constructor
 
     Parameters
     ----------
-    t
+    r : ndarray
+        row indices
+    c : ndarray
+        column indices
+    shape : tuple[int]
+        shape of the resulting matrix
 
     Returns
     -------
-    sparse matrix of shape [sub_elements, parent_elements]
+    scipy.sparse.csr_matrix of shape `shape`
     """
-    # FIXME: this could use orientation information too
+    # FIXME: do we ever need orientation information here? not at the moment
     return scipy.sparse.csr_matrix((
-        np.ones_like(idx, dtype=sign_dtype),
-        (idx, t)),
+        np.ones_like(r, dtype=sign_dtype),
+        (r, c)),
         shape=shape
     )
 
@@ -61,23 +54,42 @@ def topology_matrix(elements, orientations):
     -------
     sparse matrix of shape [n_boundary_elements, n_elements]
     """
-    n_dim = elements.size // len(elements)
-    idx = np.arange(elements.size, dtype=index_dtype) // n_dim
+    n_bounds = elements.size // len(elements)
+    idx = np.arange(elements.size, dtype=index_dtype) // n_bounds
     return scipy.sparse.csr_matrix((
         orientations.flatten().astype(sign_dtype),
         (elements.flatten().astype(index_dtype), idx)))
 
 
 def sparse_to_elements(T):
-    """Split a sparse topology matrix to array form, assuming equal entries"""
+    """Split a sparse topology matrix to array form,
+    assuming an equal number of nonzeros per row,
+    or incident elements per element
+
+    Parameters
+    ----------
+    T : scipy.sparse, [n_elements, n_incident_elements]
+        topology matrix describing incidence between elements
+
+    Returns
+    -------
+    elements : ndarray, [n_elements, n_incident_elements_per_n_element], index_dtype
+        element array
+
+    Raises
+    ------
+    ValueError
+        If not all elements can be described in terms of the same number of incident elements
+    """
     T = T.tocoo()
     r, c = T.row, T.col
     q = npi.group_by(r).split_array_as_array(c)
-    return q
+    return q.astype(index_dtype)
 
 
 def selection_matrix(s):
-    """
+    """Construct a sparse selection matrix, that picks out elements
+    according to the nonzeros of `s`
 
     Parameters
     ----------
@@ -95,9 +107,11 @@ def selection_matrix(s):
     return scipy.sparse.csr_matrix((data, (rows, cols)), shape=(len(rows), len(s)))
 
 
-def generate_boundary_indices(this, that):
-    """map boundary in terms of vertices to their unique indices
+def element_indices(this, that):
+    """Look up indices of elements described in `that` in `this`
 
+    Parameters
+    ----------
     this : ndarray, [n_elements, ...], int
         vertex indices describing unique n-elements
     that : ndarray, [n_test_elements, ...], int

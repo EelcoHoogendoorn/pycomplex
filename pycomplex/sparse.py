@@ -1,9 +1,7 @@
-"""
-custom sparse type, specialized for DEC-like applications
-
-input and output ranges are explicitly stored
-
-could generalize this into an ndsparse type; thatd be awesome
+"""This module contains an attempt at creating a multi-linear n-dim sparse type;
+but it is unused currently, and no more than an attempt just yet.
+Having a reasonably efficient and feature complete ndim sparse type
+would enable many interesting applications though
 """
 
 import numpy as np

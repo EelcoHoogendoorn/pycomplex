@@ -1,12 +1,9 @@
 
 from fastcache import clru_cache
 
-import numpy as np
-import numpy_indexed as npi
-from cached_property import cached_property
-
+from pycomplex.topology import transfer_matrix, element_indices
 from pycomplex.topology.primal import *
-from pycomplex.topology import topology_matrix, sign_dtype, index_dtype, transfer_matrix, generate_boundary_indices, sparse_to_elements
+from pycomplex.topology.util import parity_to_orientation, sort_and_argsort, relative_permutations
 
 
 def generate_simplex_boundary(simplices):
@@ -49,7 +46,9 @@ def permutation_map(n_dim):
     Returns
     -------
     parity : ndarray, [n_combinations], sign_dtype
+        the parities of any combination
     permutation : ndarray, [n_combinations, n_corners], sign_dtype
+        permutations defining the combinations
     """
     n_corners = n_dim + 1
     l = list(np.arange(n_corners))
@@ -218,7 +217,7 @@ class TopologySimplicial(PrimalTopology):
             s = shape[:-1].copy()
             s[i:] = 1
             IN0 = generate_simplex_boundary(IN0.reshape(-1, IN0.shape[-1])).reshape(IN0.shape + (-1, ))
-            domains[..., -i] = generate_boundary_indices(self.elements[-i], IN0).reshape(s)
+            domains[..., -i] = element_indices(self.elements[-i], IN0).reshape(s)
         domains[..., 0] = IN0
 
         return domains
@@ -294,7 +293,7 @@ class TopologySimplicial(PrimalTopology):
                 q = np.concatenate([fl, fr], axis=-1)
                 q.sort(axis=-1)
                 e = q[np.where(q[:, 1:] == q[:, :-1])].reshape(-1, 2)
-                return generate_boundary_indices(self.elements[1], e)
+                return element_indices(self.elements[1], e)
 
             for i in range(4):
                 l = cubes[:, i, 1, 0, 1]
@@ -327,14 +326,19 @@ class TopologySimplicial(PrimalTopology):
 
         Not very useful for computational meshes, since it steadily degrades the hodge quality,
         but it may be useful in a subdivision context
+
+        Returns
+        -------
+        type(self)
         """
         boundary = generate_simplex_boundary(self.elements[-1])
         tips = np.repeat(self.range(-1)[:, None, None], self.n_dim + 1, axis=1) + self.n_elements[0]
         simplices = np.concatenate([boundary, tips], axis=2)
-        return TopologySimplicial.from_simplices(simplices.reshape(-1, self.n_dim + 1))
+        return type(self).from_simplices(simplices.reshape(-1, self.n_dim + 1))
 
 
 class TopologyTriangular(TopologySimplicial):
+    """Triangular, or 2 dimensional simplicial topology"""
 
     def subdivide_loop(coarse):
         """Loop subdivision on triangles
@@ -373,10 +377,16 @@ class TopologyTriangular(TopologySimplicial):
     def subdivide_loop_transfer(coarse, fine):
         """Transfer operators belonging to loop subdivision logic
 
+        Returns
+        -------
+        List[scipy.sparse]
+            n-th item of the list relates coarse to fine,
+            in the multiplying a coarse chain from the right yields the corresponding fine chain
+
         Notes
         -----
-        no consideration is yet given to relative signs of edge-transfers
-        are they conserved?
+        Note that no consideration is given to relative signs of edge-transfers
+        They are conserved between levels given the way subdivision and construction currently works
         """
 
         # build up transfer operators; only edge-edge has some nontrivial logic
@@ -544,10 +554,12 @@ class TopologyTriangular(TopologySimplicial):
         return super(TopologyTriangular, self).subdivide_cubical().as_2()
 
     # some convenient named accessors
+    @property
     def face_edge(self):
-        return self.T12
+        return self.matrix(2, 1)
+    @property
     def edge_vertex(self):
-        return self.T01
+        return self.matrix(1, 0)
 
     # simplices described in terms of vertex indices
     @property

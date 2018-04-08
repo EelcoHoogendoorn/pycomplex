@@ -46,7 +46,7 @@ class BaseTopology(object):
         # convert to column format for fast slicing from the right
         TnN = self.matrix(-1).tocsc()
         # iterate over the N-elements of each 0-element
-        T0N = self.averaging_operators_N[0].tocoo()
+        T0N = self.accumulated_operators_N()[0].T.tocoo()
         I0, IN = T0N.row, T0N.col
         regions = self.chain(n=0, fill=0, dtype=index_dtype)
         for i0, iN in zip(*npi.group_by(I0, IN)):
@@ -200,7 +200,7 @@ class BaseTopology(object):
             raise ValueError('Topology is a non-orientable manifold.')
 
         # convert to parity description
-        from pycomplex.topology.primal import orientation_to_parity
+        from pycomplex.topology.util import orientation_to_parity
         return orientation_to_parity(orientation)
 
     @cached_property
