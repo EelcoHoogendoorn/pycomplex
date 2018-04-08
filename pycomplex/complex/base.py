@@ -342,14 +342,17 @@ class BaseComplex(object):
 
         Returns
         -------
-        velocity_d0 : ndarray, [n_vertices, n_dim, ...], float
+        velocity_d0 : ndarray, [n_dual_vertices, n_dim, ...], float
             velocity vector in the embedding space at each dual vertex
 
         Notes
         -----
-        This is the docstring of the wrapped inner function
+        This signature describes the docstring of the wrapped inner function
         """
-        assert self.is_pairwise_delaunay    # required since we are dividing by dual edge lengths; does not work for cubes yet
+        # FIXME: dual boundary fluxes are ignored, and boundary velocities are always zero.
+        # FIXME: this is hardly ideal; we should be able to reason about dual fluxes incident on boundary edges as well
+        # that said gradient on curved corner flux is not that well defined; but should the perfect be the enemy of the good?
+        assert self.is_pairwise_delaunay    # required since we are dividing by dual edge lengths
         B = self.topology._boundary[-1]
         O = self.topology._orientation[-1]
         B = B.reshape(len(B), -1)
@@ -360,9 +363,7 @@ class BaseComplex(object):
         from pycomplex.complex.regular import ComplexRegularMixin
         if isinstance(self, BaseComplexSimplicial):
             from pycomplex.geometry import euclidian
-            # FIXME: this only works for simplices; or can it be generalized to cubes too? gradients are per vertex-opposing-face pair;
-            # FIXME can think of it as volume gradient of moving vertex, or gradient of moving opposing face
-            # FIXME: analogous computation would be normal of cube faces multiplied with their area
+            # NOTE: analogous computation would be normal of cube faces multiplied with their area
             gradients = euclidian.simplex_gradients(self.vertices[self.topology.elements[-1]])
 
         elif isinstance(self, ComplexRegularMixin):
@@ -383,12 +384,26 @@ class BaseComplex(object):
         pinv = np.einsum('...ij,...j,...jk->...ki', u[..., :s.shape[-1]], s, v)
         # gradients.dot(velocity) = normal_flux
 
-        # # # for incompressible flows on simplicial topologies, there exists a 3-vector at the dual vertex,
-        # # # which projected on the dual edges forms the dual fluxes. on a sphere the third component is not determined
-        # # # approximate inverse would still make sense in cubical topology however
-        # # # tangent_directions.dot(velocity) = tangent_velocity_component
+        # for incompressible flows on simplicial topologies, there exists a 3-vector at the dual vertex,
+        # which projected on the dual edges forms the dual fluxes. on a sphere the third component is not determined
+        # approximate inverse would still make sense in cubical topology however;
+        # here each velocity component should reduce to an averaging over the opposing faces
+        # tangent_directions.dot(velocity) = tangent_velocity_component
 
         def block_diag(blocks):
+            """Reorganize a multilinear operator of shape [b, r, c]
+            as a sparse matrix with b diagonal blocks of shape [r, c]
+
+            Parameters
+            ----------
+            blocks : ndarray, [b, r, c], float
+                list of matrices to be used like y = einsum('brc,bc->br', blocks, x)
+
+            Returns
+            -------
+            blocked : scipy.sparse, [b * r, b * c]
+                equivalent linear operator to be used as y.flatten() == (blocked * x.flatten())
+            """
             b, r, c = np.indices(blocks.shape)
             r = r + b * blocks.shape[1]
             c = c + b * blocks.shape[2]
@@ -402,12 +417,12 @@ class BaseComplex(object):
 
         bpinv = block_diag(pinv)
         s = signed_selector(B.flatten(), O.flatten())       # this assembles all fluxes of each n-cube in 2*n rows per n_cube
-        pd1 = scipy.sparse.diags(self.hodge_PD[1])
+        pd = scipy.sparse.diags(self.hodge_PD[-2])
         # core maps from interior dual edges to interior dual vertices * ndim
-        core = (bpinv * s * pd1).tocsr()    # perhaps drop near-zero terms?
+        core = (bpinv * s * pd).tocsr()    # perhaps drop near-zero terms?
         # NOTE: dual selectors are indexed by primal element order!
-        S = self.topology.dual.selector[-2]     # map from dual-1-elements to primal-n-1-elements; drop boundary fluxes
-        P = self.topology.dual.selector[-1].T   # map from primal-n-elements to dual-0-elements; pad boundary with zeros
+        S = self.topology.dual.selector_interior[-2]     # map from dual-1-elements to primal-n-1-elements; drop boundary fluxes
+        P = self.topology.dual.selector_interior[-1].T   # map from primal-n-elements to dual-0-elements; pad boundary with zeros
 
         def dual_flux_to_dual_velocity(flux_d1):
             # lots of reshaping to support gufunc dimensions; otherwise quite simple product
@@ -455,7 +470,7 @@ class BaseComplex(object):
         defaults.update(kwargs)
 
         # map dual flux to primal velocity; kinda ugly
-        S = self.topology.dual.selector
+        S = self.topology.dual.selector_interior
         d0 = S[-1] * self.dual_flux_to_dual_velocity(S[1].T * d1)
         p0 = self.topology.averaging_operators_N[0] * d0
         # plot warped mesh

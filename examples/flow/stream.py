@@ -52,6 +52,7 @@ def setup_stream(complex):
     System
         representing a stream function
     """
+    # FIXME: could write this as the normal equation of System.canonical(complex)[0, 1]!
     assert complex.topology.n_dim == 2  # only makes sense in 2d
     system = System.canonical(complex)[:2, :2]
     system.A.block[0, 0] *= 0
@@ -79,7 +80,7 @@ def solve_stream(stream, flux_d1, eliminate=True):
         primal 0-form
     """
     # set the rhs to match the problem at hand
-    S = stream.complex.topology.dual.selector[1]
+    S = stream.complex.topology.dual.selector_interior[1]
     # filter out tangent fluxes; must be zero
     vorticity = stream.A.block[0, 1] * S.T * S * flux_d1
     # FIXME: this mutable design is disgusting
@@ -141,7 +142,7 @@ def solve_potential(potential, flux_d1, eliminate=True):
         dual 0-form
     """
     # set the rhs to match the problem at hand
-    S = potential.complex.topology.dual.selector
+    S = potential.complex.topology.dual.selector_interior
     # filter out tangent fluxes; must be zero
     divergence = potential.A.block[1, 0] * flux_d1
     # FIXME: this mutable design is disgusting

@@ -433,7 +433,7 @@ if __name__ == '__main__':
         surface = segment(m)
 
         # # map eigen solution to the surface
-        S = complex.topology.dual.selector[-2]
+        S = complex.topology.dual.selector_interior[-2]
         Vs = complex.sample_dual_0(complex.dual_flux_to_dual_velocity(S.T * V), surface.vertices)
 
         # set up on grid too, so we can diffuse?

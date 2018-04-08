@@ -306,7 +306,7 @@ def test_flux_to_vector(show_plot):
     # flux_p1 += np.random.randn(*flux_p1.shape) * 1e-2
     flux_d1 = sphere.hodge_DP[1] * flux_p1
     # add zero boundary terms
-    flux_d1 = sphere.topology.dual.selector[1].T * flux_d1
+    flux_d1 = sphere.topology.dual.selector_interior[1].T * flux_d1
     velocity_d0 = sphere.dual_flux_to_dual_velocity(flux_d1)
 
     sphere.plot(plot_dual=True, backface_culling=True)

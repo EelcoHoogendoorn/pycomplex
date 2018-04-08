@@ -55,6 +55,7 @@ class BaseSystem(object):
             A=self.A.__getitem__(item).copy(),
             L=self.L[item[0]],
             R=self.R[item[1]],
+            rhs=self.rhs[item[0]]
         )
 
     def plot(self, dense=True, order=None):
@@ -108,7 +109,7 @@ class BaseSystem(object):
         """
         assert self.L[i] == self.R[j]   # this implies diagonal of the cochain complex
 
-        Sb = self.complex.topology.dual.selector_b[self.L[i]]
+        Sb = self.complex.topology.dual.selector_boundary[self.L[i]]
         self.A.block[i, j] = self.A.block[i, j] + scipy.sparse.diags(Sb.T * d)
 
     def set_off_boundary(self, i, j, o):
@@ -130,9 +131,9 @@ class BaseSystem(object):
         """
         assert self.L[i] == self.R[j] + 1   # this implies entry below the diagonal, or primal exterior derivative
 
-        Srd = self.complex.topology.dual.selector[self.R[j]]
-        Srp = self.complex.topology.selector_b[self.R[j]]
-        Sld = self.complex.topology.dual.selector_b[self.L[i]]
+        Srd = self.complex.topology.dual.selector_interior[self.R[j]]
+        Srp = self.complex.topology.selector_boundary[self.R[j]]
+        Sld = self.complex.topology.dual.selector_boundary[self.L[i]]
 
         self.A.block[i, j] = self.A.block[i, j] + Sld.T * scipy.sparse.diags(o) * Srp * Srd
 
@@ -150,7 +151,7 @@ class BaseSystem(object):
         ------------
         modifies the rhs vector
         """
-        S = self.complex.topology.dual.selector_b[self.L[i]]
+        S = self.complex.topology.dual.selector_boundary[self.L[i]]
         self.rhs.block[i] = self.rhs.block[i] + S.T * r
 
     def set_rhs(self, i, r):
@@ -167,7 +168,7 @@ class BaseSystem(object):
         ------------
         modifies the rhs vector
         """
-        S = self.complex.topology.dual.selector[self.L[i]]
+        S = self.complex.topology.dual.selector_interior[self.L[i]]
         self.rhs.block[i] = self.rhs.block[i] + S * r
 
     def set_sum_boundary(self, i, j, s, row, sum):
@@ -178,7 +179,7 @@ class BaseSystem(object):
         data = s[cols]
         b = scipy.sparse.coo_matrix((data, (rows, cols)), shape=(len(s),)*2)
 
-        S = self.complex.topology.dual.selector_b[self.L[i]]
+        S = self.complex.topology.dual.selector_boundary[self.L[i]]
         self.A.block[i, j] = self.A.block[i, j] + S.T * b * S
 
         q = np.zeros_like(s)
@@ -401,7 +402,7 @@ class System(BaseSystem):
         NE = complex.topology.dual.n_elements[::-1]
         A = block.SparseBlockMatrix(
             [[pycomplex.sparse.sparse_zeros((NE[i], NE[j])) for j in range(N)] for i in range(N)])
-        S = complex.topology.dual.selector
+        S = complex.topology.dual.selector_interior
         # FIXME: make these available as properties on the System? need them more often
         PD = [scipy.sparse.diags(pd) for pd in complex.hodge_PD]
         # these terms are almost universally required
@@ -656,7 +657,7 @@ class System(BaseSystem):
         if dirichlet_dual:
             laplace.set_dia_boundary(c, c, np.ones(self.n_boundary_elements(laplace.L[c])))
             # zero out od-term
-            S = self.complex.topology.dual.selector[laplace.L[1]]
+            S = self.complex.topology.dual.selector_interior[laplace.L[1]]
             laplace.A.block[c, l] = S.T * S * laplace.A.block[c, l] # zero out boundary equations
             laplace.A.block[l, c] = laplace.A.block[c, l].T # interesting how we need this for symmetry in the dirichlet_dual case
         else:
@@ -667,13 +668,13 @@ class System(BaseSystem):
         else:
             laplace.set_dia_boundary(r, r, np.ones(self.n_boundary_elements(laplace.L[r])))
             # zero out od-term
-            S = self.complex.topology.dual.selector[laplace.L[2]]
+            S = self.complex.topology.dual.selector_interior[laplace.L[2]]
             laplace.A.block[r, c] = S.T * S * laplace.A.block[r, c]
         return laplace
 
     def n_boundary_elements(self, k):
         """Number of boundary elements belonging to primal form of degree k"""
-        return [self.complex.topology.dual.selector_b[k].nnz]
+        return [self.complex.topology.dual.selector_boundary[k].nnz]
 
     def symmetrize(self):
         """Adjust boundary terms such as to achieve a symmetric system"""
@@ -743,7 +744,7 @@ class SystemMid(BaseSystem):
         NE = complex.topology.dual.n_elements[::-1]
         A = block.SparseBlockMatrix(
             [[pycomplex.sparse.sparse_zeros((NE[i], NE[j])) for j in range(N)] for i in range(N)])
-        S = complex.topology.dual.selector
+        S = complex.topology.dual.selector_interior
 
         Mp= complex.primal_metric
         Md = complex.dual_metric_closed[::-1]

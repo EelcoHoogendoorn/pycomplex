@@ -38,14 +38,14 @@ class ClosedDual(BaseTopology):
         return [T.T for T in self.primal.matrices[::-1]]
 
     @cached_property
-    def selector(self):
+    def selector_interior(self):
         """Mapping to interior of closed always is identity mapping"""
         def s(np):
             return scipy.sparse.eye(np)
         return [s(np) for np in self.primal.n_elements]
 
     @cached_property
-    def selector_b(self):
+    def selector_boundary(self):
         """Mapping to boundary of closed always gives vanishing chain"""
         def s(np):
             return pycomplex.sparse.sparse_zeros((0, np))
@@ -124,11 +124,11 @@ class Dual(BaseTopology):
         """
         # FIXME: come up with a descriptive name for this. call it matrices; and rename matrices to matrices_full?
         M = self.matrices    # [D0D1 ... DnDN]
-        S = self.selector    # [P0DN ... PND0]
+        S = self.selector_interior    # [P0DN ... PND0]
         return [m * s.T for m, s in zip(M, S[::-1][1:])]
 
     @cached_property
-    def selector(self):
+    def selector_interior(self):
         """Operators to select interior elements; or to strip boundary elements,
         or those that do not have a corresponding primal element
 
@@ -146,7 +146,7 @@ class Dual(BaseTopology):
         return [s(np, nd) for np, nd in zip(self.primal.n_elements, self.n_elements[::-1])]
 
     @cached_property
-    def selector_b(self):
+    def selector_boundary(self):
         """Operators to select interior elements; or to strip boundary elements,
         or those that do not have a corresponding primal element
 
@@ -213,8 +213,8 @@ class Dual(BaseTopology):
         boundary = self.primal.boundary
         CBT = []
         T = [self.primal.matrix(i) for i in range(self.primal.n_dim)]
-        S = self.primal.selector
-        Sb = self.primal.selector_b
+        S = self.primal.selector_interior
+        Sb = self.primal.selector_boundary
 
         if not boundary is None:
             BT = [boundary.matrix(i) for i in range(boundary.n_dim)]

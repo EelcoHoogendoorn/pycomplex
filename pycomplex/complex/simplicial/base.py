@@ -18,17 +18,19 @@ class BaseComplexSimplicial(BaseComplex):
     def subdivide_fundamental(self, oriented=True):
         return self.copy(
             vertices=np.concatenate(self.primal_position, axis=0),
-            topology=self.topology.subdivide_fundamental(oriented)
+            topology=self.topology.subdivide_fundamental(oriented),
+            weights=None
         )
 
     def subdivide_fundamental_transfer(self):
-        return
+        raise NotImplementedError
 
     def subdivide_simplicial(self):
         PP = self.primal_position
         return self.copy(
             vertices=np.concatenate([PP[0], PP[-1]], axis=0),
-            topology=self.topology.subdivide_simplicial()
+            topology=self.topology.subdivide_simplicial(),
+            weights=None
         )
 
     def subdivide_cubical(self):
@@ -36,7 +38,8 @@ class BaseComplexSimplicial(BaseComplex):
         from pycomplex.complex.cubical import ComplexCubical
         return ComplexCubical(
             vertices=np.concatenate(self.primal_position, axis=0),
-            topology=self.topology.subdivide_cubical()
+            topology=self.topology.subdivide_cubical(),
+            weights=None
         )
 
     def dual_edge_excess(self, signed=True):
@@ -266,7 +269,9 @@ class BaseComplexSimplicial(BaseComplex):
         return np.sqrt(-weights + weights.max())
 
     def homogenize(self, points):
-        """Homogenize a set of points. In the euclidian case, this means adding a column of ones
+        """Homogenize a set of points.
+        In the euclidian case, this means adding a column of ones.
+        In the spherical case, this is an identity mapping
 
         Parameters
         ----------
@@ -310,10 +315,10 @@ class BaseComplexSimplicial(BaseComplex):
         Returns
         -------
         tree : CKDTree
-            tree over augmented points
-        basis : ndarray, [n_n-elements, n_homogeneous_coordinates, n_homogeneous_coordinates]
-            pre-inverted basis of each n-element,
-            for fast barycentric calculation
+            tree over augmented primal vertices
+        basis : ndarray, [n_N-elements, n_homogeneous_coordinates, n_homogeneous_coordinates]
+            pre-inverted basis of each N-simplex,
+            for fast calculation of barycentric coordinates from homogeneous coordinates
         """
         points = self.primal_position[0]
         if self.weights is not None:
@@ -329,8 +334,8 @@ class BaseComplexSimplicial(BaseComplex):
         Returns
         -------
         tree : CKDTree
-            tree over augmented points
-        basis : ndarray, [n_n-elements, n_homogeneous_coordinates, n_homogeneous_coordinates]
+            tree over augmented dual vertices
+        basis : ndarray, [n_N-elements, n_homogeneous_coordinates, n_homogeneous_coordinates]
             pre-inverted basis of each n-element,
             for fast barycentric calculation
 
@@ -346,7 +351,7 @@ class BaseComplexSimplicial(BaseComplex):
         if weight:
             ee = self.dual_edge_excess(signed=False)
             # sum these around each n-1-simplex, or bounding face, to get n-1-form
-            S = self.topology.selector[-2]  # only consider interior simplex boundaries
+            S = self.topology.selector_interior[-2]  # only consider interior simplex boundaries
             q = S * self.remap_boundary_N(ee, oriented=True)
             T = S * self.topology.matrices[-1]
             # solve T * w = q; that is,
@@ -354,6 +359,7 @@ class BaseComplexSimplicial(BaseComplex):
             L = T.T * T
             rhs = T.T * q
             rhs = rhs - rhs.mean()  # this might aid numerical stability of minres
+            # FIXME: could we use amg here?
             weight = scipy.sparse.linalg.minres(L, rhs, tol=1e-12)[0]
             points = self.augment(dual_vertex, weight)
         else:
@@ -379,6 +385,7 @@ class BaseComplexSimplicial(BaseComplex):
         Parameters
         ----------
         points : ndarray, [n_points, n_dim], float
+            query points in embedding space
         simplex_idx : ndarray, [n_points], index_dtype, optional
             can be used to exploit temporal coherence in queries
 
@@ -388,6 +395,8 @@ class BaseComplexSimplicial(BaseComplex):
             index of the primal simplex being picked
         bary : ndarray, [n_points, n_dim], float
             barycentric coordinates
+            note that they are not normalized yet!
+            this means they only sum to one of the query point lies exactly on the simplex
         """
         assert self.is_pairwise_delaunay
         if weighted:
@@ -422,10 +431,15 @@ class BaseComplexSimplicial(BaseComplex):
         """Pick the dual elements. By definition of the voronoi dual,
         this lookup can be trivially implemented as a closest-point query
 
+        Parameters
+        ----------
+        points : ndarray, [n_points, n_dim], float
+            query points in embedding space
+
         Returns
         -------
-        dual_element_idx : ndarray, [self.topology.n_elements[0]], index_dtype
-            primal vertex / dual element index
+        dual_element_idx : ndarray, [n_points], index_dtype
+            primal vertex / dual N-simplex index
         """
         if self.weights is not None:
             points = self.augment(points)

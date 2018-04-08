@@ -1,13 +1,17 @@
 
 # -*- coding: utf-8 -*-
 
-"""Transverse electric electromagnetics
+"""Transverse electric electromagnetic waves
 
 E is a primal 1-form
 H is a primal 0-form
 
 d/dt E = curl(H)
 d/dt H = curl(E)
+
+Interestingly, it does not seem as if the algebraic structure of this equation
+is any different than a plain pressure wave, at least in the 2d case
+except for the interpretation of the associated flux as tangential instead of normal
 
 
 References
@@ -48,8 +52,8 @@ class Transverse(object):
         P1P0 = T01.T
         D2D1 = T01
 
-        P0D2, P1D1, P2D0 = [scipy.sparse.diags(h) for h in self.complex.hodge_PD[:2]]
-        D2P0, D1P1, D0P2 = [scipy.sparse.diags(h) for h in self.complex.hodge_DP[:2]]
+        P0D2, P1D1, P2D0 = [scipy.sparse.diags(h) for h in self.complex.hodge_PD[:3]]
+        D2P0, D1P1, D0P2 = [scipy.sparse.diags(h) for h in self.complex.hodge_DP[:3]]
 
         dE = P1P0.multiply(self.step)
         dH = (P0D2 * D2D1 * D1P1).multiply(self.step)

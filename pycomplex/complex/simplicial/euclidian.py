@@ -349,7 +349,7 @@ class ComplexTriangularEuclidian(ComplexSimplicialEuclidian):
             average = self.weighted_average_operators
         else:
             average = self.topology.dual.averaging_operators_0
-        S = self.topology.dual.selector
+        S = self.topology.dual.selector_interior
         sub_form = np.concatenate([s * a * d0 for s, a in zip(S, average[::-1])], axis=0)
         sub = self.subdivide_fundamental()
         sub.plot_primal_0_form(sub_form, ax=ax, **kwargs)

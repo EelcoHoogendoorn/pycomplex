@@ -21,6 +21,7 @@ not clear why it should perform any worse than seismic simulation?
 it doesnt; appears amg isnt as effective for vectorial fields generally?
 seems like it; when adding anisotropy, amg becomes no faster; but less stable!
 this is in contrast to seismic, where eigen decomposition becomes more stable with amg. what gives?
+is this related to the larger nullspace of the magnetostatics problem?
 
 
 normal-equations to solve is essentially a vector-laplacian;
@@ -96,7 +97,7 @@ def setup_domain(mesh):
     plate_1 = mesh.topology.averaging_operators_N[1] * plate_2
 
     mu = plate_1 * 10000 + 1
-    S = mesh.topology.dual.selector
+    S = mesh.topology.dual.selector_interior
     mu = S[-2].T * mu
 
     return dict(
@@ -111,7 +112,8 @@ def setup_domain(mesh):
 
 
 def setup_magnetostatics(complex, regions):
-    """new style magnetostatics setup
+    """Magnetostatics setup
+    Equations model (a quarter of) a permanent magnet with an iron plate on top
 
     Parameters
     ----------

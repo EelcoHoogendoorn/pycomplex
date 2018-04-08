@@ -88,7 +88,7 @@ def test_flux_to_vector(show_plot):
     # flux_p1 += np.random.randn(*flux_p1.shape) * 1e-2
     flux_d1 = quad.hodge_DP[1] * flux_p1
     # add zero boundary terms
-    flux_d1 = quad.topology.dual.selector[1].T * flux_d1
+    flux_d1 = quad.topology.dual.selector_interior[1].T * flux_d1
     velocity_d0 = quad.dual_flux_to_dual_velocity(flux_d1)
 
     npt.assert_allclose(velocity_d0, [[0, -1]] * len(velocity_d0), atol=1e-9, rtol=1e9)

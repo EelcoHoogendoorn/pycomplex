@@ -200,10 +200,12 @@ class PrimalTopology(BaseTopology):
         -------
         self.boundary_type
             Boundary topology, with attribute parent_idx referring back to the parent elements
+            if the topology is closed, None is returned
         """
         # FIXME: rather than using from_elements, a direct subset selection would be preferable
         # shouldnt be too hard; just find chains on all elements, select subsets, and remap vertex indices
         # FIXME: not sure boundary orientation is even preserved in current implementation
+        # in practice, this appears to be very much the case
         if not self.is_oriented:
             raise ValueError('Cannot get the boundary of a non-oriented manifold')
 
@@ -228,6 +230,7 @@ class PrimalTopology(BaseTopology):
 
     @cached_property
     def is_closed(self):
+        """Returns true if the topology does not have a boundary"""
         return self.boundary is None
 
     def split_connected_components(self):
@@ -244,7 +247,7 @@ class PrimalTopology(BaseTopology):
         return sorted(components, key=lambda c: -c.n_elements[-1])
 
     @cached_property
-    def selector(self):
+    def selector_interior(self):
         """Operators to select interior, or to strip boundary elements
 
         Returns
@@ -264,7 +267,7 @@ class PrimalTopology(BaseTopology):
         return [s(i) for i in range(self.n_dim + 1)]
 
     @cached_property
-    def selector_b(self):
+    def selector_boundary(self):
         """Operators to select boundary, or to strip interior elements
 
         Returns

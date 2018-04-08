@@ -14,7 +14,7 @@ lobpcg._assert_symmetric = lambda x: None
 def get_harmonics_0(complex2, zero_boundary=False, amg=False, K=20, tol=1e-6):
     """primal 0-form harmonics with zero boundary"""
     # grab all the operators we will be needing
-    S = complex2.topology.selector[0]
+    S = complex2.topology.selector_interior[0]
     if zero_boundary is False:
         S = scipy.sparse.eye(complex2.topology.n_elements[0])
     T01 = complex2.topology.matrix(0, 1).T

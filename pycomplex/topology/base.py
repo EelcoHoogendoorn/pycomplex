@@ -273,7 +273,7 @@ class BaseTopology(object):
 
     @cached_property
     def degree(self):
-        """Compute the degree of each n-element; or the number of adjecent N-elements
+        """Compute the degree of each n-element; or the number of adjacent N-elements
 
         Returns
         -------
@@ -286,4 +286,12 @@ class BaseTopology(object):
         # ones_like constructs a summing operator
         return [sparse.ones_like(a.T) * N_elements for a in A]
 
+    @cached_property
+    def selector_interior(self):
+        """Sparse matrices selecting interior portion of a chain"""
+        raise NotImplementedError
 
+    @cached_property
+    def selector_boundary(self):
+        """Sparse matrices selecting boundary portion of a chain"""
+        raise NotImplementedError

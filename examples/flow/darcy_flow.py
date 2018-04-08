@@ -34,8 +34,7 @@ import numpy as np
 import scipy.sparse
 import matplotlib.pyplot as plt
 
-from examples.flow.stream import stream
-from examples.linear_system import *
+from examples.linear_system import System
 
 
 def grid(shape=(32, 32)):
@@ -103,19 +102,22 @@ def generate_pattern(complex):
         plt.show()
     # mu = form[complex.topology.elements[1]].mean(axis=1)
     mu = complex.topology.averaging_operators_0[1] * form   # map vertices to edges
-    S = mesh.topology.dual.selector
     mu -= mu.min()
     mu /= mu.max()
     mu *= mu
     mu += .00001
 
+    S = complex.topology.dual.selector_interior
     mu = S[-2].T * mu   # zero on dual boundary; is that ok?
 
     return mu
 
 
 def setup_darcy_flow(complex, regions):
-    """New style darcy flow setup"""
+    """Darcy flow setup
+
+    Scenario is a prescribed pressure delta over a tapered tube open on the left and right
+    """
     assert complex.topology.n_dim >= 1
     system = System.canonical(complex)[-2:, -2:]
     equations = dict(momentum=0, continuity=1)
@@ -126,7 +128,7 @@ def setup_darcy_flow(complex, regions):
     # FIXME: implementation of mu not quite successfull yet?
     # system.A.block[equations['momentum'], variables['flux']] *= sparse_diag(1. / regions['mu'])
     system.A.block[equations['momentum'], variables['pressure']] = \
-        sparse_diag(regions['mu']) * system.A.block[equations['momentum'], variables['pressure']]
+        scipy.sparse.diags(regions['mu']) * system.A.block[equations['momentum'], variables['pressure']]
 
     # prescribe tangent flux on entire boundary; all 0
     system.set_dia_boundary(equations['momentum'], variables['flux'], regions['all_0'])
@@ -151,22 +153,27 @@ if __name__ == '__main__':
 
     # mesh.plot()
     system = setup_darcy_flow(mesh, regions)
-    system = system.balance(1e-9)
     # system.plot()
 
     if True:
-        # solve by elimination; seems to be working. even including mu terms we get a symmetric result
+        # solve by elimination; seems to be working.
+        system = system.balance(1e-9)
         system_up = system.eliminate([0], [0])
+        # even including mu term we get a symmetric result; but not numerically so
+        print(system.is_symmetric)
         solution, residual = system_up.solve_minres()
         pressure = solution.merge()
         # system_up.plot()
 
-        pressure = mesh.topology.dual.selector[2] * pressure
+        pressure = mesh.topology.dual.selector_interior[2] * pressure
         pressure = mesh.hodge_PD[2] * pressure
         mesh.plot_primal_2_form(pressure)
 
         plt.show()
     else:
+        # FIXME: normal equation method takes forever to complete; how is it different from legacy method below?
+        system = system.block_balance(k=-1)
+        system = system.balance(1e-9)
         normal = system.normal()
         # normal.plot()
         solution, residual = normal.solve_minres()
@@ -180,6 +187,7 @@ if __name__ == '__main__':
 quit()
 
 
+from examples.flow.stream import stream
 
 def darcy_flow(complex2, mu):
     """Formulate darcy flow over a 2-complex
@@ -292,7 +300,7 @@ flux, pressure = solution
 
 # plot result
 tris = mesh.subdivide_simplicial()
-pressure = mesh.topology.dual.selector[2] * pressure
+pressure = mesh.topology.dual.selector_interior[2] * pressure
 pressure = mesh.hodge_PD[2] * pressure
 pressure = tris.topology.transfer_operators[2] * pressure
 tris.as_2().plot_primal_2_form(pressure)

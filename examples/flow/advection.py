@@ -194,7 +194,7 @@ if __name__ == "__main__":
     #     # plt.show()
 
     flux_d1 = complex.hodge_DP[1] * (curl * (H_p0)) / 400
-    flux_d1 = complex.topology.dual.selector[1].T * flux_d1
+    flux_d1 = complex.topology.dual.selector_interior[1].T * flux_d1
 
     path = r'../output/advection_0'
 

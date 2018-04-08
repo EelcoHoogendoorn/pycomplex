@@ -104,7 +104,7 @@ class VorticityAdvector(Advector):
     @cached_property
     def constrain_divergence_precompute_boundary(self):
         T01, T12 = self.complex.topology.matrices
-        P1P0 = T01.T * self.complex.topology.selector[0].T  # this multiply pins all boundary streamfunction implicitly at zero, enforcing zero boundary flux
+        P1P0 = T01.T * self.complex.topology.selector_interior[0].T  # this multiply pins all boundary streamfunction implicitly at zero, enforcing zero boundary flux
         D2D1 = P1P0.T
         D1P1 = scipy.sparse.diags(self.complex.hodge_DP[1])
         laplacian = D2D1 * D1P1 * P1P0
@@ -140,11 +140,11 @@ class VorticityAdvector(Advector):
         if self.diffusion:
             vorticity_d2 = D2P0 * self.vorticity_diffusor.integrate_explicit(P0D2 * vorticity_d2, dt=self.diffusion)
 
-        vorticity_d2 = self.complex.topology.selector[0] * vorticity_d2
+        vorticity_d2 = self.complex.topology.selector_interior[0] * vorticity_d2
         laplacian = self.constrain_divergence_precompute_boundary
         phi_p0 = scipy.sparse.linalg.minres(laplacian, vorticity_d2, tol=1e-14)[0]
         # add the boundary zeros back in
-        phi_p0 = self.complex.topology.selector[0].T * phi_p0
+        phi_p0 = self.complex.topology.selector_interior[0].T * phi_p0
 
         if return_phi:
             return phi_p0
@@ -226,7 +226,7 @@ class VorticityAdvector(Advector):
             # plt.show()
 
         # drop boundary terms
-        flux_d1_advected = self.complex.topology.dual.selector[1] * flux_d1_advected
+        flux_d1_advected = self.complex.topology.dual.selector_interior[1] * flux_d1_advected
 
 
 
@@ -235,7 +235,7 @@ class VorticityAdvector(Advector):
             flux_d1_advected += force * dt
 
         if self.complex.boundary is not None:
-            F = self.complex.topology.dual.selector[1].T * self.constrain_divergence_boundary(flux_d1_advected)
+            F = self.complex.topology.dual.selector_interior[1].T * self.constrain_divergence_boundary(flux_d1_advected)
 
             if False:
                 print(F.min(), F.max())
@@ -249,7 +249,7 @@ class VorticityAdvector(Advector):
 
         else:
             # on boundary-free domains, using pressure projection is simpler, since it does not require seperate treatnent of harmonic component
-            return self.complex.topology.dual.selector[1].T * self.pressure_projection(flux_d1_advected)
+            return self.complex.topology.dual.selector_interior[1].T * self.pressure_projection(flux_d1_advected)
 
 
 if __name__ == "__main__":
@@ -359,7 +359,7 @@ if __name__ == "__main__":
         flux_d1 = complex.hodge_DP[1] * flux_p1
 
     # set boundary tangent flux to zero
-    flux_d1 = complex.topology.dual.selector[1].T * flux_d1
+    flux_d1 = complex.topology.dual.selector_interior[1].T * flux_d1
 
     # set up vorticity advector
     advector = VorticityAdvector(complex)

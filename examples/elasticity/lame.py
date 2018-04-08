@@ -285,7 +285,7 @@ if __name__ == '__main__':
         flux = solution[-2].merge()
 
     # visualize
-    S = mesh.topology.dual.selector
+    S = mesh.topology.dual.selector_interior
     mesh.plot_dual_flux(S[1] * flux * 4e-1, plot_lines=True)
     ax = plt.gca()
 
