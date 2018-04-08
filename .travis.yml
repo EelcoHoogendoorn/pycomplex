@@ -3,6 +3,8 @@ python:
   # We don't actually use the Travis Python, but this keeps it organized.
   - "2.7"
   - "3.6"
+env:
+  -MPLBACKEND=Agg
 install:
   - sudo apt-get update
   # some boilerplate to setup conda in travis
@@ -25,7 +27,6 @@ install:
   - conda info -a
 
 script:
-  - cat > .matplotlibrc <<< "backend : Agg"
   - conda build .
 
 notifications:
