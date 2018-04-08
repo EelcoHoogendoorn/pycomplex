@@ -1,4 +1,4 @@
-|Build Status|
+[![Build Status](https://travis-ci.org/EelcoHoogendoorn/pycomplex.svg?branch=master)](https://travis-ci.org/EelcoHoogendoorn/pycomplex)
 
 pycomplex
 =========
@@ -61,8 +61,8 @@ Speculative todo
 
 Development
 -----------
-Pycomplex currently targets both python 2 and 3
-It has been successfully (but not systematically) tested on all major platforms
+Pycomplex currently targets python 3 primarily. The source is mostly python 2 compliant and would be easy to make so if the need arose, but compatibility is currently not actively maintained for convenience reasons.
+Pycomplex has been successfully (but not systematically) tested on all major platforms
 
 Testing
 -------
@@ -70,5 +70,3 @@ To invoke the tests from the command line, run pytest --show_plot=False
 Many tests have a visual component that will be suppressed by using this flag
 
 
-.. |Build Status| image:: https://travis-ci.org/EelcoHoogendoorn/pycomplex.svg?branch=master
-   :target: https://travis-ci.org/EelcoHoogendoorn/pycomplex
