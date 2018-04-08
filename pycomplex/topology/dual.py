@@ -263,9 +263,6 @@ class Dual(BaseTopology):
             ]
             result.append(scipy.sparse.bmat(blocks))
         result.append(T[0])  # dual of primal vertices do not have anything added to them
-        # little check
-        for r, c, f in zip(result, coarse.n_elements, fine.n_elements):
-            assert r.shape == (r, c)
         return result
 
     # def form(self, n):
