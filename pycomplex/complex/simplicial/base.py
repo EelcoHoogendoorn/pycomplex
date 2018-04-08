@@ -39,7 +39,6 @@ class BaseComplexSimplicial(BaseComplex):
         return ComplexCubical(
             vertices=np.concatenate(self.primal_position, axis=0),
             topology=self.topology.subdivide_cubical(),
-            weights=None
         )
 
     def dual_edge_excess(self, signed=True):
