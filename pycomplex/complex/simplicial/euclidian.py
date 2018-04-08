@@ -22,10 +22,20 @@ class ComplexSimplicialEuclidian(BaseComplexSimplicial):
         self.topology = topology
 
     def homogenize(self, points):
+        """
+
+        Parameters
+        ----------
+        points : ndarray, [..., n_dim]
+
+        Returns
+        -------
+        points : ndarray, [..., n_dim + 1]
+        """
         return np.concatenate([points, np.ones_like(points[..., 0:1])], axis=-1)
 
     def plot(self, ax=None, plot_dual=True, plot_vertices=True, plot_lines=True, plot_arrow=False, primal_color='b', dual_color='r'):
-        """Plot projection on plane"""
+        """Plot projection on xy plane"""
         import matplotlib.pyplot as plt
         import matplotlib.collections
         edges = self.topology.elements[1]
@@ -64,7 +74,7 @@ class ComplexSimplicialEuclidian(BaseComplexSimplicial):
         ax.axis('equal')
 
     def plot_domains(self, ax):
-        """Plot projection of fundamental domain onto plane"""
+        """Plot projection of fundamental domain onto xy plane"""
         import matplotlib.pyplot as plt
         import matplotlib.collections
         domain = self.topology.fundamental_domains()
@@ -203,12 +213,33 @@ class ComplexTriangularEuclidian(ComplexSimplicialEuclidian):
 
     @cached_property
     def compute_vertex_areas(self):
-        # FIXME: this corresponds to barycentric dual, not circumcentric!
-        # this may be a feature rather than a bug, however
-        # FIXME: the below would work, if it were a summing rather than averaging operator. can be constructed by replacing data with zeros?
+        """
+
+        Returns
+        -------
+        ndarray, [n_vertices], float
+            barycentric dual based primal vertex area
+
+        Notes
+        -----
+        using this instead of circumcentric based metric is hacky
+        but often useful because of guaranteed positivity
+        """
+        # NOTE: the below would work, if it were a summing rather than averaging operator. can be constructed by replacing data with zeros?
         # vertex_areas = self.topology.averaging_operators_N[0] * self.compute_triangle_areas
         _, vertex_areas = npi.group_by(self.topology.triangles.flatten()).sum(np.repeat(self.compute_triangle_areas, 3))
         return vertex_areas / 3
+
+    @cached_property
+    def compute_triangle_areas(self):
+        """Compute area associated with each face
+
+        Returns
+        -------
+        triangle_area : ndarray, [n_triangles], float
+            vertex area per vertex
+        """
+        return euclidian.unsigned_volume(self.vertices[self.topology.triangles])
 
     @cached_property
     def compute_edge_ratio(self):
@@ -228,38 +259,12 @@ class ComplexTriangularEuclidian(ComplexSimplicialEuclidian):
         ----------
         http://ddg.cs.columbia.edu/SGP2014/LaplaceBeltrami.pdf
         """
+        assert self.weights is None     # this doesnt fly for a weighted complex
         cotan = 1. / np.tan(self.compute_triangle_angles)
         # sum the contribution for all faces incident to each edge
         B21 = self.topology._boundary[1]
         _, hodge = npi.group_by(B21.flatten()).sum(cotan.flatten())
         return hodge / 2
-
-    @cached_property
-    def compute_triangle_areas(self):
-        """Compute area associated with each face
-
-        Returns
-        -------
-        triangle_area : ndarray, [n_triangles], float
-            vertex area per vertex
-        """
-        return euclidian.unsigned_volume(self.vertices[self.topology.triangles])
-
-    # @cached_property
-    # def metric(self):
-    #     # FIXME: implement edge metrics; should not be hard
-    #     # FIXME: implement true circumcentric-dual vertex areas
-    #     PM = [self.topology.chain(0, fill=1), None, self.compute_triangle_areas]
-    #     DM = [self.topology.chain(2, fill=1), None, 1 / self.compute_vertex_areas]
-    #     return PM, DM
-    #
-    # @cached_property
-    # def hodge_DP(self):
-    #     """Triangular complex overloads these for the time being"""
-    #     return [self.compute_vertex_areas, self.compute_edge_ratio, 1 / self.compute_triangle_areas]
-    # @cached_property
-    # def hodge_PD(self):
-    #     return [1 / h for h in self.hodge_DP]
 
     def subdivide_loop(coarse, smooth=False, creases=None):
         """Loop subdivision

@@ -16,10 +16,9 @@ class BaseComplexSimplicial(BaseComplex):
     """
 
     def subdivide_fundamental(self, oriented=True):
-        return self.copy(
+        return type(self)(
             vertices=np.concatenate(self.primal_position, axis=0),
             topology=self.topology.subdivide_fundamental(oriented),
-            weights=None
         )
 
     def subdivide_fundamental_transfer(self):
@@ -27,10 +26,9 @@ class BaseComplexSimplicial(BaseComplex):
 
     def subdivide_simplicial(self):
         PP = self.primal_position
-        return self.copy(
+        return type(self)(
             vertices=np.concatenate([PP[0], PP[-1]], axis=0),
             topology=self.topology.subdivide_simplicial(),
-            weights=None
         )
 
     def subdivide_cubical(self):
