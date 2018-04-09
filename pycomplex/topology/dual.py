@@ -4,7 +4,6 @@ import scipy.sparse
 from cached_property import cached_property
 
 from pycomplex.topology.base import BaseTopology
-from pycomplex.topology import sign_dtype, index_dtype
 import pycomplex.sparse
 
 
@@ -39,14 +38,14 @@ class ClosedDual(BaseTopology):
 
     @cached_property
     def selector_interior(self):
-        """Mapping to interior of closed always is identity mapping"""
+        """Mapping to interior of closed topology always is identity mapping"""
         def s(np):
             return scipy.sparse.eye(np)
         return [s(np) for np in self.primal.n_elements]
 
     @cached_property
     def selector_boundary(self):
-        """Mapping to boundary of closed always gives vanishing chain"""
+        """Mapping to boundary of closed topology always gives vanishing chain"""
         def s(np):
             return pycomplex.sparse.sparse_zeros((0, np))
         return [s(np) for np in self.primal.n_elements]
@@ -122,7 +121,7 @@ class Dual(BaseTopology):
         array_like, [n_dim], sparse matrix
             n-th element describes incidence of dual n-elements to dual n+1 elements
         """
-        # FIXME: come up with a descriptive name for this. call it matrices; and rename matrices to matrices_full?
+        # FIXME: come up with a descriptive name for this.
         M = self.matrices    # [D0D1 ... DnDN]
         S = self.selector_interior    # [P0DN ... PND0]
         return [m * s.T for m, s in zip(M, S[::-1][1:])]
@@ -139,7 +138,6 @@ class Dual(BaseTopology):
             first element of this list is square; maps dual n-forms to primal 0-forms, which are one-to-one
             list is indexed by primal form
         """
-        # FIXME: rename to interior_selector or somesuch? bit more descriptive
         def s(np, nd):
             return scipy.sparse.eye(np, nd)
 
@@ -157,7 +155,6 @@ class Dual(BaseTopology):
             first element of this list is trivial
             list is indexed by primal form
         """
-        # FIXME: rename to boundary_selector or somesuch? bit more descriptive
         def s(np, nd):
             return scipy.sparse.eye(nd).tocsr()[np:, :]
 
@@ -170,67 +167,33 @@ class Dual(BaseTopology):
         Returns
         -------
         list of dual topology matrices, len self.n_dim
-            the chain complex defining the dual topology
+            the chain complex defining the dual topology,
+            where the n-th element of the list has shape [n_elements, n+1_elements]
 
         Notes
         -----
-        This version attaches the dual boundary information; the dual chain will thus be closed
+        This version attaches the dual boundary topology; the dual chain will thus be closed
         Note that this requires that both the primal and its boundary are oriented
         """
         assert self.primal.is_oriented
-        assert self.primal.boundary.is_oriented
-
-        def dual_T(T, B, idx):
-            """Compose dual topology matrix in presence of boundaries
-
-            FIXME: make block structure persistent? would be more self-documenting to vectors
-            also would be cleaner to split primal topology in interior/boundary blocks first
-            alternatively; make more principled use of selection matrices
-
-            """
-
-            orientation = np.ones_like(idx)
-
-            # FIXME: seems like we are just recreating primal selection matrix here again. due for a rewrite?
-            # NOTE: one difference; pure I term is from boundary space of one type of element to interior space of another
-            I = scipy.sparse.coo_matrix(
-                (orientation,
-                 (np.arange(len(idx)), idx)),
-                shape=(B.shape[0], T.shape[1]) if not B is None else (len(idx), T.shape[1])
-            )
-            if B is None:
-                blocks = [
-                    [T],
-                    [I]
-                ]
-            else:
-                blocks = [
-                    [T, None],
-                    [I, -B]      # it is far from obvious any application actually needs the B term...
-                ]
-            return (blocks)
-
         boundary = self.primal.boundary
-        CBT = []
-        T = [self.primal.matrix(i) for i in range(self.primal.n_dim)]
-        S = self.primal.selector_interior
-        Sb = self.primal.selector_boundary
 
-        if not boundary is None:
-            BT = [boundary.matrix(i) for i in range(boundary.n_dim)]
+        if boundary is None:
+            BT = [pycomplex.sparse.sparse_zeros((0, 0)) for _ in range(self.n_dim)]
+        else:
+            assert boundary.is_oriented
+            BT = boundary.matrices
+            BT = [pycomplex.sparse.sparse_zeros((0, BT[0].shape[0]))] + BT
 
-        for d in range(len(T)):
-            CBT.append(
-                T[::-1][d].T if boundary is None else
-                dual_T(
-                    T[::-1][d].T,
-                    BT[::-1][d].T if d < len(BT) else None,
-                    # (S[::-1][d+1] * Sb[::-1][d+1].T).T
-                    boundary.parent_idx[::-1][d]
-                )
-            )
+        T = self.primal.matrices
+        # this term effectively 'glues' the interior and boundary topology together
+        Spb = self.primal.selector_boundary
 
-        return [scipy.sparse.bmat(t) for t in CBT]
+        CBT = [scipy.sparse.bmat(
+                [[T[d], Spb[d].T],
+                 [None,  -BT[d]]]
+            ) for d in range(self.n_dim)]
+        return [T.T for T in CBT[::-1]]
 
     def __getitem__(self, item):
         """Given that the topology matrices are really the thing of interest of our dual object,

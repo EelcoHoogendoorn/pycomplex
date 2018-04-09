@@ -30,18 +30,47 @@ def normalize_l1(A, axis=1):
 
 
 def inv_diag(d):
-    """Invert a true diagonal matrix"""
+    """Invert a true diagonal matrix
+
+    Parameters
+    ----------
+    d : scipy.sparse.dia_matrix
+
+    Returns
+    -------
+    scipy.sparse.dia_matrix
+    """
     assert isinstance(d, scipy.sparse.dia_matrix)
     assert np.array_equal(d.offsets, [0])
     return scipy.sparse.diags(1 / d.data[0])
 
 
 def sparse_zeros(shape):
+    """Sparse empty matrix of the given shape
+
+    Parameters
+    ----------
+    shape : tuple[int]
+
+    Returns
+    -------
+    scipy.sparse, [shape]
+    """
     q = np.zeros(0, dtype=sign_dtype)
     return scipy.sparse.coo_matrix((q, (q, q)), shape=shape)
 
 
 def zeros_like(arr):
+    """Sparse empty matrix with the same shape as `arr`
+
+    Parameters
+    ----------
+    arr : scipy.sparse or ndarray
+
+    Returns
+    -------
+    scipy.sparse, [arr.shape]
+    """
     return sparse_zeros(arr.shape)
 
 

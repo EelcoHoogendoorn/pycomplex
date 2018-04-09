@@ -254,7 +254,7 @@ class PrimalTopology(BaseTopology):
         -------
         selectors : list of len self.n_dim + 1
             selectors mapping all elements to the interior subset
-            first element of this list is square; maps dual n-forms to primal 0-forms, which are one-to-one
+            last element of this list is identity; all N-elements are part of the interior
         """
         def s(i):
             d = self.chain(n=i, fill=1, dtype=sign_dtype)
@@ -274,7 +274,7 @@ class PrimalTopology(BaseTopology):
         -------
         selectors : list of len self.n_dim + 1
             selectors mapping all elements to the boundary subset
-            first element of this list is trivial; maps dual n-forms to primal 0-forms, which have no boundary terms
+            last element of this list is trivial; no N-elements are part of the boundary
         """
         def s(i):
             d = self.chain(n=i, fill=0, dtype=sign_dtype)
