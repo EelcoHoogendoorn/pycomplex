@@ -210,7 +210,7 @@ def test_overlap(show_plot):
     # FIXME: invocation of direct loop fails when not on simple triangle
     subsphere = sphere.subdivide_loop()
     sphere.plot(ax=ax)
-    # subsphere = subsphere.optimize_weights()
+    subsphere = subsphere.optimize_weights()
     subsphere.plot(ax=ax, primal_color='c', dual_color='m')
     show_plot()
 
