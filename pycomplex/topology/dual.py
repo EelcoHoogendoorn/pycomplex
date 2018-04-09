@@ -135,7 +135,7 @@ class Dual(BaseTopology):
         Returns
         -------
         selectors : list of len self.n_dim + 1
-            selectors mapping dual forms to primal subset
+            selectors mapping dual forms to interior or primal subset
             first element of this list is square; maps dual n-forms to primal 0-forms, which are one-to-one
             list is indexed by primal form
         """
@@ -145,8 +145,8 @@ class Dual(BaseTopology):
 
     @cached_property
     def selector_boundary(self):
-        """Operators to select interior elements; or to strip boundary elements,
-        or those that do not have a corresponding primal element
+        """Operators to select boundary elements; or to strip interior elements,
+        or those that do have a corresponding primal element
 
         Returns
         -------
@@ -205,6 +205,7 @@ class Dual(BaseTopology):
         fine = self
         coarse = self.primal.parent.dual
         T = self.primal.transfer_matrices   # coarse to fine on the primal
+        # FIXME: looks like a job for selector matrices
         fine_p = fine.primal.boundary.parent_idx
         coarse_p = coarse.primal.boundary.parent_idx
         result = []
@@ -217,12 +218,3 @@ class Dual(BaseTopology):
             result.append(scipy.sparse.bmat(blocks))
         result.append(T[0])  # dual of primal vertices do not have anything added to them
         return result
-
-    # def form(self, n):
-    #     """allocate a dual n-form. This is a block-vector"""
-    #     bn = self.boundary.n_elements
-    #     i = self.primal.n_elements[n]
-    #     i = i - p
-    #     d = 0
-    #     # FIXME
-    #     return
