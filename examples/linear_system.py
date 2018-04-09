@@ -690,11 +690,17 @@ class System(BaseSystem):
 
 
 class SystemMid(BaseSystem):
-
-    """Linear system, where both variables and equations are formulated in the space between primal and dual
+    """Linear system, where both variables and equations are formulated
+    in the space between primal and dual
 
     This means the resulting linear system is not entirely symmetrical,
     even though it comes close to being so and every operator scales as 1 / l
+
+    ever after elimination we should not expect to attain symmetry
+    this sounds like a problem; cannot compute eigenvectors
+    could we have a notion of geometric midpoint system?
+    just splitting each hodge into its square root
+    doesnt make it any more clear how to handle dual boundary terms though
 
     """
 
