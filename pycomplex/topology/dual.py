@@ -3,6 +3,7 @@ import numpy_indexed as npi
 import scipy.sparse
 from cached_property import cached_property
 
+from pycomplex.topology import sign_dtype
 from pycomplex.topology.base import BaseTopology
 import pycomplex.sparse
 
@@ -40,7 +41,7 @@ class ClosedDual(BaseTopology):
     def selector_interior(self):
         """Mapping to interior of closed topology always is identity mapping"""
         def s(np):
-            return scipy.sparse.eye(np)
+            return scipy.sparse.eye(np, dtype=sign_dtype)
         return [s(np) for np in self.primal.n_elements]
 
     @cached_property
@@ -139,8 +140,7 @@ class Dual(BaseTopology):
             list is indexed by primal form
         """
         def s(np, nd):
-            return scipy.sparse.eye(np, nd)
-
+            return scipy.sparse.eye(np, nd, dtype=sign_dtype)
         return [s(np, nd) for np, nd in zip(self.primal.n_elements, self.n_elements[::-1])]
 
     @cached_property
@@ -156,8 +156,7 @@ class Dual(BaseTopology):
             list is indexed by primal form
         """
         def s(np, nd):
-            return scipy.sparse.eye(nd).tocsr()[np:, :]
-
+            return scipy.sparse.eye(nd, dtype=sign_dtype).tocsr()[np:, :]
         return [s(np, nd) for np, nd in zip(self.primal.n_elements, self.n_elements[::-1])]
 
     @cached_property
@@ -175,25 +174,16 @@ class Dual(BaseTopology):
         This version attaches the dual boundary topology; the dual chain will thus be closed
         Note that this requires that both the primal and its boundary are oriented
         """
-        assert self.primal.is_oriented
         boundary = self.primal.boundary
-
-        if boundary is None:
-            BT = [pycomplex.sparse.sparse_zeros((0, 0)) for _ in range(self.n_dim)]
-        else:
-            assert boundary.is_oriented
-            BT = boundary.matrices
-            BT = [pycomplex.sparse.sparse_zeros((0, BT[0].shape[0]))] + BT
-
+        B = [pycomplex.sparse.sparse_zeros((0, boundary.n_elements[0]))] + boundary.matrices
         T = self.primal.matrices
         # this term effectively 'glues' the interior and boundary topology together
-        Spb = self.primal.selector_boundary
+        S = self.primal.selector_boundary
 
-        CBT = [scipy.sparse.bmat(
-                [[T[d], Spb[d].T],
-                 [None,  -BT[d]]]
-            ) for d in range(self.n_dim)]
-        return [T.T for T in CBT[::-1]]
+        return [scipy.sparse.bmat(
+                [[t,   s.T],
+                 [None, -b]]
+            ).T for t, b, s in zip(T, B, S)][::-1]
 
     def __getitem__(self, item):
         """Given that the topology matrices are really the thing of interest of our dual object,
