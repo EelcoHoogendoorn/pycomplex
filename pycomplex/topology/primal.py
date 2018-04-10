@@ -3,7 +3,8 @@ import numpy as np
 import numpy_indexed as npi
 from cached_property import cached_property
 
-from pycomplex.topology import index_dtype, sign_dtype, topology_matrix, selection_matrix
+from pycomplex.topology import index_dtype, sign_dtype
+from pycomplex.topology.util import topology_matrix, selection_matrix
 from pycomplex.topology.base import BaseTopology
 
 

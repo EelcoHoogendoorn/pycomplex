@@ -5,9 +5,9 @@ from cached_property import cached_property
 
 import pycomplex.math.combinatorial
 from pycomplex.topology import sign_dtype, index_dtype
-from pycomplex.topology import transfer_matrix, element_indices
 from pycomplex.topology.primal import PrimalTopology
-from pycomplex.topology.util import parity_to_orientation, sort_and_argsort, relative_permutations
+from pycomplex.topology.util import parity_to_orientation, sort_and_argsort, relative_permutations, transfer_matrix, \
+    element_indices
 
 
 def generate_cube_boundary(cubes, degree=1, return_corners=False, mirror=True):

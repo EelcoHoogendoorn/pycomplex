@@ -83,7 +83,7 @@ class ComplexSpherical(BaseComplexSimplicial):
             # plot dual edges
             dual_vertices, dual_edges = self.dual_position[:2]
             dual_topology = self.topology.dual
-            from pycomplex.topology import sparse_to_elements
+            from pycomplex.topology.util import sparse_to_elements
             de = sparse_to_elements(dual_topology[0].T)
 
             de = dual_vertices[de]
@@ -387,23 +387,9 @@ class ComplexSpherical2(ComplexSpherical):
         from pycomplex.sparse import normalize_l1
         return normalize_l1(coarse.multigrid_transfer_dual.T)
 
-    # @cached_property
-    # def stuff(self):
-    #     # calc normalizations
-    #     self.coarse_area = self.transfer   * np.ones(fine  .topology.D2)
-    #     self.fine_area   = self.transfer.T * np.ones(coarse.topology.D2)
-    #
-    #     self.f = np.sqrt( self.fine_area)[:,None]
-    #     self.c = np.sqrt( self.coarse_area)[:,None]
-    #
-    #     # test for consistency with metric calculations
-    #     assert(np.allclose(self.coarse_area, coarse.D2P0, 1e-10))
-    #     assert(np.allclose(self.fine_area  , fine  .D2P0, 1e-10))
-
-
 
 class ComplexSpherical3(ComplexSpherical):
-    """Figuring out the metric computations for this will be a hard one.
-    But doing physical simulations in a curved space should be fun
+    """Figuring out the metric computations for this is nontrivial.
+    But doing physical simulations in a curved 3d space should be fun
     """
     pass

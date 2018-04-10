@@ -1,31 +1,16 @@
 
+import operator
+import pycosat
+
 import numpy as np
 import numpy_indexed as npi
 import scipy
 import scipy.sparse
-import pycosat
-import itertools
-import operator
 from cached_property import cached_property
 
-from pycomplex.topology import ManifoldException
-from pycomplex.topology import sign_dtype, index_dtype
-from pycomplex import sparse
-
-
-def accumulate(iterable, func=operator.add):
-    """Return running totals; backported for python 2 support"""
-    # accumulate([1,2,3,4,5]) --> 1 3 6 10 15
-    # accumulate([1,2,3,4,5], operator.mul) --> 1 2 6 24 120
-    it = iter(iterable)
-    try:
-        total = next(it)
-    except StopIteration:
-        return
-    yield total
-    for element in it:
-        total = func(total, element)
-        yield total
+import pycomplex.sparse
+from pycomplex.topology import ManifoldException, sign_dtype, index_dtype
+from pycomplex.util import accumulate
 
 
 class BaseTopology(object):
@@ -37,11 +22,12 @@ class BaseTopology(object):
 
     @cached_property
     def regions_per_vertex(self):
-        """Slow but readable code for counting how many connected regions each vertex has
+        """Slow but readable code for counting how many connected regions each vertex has,
+        connected to a tiny n-ball centered on the vertex; or in its direct neighborhood
 
         Returns
         -------
-
+        ndarray, [n_vertices], index_dtype
         """
         # convert to column format for fast slicing from the right
         TnN = self.matrix(-1).tocsc()
@@ -112,7 +98,7 @@ class BaseTopology(object):
         Returns
         -------
         n_components : int
-        labels : ndarray, [n_elements[-1], int
+        labels : ndarray, [n_elements[-1]], int
         """
         TnN = self.matrix(-1)
         graph = TnN.T * TnN     # graph where N-elements are nodes and n-elements are edges
@@ -166,12 +152,12 @@ class BaseTopology(object):
         return c
 
     def relative_parity(self):
-        """Try to find the relative parity of all n-elements
+        """Try to find the relative parity of all N-elements
 
         Returns
         -------
-        parity : ndarray, [n_elements], bool
-            n-chain denoting the relative parity of each n-element
+        parity : ndarray, [n-N_elements], bool
+            N-chain denoting the relative parity of each N-element
 
         Raises
         ------
@@ -179,12 +165,12 @@ class BaseTopology(object):
             if the topology is not orientable
         """
         if self.n_dim == 0:
-            return np.ones_like(self.elements[0], dtype=np.bool)
+            return self.chain(n=-1)
 
         inc = self.matrix(-1)
 
         # filter out the relevant interior n-1-elements
-        # FIXME: can use selector matrix here? nope; introduces cyclic dependency
+        # FIXME: can use selector matrix here? nope; introduces cyclic dependency; needs boundary, which checks orientation
         interior = inc.getnnz(axis=1) == 2
         inc = inc[interior]
         # translate connectivity between n-elements and n-1 elements
@@ -209,7 +195,8 @@ class BaseTopology(object):
         return npi.all_equal(self.relative_parity())
 
     def check_chain(self):
-        """Some basic sanity checks on a topology matrix; check that the chain complex satisfies its defining properties
+        """Some basic sanity checks on a topology object
+        check that the chain complex satisfies its defining properties
         """
         for i in range(self.n_dim - 2):
             a, b = self.matrices[i], self.matrices[i+1]
@@ -256,7 +243,7 @@ class BaseTopology(object):
             all columns in each row sum to one
 
         """
-        return [sparse.normalize_l1(a.T, axis=1) for a in self.accumulated_operators_0()]
+        return [pycomplex.sparse.normalize_l1(a.T, axis=1) for a in self.accumulated_operators_0()]
 
     @cached_property
     def averaging_operators_N(self):
@@ -269,7 +256,7 @@ class BaseTopology(object):
             all columns in each row sum to one
 
         """
-        return [sparse.normalize_l1(a.T, axis=1) for a in self.accumulated_operators_N()]
+        return [pycomplex.sparse.normalize_l1(a.T, axis=1) for a in self.accumulated_operators_N()]
 
     @cached_property
     def degree(self):
@@ -283,8 +270,8 @@ class BaseTopology(object):
         """
         A = self.accumulated_operators_N()
         N_elements = self.chain(-1, fill=1)
-        # ones_like constructs a summing operator
-        return [sparse.ones_like(a.T) * N_elements for a in A]
+        # ones_like constructs a summing operator; seek nnz per column
+        return [pycomplex.sparse.ones_like(a.T) * N_elements for a in A]
 
     @cached_property
     def selector_interior(self):

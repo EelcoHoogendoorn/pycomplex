@@ -1,9 +1,12 @@
 
+import numpy as np
+import numpy_indexed as npi
 from fastcache import clru_cache
 
-from pycomplex.topology import transfer_matrix, element_indices
-from pycomplex.topology.primal import *
-from pycomplex.topology.util import parity_to_orientation, sort_and_argsort, relative_permutations
+from pycomplex.topology import index_dtype, sign_dtype
+from pycomplex.topology.primal import PrimalTopology
+from pycomplex.topology.util import parity_to_orientation, sort_and_argsort, relative_permutations, transfer_matrix, \
+    element_indices
 
 
 def generate_simplex_boundary(simplices):

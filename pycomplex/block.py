@@ -20,23 +20,9 @@ this is as opposed to scipy.sparse.bsr_matrix, which gets its sparsity from the 
 
 import numpy as np
 import scipy.sparse
-
-from pycomplex.sparse import sparse_zeros
 from cached_property import cached_property
 
-def cochain(complex):
-    """construct full cochain complex"""
-    return SparseBlockMatrix(complex.topology.matrices)
-
-
-def pairs(iterable):
-    """Yield pairs of an iterator"""
-    it = iter(iterable)
-    x = next(it)
-    while True:
-        p = x
-        x = next(it)
-        yield p, x
+from pycomplex.sparse import sparse_zeros
 
 
 class BlockArray(object):

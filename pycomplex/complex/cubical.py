@@ -292,7 +292,7 @@ class ComplexCubical(BaseComplex):
         if plot_dual:
             dual_vertices, dual_edges = self.dual_position[0:2]
             dual_topology = self.topology.dual
-            from pycomplex.topology import sparse_to_elements
+            from pycomplex.topology.util import sparse_to_elements
             de = sparse_to_elements(dual_topology[0].T)
 
             de = dual_vertices[de]

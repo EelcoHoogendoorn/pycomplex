@@ -128,7 +128,7 @@ def n_cube_dual(n_dim):
     cube = n_cube(n_dim, centering=True).boundary
 
     # grab simplices from cube corners
-    from pycomplex.topology import sparse_to_elements
+    from pycomplex.topology.util import sparse_to_elements
     cubes = cube.topology.matrix(n_dim - 1, 0)
     simplices = sparse_to_elements(cubes)
 
