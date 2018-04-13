@@ -118,10 +118,16 @@ def test_subdivide_fundamental():
 def test_subdivide_direct():
     """Test the direct-loop subdivision implementation"""
     triangle = synthetic.n_simplex(2).as_2()
-    sub = triangle.topology.subdivide_loop_direct()
-    print(sub.transfer_matrices[1])
-    sub = sub.subdivide_loop_direct()
-    print(sub.is_oriented)
+    coarse = triangle.topology
+    fine = coarse.subdivide_loop_direct()
+    print(fine.transfer_matrices[1])
+    print()
+    tr = fine.dual.transfer_matrices
+    for i, q in enumerate(tr):
+        assert q.shape == (fine.dual.n_elements[i], coarse.dual.n_elements[i])
+    print(tr[1])
+    fine = fine.subdivide_loop_direct()
+    print(fine.is_oriented)
 
 
 def test_subdivide_direction(show_plot):

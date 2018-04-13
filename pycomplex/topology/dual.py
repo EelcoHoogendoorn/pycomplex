@@ -190,8 +190,10 @@ class Dual(BaseTopology):
         we make them easily accessible"""
         return self.matrices[item]
 
+    @cached_property
     def transfer_matrices(self):
         """Construct dual transfer matrices
+        This acts on dual forms, including boundary terms
 
         Returns
         -------
@@ -205,12 +207,17 @@ class Dual(BaseTopology):
         fine = self
         coarse = self.primal.parent.dual
         T = self.primal.transfer_matrices   # coarse to fine on the primal
-        # FIXME: looks like a job for selector matrices
-        fine_p = fine.primal.boundary.parent_idx
-        coarse_p = coarse.primal.boundary.parent_idx
+        Sf = fine.primal.selector_boundary
+        Sc = coarse.primal.selector_boundary
+        TB = T[1:] + [None]
+        return [scipy.sparse.bmat(
+                [[t,   None],
+                 [None, (sf * tb * sc.T) if tb is not None else None]]
+            ) for t, tb, sf, sc in zip(T, TB, Sf, Sc)][::-1]
+
         result = []
-        for n, (t, bt, fp, cp) in enumerate(zip(T[::-1], T[:-1][::-1], fine_p[::-1], coarse_p[::-1])):
-            b = bt[fp, :][:, cp] # select relevant part of boundary transfer
+        for n, (t, bt, sf, sc) in enumerate(zip(T[::-1], T[:-1][::-1], Sf[::-1], Sc[::-1])):
+            b = sf * t * sc.T # select relevant part of boundary transfer
             blocks = [
                 [t, None],
                 [None, b]
