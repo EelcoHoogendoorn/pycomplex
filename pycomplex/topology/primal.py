@@ -72,11 +72,6 @@ class PrimalTopology(BaseTopology):
         return [self.matrix(i) for i in range(self.n_dim)]
 
     @cached_property
-    def matrices_original(self):
-        """For symmetry with dual, where there is a distinction"""
-        return self.matrices
-
-    @cached_property
     def elements(self):
         return self._elements
 
@@ -102,7 +97,6 @@ class PrimalTopology(BaseTopology):
             I[i+1, i] = b
         return I
 
-    # FIXME: add caching here?
     def matrix(self, n, m=None):
         """Construct topological relations between elements as sparse matrix
 
