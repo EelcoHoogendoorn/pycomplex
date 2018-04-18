@@ -60,6 +60,8 @@ Speculative todo
 - Hybrid triangle-quad meshes
 - Try our hands at einstein field equations, along the lines of https://pdfs.semanticscholar.org/f3b2/532c517e1e6efaff90e7fe69d2b9e8ff75bc.pdf
 
+https://arxiv.org/pdf/0804.0279.pdf
+
 Development
 -----------
 Pycomplex currently targets python 3 primarily. The source is mostly python 2 compliant and would be easy to make so if the need arose, but compatibility is currently not actively maintained for convenience reasons.

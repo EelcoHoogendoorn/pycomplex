@@ -282,3 +282,12 @@ class BaseTopology(object):
     def selector_boundary(self):
         """Sparse matrices selecting boundary portion of a chain"""
         raise NotImplementedError
+
+    @cached_property
+    def matrices(self):
+        raise NotImplementedError
+
+    def __getitem__(self, item):
+        """Given that the topology matrices are really the thing of interest of our topology object,
+        we make them easily accessible"""
+        return self.matrices[item]

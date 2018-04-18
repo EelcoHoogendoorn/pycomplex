@@ -27,15 +27,11 @@ class ClosedDual(BaseTopology):
 
     @cached_property
     def matrices(self):
-        return self.matrices_original
+        return [T.T for T in self.primal.matrices[::-1]]
 
     @cached_property
     def matrices_2(self):
         return self.matrices
-
-    @cached_property
-    def matrices_original(self):
-        return [T.T for T in self.primal.matrices[::-1]]
 
     @cached_property
     def selector_interior(self):
@@ -50,10 +46,6 @@ class ClosedDual(BaseTopology):
         def s(np):
             return pycomplex.sparse.sparse_zeros((0, np))
         return [s(np) for np in self.primal.n_elements]
-
-    def __getitem__(self, item):
-        """alias for matrix"""
-        return self.matrices[item]
 
 
 class Dual(BaseTopology):
@@ -108,11 +100,6 @@ class Dual(BaseTopology):
         raise NotImplementedError
 
     @cached_property
-    def matrices_original(self):
-        """Topology matrices without any dual boundary topology attached"""
-        return [T.T for T in self.primal.matrices[::-1]]
-
-    @cached_property
     def matrices_2(self):
         """Construct dual topology matrices stripped of dual boundary topology
         This is the discrete derivative operator that we are usually interested in
@@ -122,7 +109,7 @@ class Dual(BaseTopology):
         array_like, [n_dim], sparse matrix
             n-th element describes incidence of dual n-elements to dual n+1 elements
         """
-        # FIXME: come up with a descriptive name for this.
+        # FIXME: come up with a descriptive name for this. or deprecate altogether
         M = self.matrices    # [D0D1 ... DnDN]
         S = self.selector_interior    # [P0DN ... PND0]
         return [m * s.T for m, s in zip(M, S[::-1][1:])]
@@ -185,11 +172,6 @@ class Dual(BaseTopology):
                  [None, -b]]
             ).T for t, b, s in zip(T, B, S)][::-1]
 
-    def __getitem__(self, item):
-        """Given that the topology matrices are really the thing of interest of our dual object,
-        we make them easily accessible"""
-        return self.matrices[item]
-
     @cached_property
     def transfer_matrices(self):
         """Construct dual transfer matrices
@@ -198,30 +180,15 @@ class Dual(BaseTopology):
         Returns
         -------
         List[sparse]
-            n-th sparse matrix relates fine and coarse primal n-elements
+            n-th sparse matrix relates fine and coarse dual n-elements
 
-        Notes
-        -----
-        logic is similar to topology matrices; just copy the relevant block from the primal and concat
         """
         fine = self
         coarse = self.primal.parent.dual
         T = self.primal.transfer_matrices   # coarse to fine on the primal
         Sf = fine.primal.selector_boundary
         Sc = coarse.primal.selector_boundary
-        TB = T[1:] + [None]
-        return [scipy.sparse.bmat(
+        return ([T[0]] + [scipy.sparse.bmat(
                 [[t,   None],
-                 [None, (sf * tb * sc.T) if tb is not None else None]]
-            ) for t, tb, sf, sc in zip(T, TB, Sf, Sc)][::-1]
-
-        result = []
-        for n, (t, bt, sf, sc) in enumerate(zip(T[::-1], T[:-1][::-1], Sf[::-1], Sc[::-1])):
-            b = sf * t * sc.T # select relevant part of boundary transfer
-            blocks = [
-                [t, None],
-                [None, b]
-            ]
-            result.append(scipy.sparse.bmat(blocks))
-        result.append(T[0])  # dual of primal vertices do not have anything added to them
-        return result
+                 [None, sf * tb * sc.T]]
+            ) for t, tb, sf, sc in zip(T[1:], T, Sf, Sc)])[::-1]

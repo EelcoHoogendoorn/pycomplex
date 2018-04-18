@@ -20,11 +20,18 @@ Notes
 -----
 mesh-edges are visible in the current implementation, during advection over the sphere
 not sure what is the cause of this; the euclidian approximations made on the sphere when integrating flux perhaps?
-means it should respond posiively to grid refinement and it does not seem to
+means it should respond positively to grid refinement and it does not seem to
+only remaining explanation is some form of interaction with BFECC;
+problem sure isnt visible without it
 
-!! Seems to be a numerical unstability relating to pseudoinverse of dual velocity reconstruction
-nope; dual velocity is fine now, yet problem persists
-it may just be an interaction with BFECC infact
+We have pressure projection and divergence constraint as two options to enforce compressibility
+would it be advantageous to do full helmholz-hodge decomposition instead?
+might give more control over boundary conditions; this is a limitation of current approaches
+in a situation with normal and tangent flux boundaries, is it important that we respect them in this stage?
+or can we regard the pressure projection as an integral component of general time-dependent stokes update?
+not sure; the extra 'pressure' isnt a physical effect, but an accumulation of mathematical error of the advection scheme
+so projection on divergence-free makes sense.
+how to think about boundary variables?
 """
 
 
@@ -57,6 +64,7 @@ class VorticityAdvector(Advector):
 
     @cached_property
     def pressure_projection_precompute(self):
+        """Here we find the scalar potential of the flowfield and subtract its derivative from the original"""
         # FIXME: this leaves all pressure boundary terms implicitly at zero. need control over bc's.
         TnN = self.complex.topology.matrices[-1]
         hodge = scipy.sparse.diags(self.complex.hodge_PD[-2])
@@ -81,6 +89,9 @@ class VorticityAdvector(Advector):
 
     @cached_property
     def constrain_divergence_precompute(self):
+        """Here we find the vector potential of the flowfield and take the derivative of that.
+        Downside is that we eliminate nullspace components in this manner, such as flow around a sphere
+        """
         T01, T12 = self.complex.topology.matrices
         P1P0 = T01.T
         D2D1 = T01
