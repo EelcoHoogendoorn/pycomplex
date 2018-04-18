@@ -58,6 +58,7 @@ Speculative todo
 ----------------
 - Cylindrical coordinates and corresponding metric calculations
 - Hybrid triangle-quad meshes
+- Try our hands at einstein field equations, along the lines of https://pdfs.semanticscholar.org/f3b2/532c517e1e6efaff90e7fe69d2b9e8ff75bc.pdf
 
 Development
 -----------
