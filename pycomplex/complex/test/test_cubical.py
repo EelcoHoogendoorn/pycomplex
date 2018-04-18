@@ -159,7 +159,6 @@ def test_transfer(show_plot):
         hierarchy[-1].plot(plot_dual=True, plot_arrow=True)
         show_plot()
 
-    # no formal tests yet; just check that we do not crash
     DT = hierarchy[-1].topology.dual.transfer_matrices
 
     # little check

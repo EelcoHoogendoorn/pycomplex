@@ -59,6 +59,8 @@ Speculative todo
 - Cylindrical coordinates and corresponding metric calculations
 - Hybrid triangle-quad meshes
 
+https://arxiv.org/pdf/0804.0279.pdf
+
 Development
 -----------
 Pycomplex currently targets python 3 primarily. The source is mostly python 2 compliant and would be easy to make so if the need arose, but compatibility is currently not actively maintained for convenience reasons.

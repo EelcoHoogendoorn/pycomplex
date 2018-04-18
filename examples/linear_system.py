@@ -55,7 +55,7 @@ class BaseSystem(object):
             A=self.A.__getitem__(item).copy(),
             L=self.L[item[0]],
             R=self.R[item[1]],
-            rhs=self.rhs[item[0]]
+            rhs=self.rhs[item[0]].copy()
         )
 
     def plot(self, dense=True, order=None):
@@ -245,6 +245,7 @@ class BaseSystem(object):
     @cached_property
     def is_symmetric(self):
         """Return true if the system is symmetric"""
+        # FIXME: add numerical tolerance
         A = self.A.merge()
         return (A - A.T).nnz == 0
 
