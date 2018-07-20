@@ -299,7 +299,7 @@ if __name__ == '__main__':
         d = circle(pp) + air_density
     else:
         d = rect(pp) + air_density
-    d = np.ones_like(d)
+    # d = np.ones_like(d)
     powers = 1., 1., 1.
     m, r, l = [(o * np.power(d, p)) for o, p in zip(complex.topology.averaging_operators_0[-3:], powers)]
     # r = np.ones_like(r)

@@ -15,6 +15,7 @@ def generate_simplex_boundary(simplices):
     Parameters
     ----------
     simplices : ndarray, [n_simplices, n_corners], index_dtype
+        set of simplices decribed in terms of their corner vertex indices
 
     Returns
     -------
@@ -74,6 +75,12 @@ def relative_simplex_parity(simplices):
     -------
     parity : ndarray, [n_simplices], sign_dtype, {0, 1}
         The parity of each n-simplex, relative to a canonical one
+
+    Notes
+    -----
+    By virtue of the cached precomputed permutation_map, the cost of deciding on the parity of a simplex,
+    is only as much as looking up its permutation pattern inside the small permutation map,
+    which proceeds in a fully vectorized manner
     """
     simplices = np.asarray(simplices)
     n_simplices, n_corners = simplices.shape
@@ -83,9 +90,8 @@ def relative_simplex_parity(simplices):
 
 
 class TopologySimplicial(PrimalTopology):
-    """Simplicial topology of arbitrary dimension
+    """Simplicial topology of arbitrary dimension"""
 
-    """
     def boundary_type(self):
         return TopologySimplicial
 
@@ -142,7 +148,7 @@ class TopologySimplicial(PrimalTopology):
             canonical_permutation = canonical_permutation[index.inverse]
             # find relative permutation of vertices of each element
             relative_permutation = relative_permutations(permutation, canonical_permutation)
-            # derive relative parity of each n-cube to the one picked as defining neutral convention in En0
+            # derive relative parity of each n-simplex to the one picked as defining neutral convention in En0
             relative_parity = relative_simplex_parity(relative_permutation)
 
             parity = relative_parity.reshape(ENn.shape)
@@ -159,7 +165,6 @@ class TopologySimplicial(PrimalTopology):
         O = np.zeros(n_dim, dtype=object)
         B = np.zeros(n_dim, dtype=object)
 
-        # p = simplex_parity(EN0)
         while True:
             EN0, ENn, ONn = construct_lower(EN0)
             n_simplices, n_pts = EN0.shape
@@ -199,11 +204,12 @@ class TopologySimplicial(PrimalTopology):
         return TopologyTriangular(elements=self.elements, boundary=self._boundary, orientation=self._orientation)
 
     def fundamental_domains(self):
-        """Generate fundamental domains
+        """Generate fundamental domains simplices
 
         Returns
         -------
         domains : ndarray, [n_simplices, n_corners, n_corners - 1 ..., 2, n_dim + 1], index_dtype
+            each fundamental domain simplex is expressed as a set of simplex indices, one of each dimension
             n-th entry of last index refers to n-element indices
             0 and n entry are kinda trivial
 
@@ -226,7 +232,7 @@ class TopologySimplicial(PrimalTopology):
         return domains
 
     def subdivide_fundamental(self, oriented=True):
-        """Perform a subdivision into fundamental domains
+        """Perform a subdivision of the topology into fundamental domains
 
         Parameters
         ----------
@@ -258,7 +264,9 @@ class TopologySimplicial(PrimalTopology):
 
         Notes
         -----
-        does not work for all ndim yet
+        Does not work for all ndim yet
+        It feels like there should be an elegant n-dim agnostic construction;
+        but it has eluded me so far.
         """
         N = self.n_elements
 
@@ -411,31 +419,6 @@ class TopologyTriangular(TopologySimplicial):
                                  for n, t in enumerate(transfers)]
         return transfer_matrices
 
-    def subdivide_loop_relations(fine, coarse):
-        """Find the relationship between subdivided simplices and their parents
-
-        This function only assumes fine vertices were generated in accordance with `offsets`,
-        with vertices inserted on course 0-simplices followed by vertices on coarse 1-simplices, and so on
-
-        Returns
-        -------
-        List[ndarray, [], uint8]
-            list corresponding to each cube elements array
-            where the array encodes the order of the parent element
-        List[ndarray, [], index_dtype]
-            list corresponding to each cube elements array
-            where the array encodes the index of the parent element
-        """
-        offsets = np.cumsum([0] + coarse.n_elements, dtype=index_dtype)
-        order = []
-        parent = []
-        for e in fine.elements:
-            o = (e[..., None] >= offsets[1:]).sum(axis=-1, dtype=np.uint8)
-            order.append(o)
-            p = e - offsets[o]
-            parent.append(p)
-        return order, parent
-
     def subdivide_loop_direct(self):
         """Subdivide triangular topology in a direct manner, without a call to from_simplices
 
@@ -554,6 +537,7 @@ class TopologyTriangular(TopologySimplicial):
         return transfer_matrices
 
     def subdivide_cubical(self):
+        """Subdivide each triangle into 3 squares"""
         return super(TopologyTriangular, self).subdivide_cubical().as_2()
 
     # some convenient named accessors

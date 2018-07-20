@@ -61,6 +61,7 @@ Speculative todo
 - Try to implement something along the lines of these references
     https://pdfs.semanticscholar.org/f3b2/532c517e1e6efaff90e7fe69d2b9e8ff75bc.pdf
     https://arxiv.org/pdf/0804.0279.pdf
+- Implement matrix-free stencil-based subclasses for regular grids
 
 Development
 -----------
