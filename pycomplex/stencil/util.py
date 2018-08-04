@@ -1,5 +1,6 @@
 import numpy as np
 import numpy_indexed as npi
+from fastcache import clru_cache
 
 
 def pascal(n, k):
@@ -17,6 +18,7 @@ def totuple(a):
         return a
 
 
+@clru_cache()
 def generate(ndim):
     """Generate symbols and their derivative relations of anticommutative exterior algebra
 
@@ -74,7 +76,7 @@ def binning(arr, steps):
     return arr.reshape(shape).sum(axis=tuple(np.arange(len(steps), dtype=np.int) * 2 + 1))
 
 
-def unbinning():
+def unbinning(arr, output, axes):
     """scale a factor two in all directions, but fill some with zeros"""
 
 

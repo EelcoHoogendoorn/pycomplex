@@ -1,6 +1,6 @@
 
 
-from pycomplex.stencil.util import generate, pascal
+from pycomplex.stencil.util import generate, pascal, smoother
 
 
 def test_generate():
@@ -10,3 +10,7 @@ def test_generate():
     for i, s in enumerate(symbols):
         assert pascal(ndim, i) == len(s)
 
+
+def test_smoother():
+    for n in range(3):
+        assert smoother(n).sum() == 1
