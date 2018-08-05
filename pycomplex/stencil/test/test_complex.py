@@ -25,19 +25,6 @@ def test_3d():
 def test_transfers():
     complex = StencilComplex((2, 4))
     f0 = complex.form(0)
-    t = complex.transfers
-    c0 = t[0].right(f0)
-    print(c0)
-    c1 = complex.coarse.form(1)
-    c1[...] = 1
-    f1 = t[1].left(c1)
-    print(f1)
-    print()
-
-
-def test_transfers():
-    complex = StencilComplex((2, 4))
-    f0 = complex.form(0)
     f0[...] = 1
     c0 = complex.coarsen[0](f0)
 

@@ -2,7 +2,7 @@ from typing import Tuple
 
 import numpy as np
 from scipy import ndimage
-from pycomplex.stencil.operator import StencilOperator, SymmetricOperator, ComposedOperator
+from pycomplex.stencil.operator import StencilOperator, SymmetricOperator, ComposedOperator, DiagonalOperator
 
 from pycomplex.stencil.util import generate, smoother
 
@@ -15,10 +15,6 @@ class StencilComplex(object):
     other than its shape it has no associated memory requirements
 
     make component-first or component-last configurable?
-    fix a convention for the meaning of all form components?
-    anticommutative algebra works like this: xy = -yx, xx = 0
-    at each derivative step, take derivative of each component wrt each dir.
-    drop zero terms, aggregate identical symbols
 
     """
 
@@ -34,7 +30,7 @@ class StencilComplex(object):
     def coarse(self):
         """Construct coarse counterpart"""
         assert all(s % 2 == 0 for s in self.shape)
-        return StencilComplex(
+        return type(self)(
             boundary=self.boundary,
             shape=tuple([s // 2 for s in self.shape]),
             scale=self.scale * 2,
@@ -42,8 +38,8 @@ class StencilComplex(object):
 
     @property
     def fine(self):
-        """Construct coarse counterpart"""
-        return StencilComplex(
+        """Construct fine counterpart"""
+        return type(self)(
             boundary=self.boundary,
             shape=tuple([s * 2 for s in self.shape]),
             scale=self.scale / 2,
@@ -81,35 +77,35 @@ class StencilComplex(object):
         def corr(*args, **kwargs):
             return ndimage.correlate1d(*args, **kwargs, mode='wrap')
 
-        ops = []
-        for n, (symbols, terms, axes, parities) in enumerate(zip(self.symbols, self.terms, self.axes, self.parities)):
-            def wrapper(n, symbols, terms, axes, parities, func):
-                def foo(f):
-                    d = self.form(n + 1, init='empty')
-                    # write once; update afterwards
-                    initialized = [False] * len(d)
-                    # loop over all components of the new derived form
-                    for c, (T, A, P) in enumerate(zip(terms, axes, parities)):
-                        # loop over all terms that the new symbol is composed of
-                        for t, a, p in zip(T, A, P):
-                            i = symbols.index(t)
-                            weights = [-1, +1] if p else [+1, -1]
-                            if initialized[c]:
-                                d[c] += func(f[i], axis=a, weights=weights)
-                            else:
-                                func(f[i], axis=a, output=d[c], weights=weights)
-                                initialized[c] = True
-                    return d
-                return foo
+        def derivative(n, symbols, terms, axes, parities, func):
+            """Exterior derivative operator"""
+            def inner(f):
+                d = self.form(n + 1, init='empty')
+                # write once; update afterwards
+                initialized = [False] * len(d)
+                # loop over all components of the new derived form
+                for c, (T, A, P) in enumerate(zip(terms, axes, parities)):
+                    # loop over all terms that the new symbol is composed of
+                    for t, a, p in zip(T, A, P):
+                        i = symbols.index(t)
+                        weights = [-1, +1] if p else [+1, -1]
+                        if initialized[c]:
+                            d[c] += func(f[i], axis=a, weights=weights)
+                        else:
+                            func(f[i], axis=a, output=d[c], weights=weights)
+                            initialized[c] = True
+                return d
+            return inner
 
-            # form a transposable stencil operator
-            op = StencilOperator(
-                left=wrapper(n, symbols, terms, axes, parities, conv),
-                right=wrapper(n, symbols, terms, axes, parities, corr),
-                shape=(self.form(n+1).shape, self.form(n).shape)
+        return [
+            StencilOperator(
+                left=derivative(n, symbols, terms, axes, parities, conv),
+                right=derivative(n, symbols, terms, axes, parities, corr),
+                shape=(self.form(n + 1).shape, self.form(n).shape)
             )
-            ops.append(op)
-        return ops
+            for n, (symbols, terms, axes, parities)
+            in enumerate(zip(self.symbols, self.terms, self.axes, self.parities))
+        ]
 
     @property
     def dual(self):
@@ -133,16 +129,27 @@ class StencilComplex(object):
 
         Returns
         -------
-        array_like, [ndim], n-form
+        array_like, [ndim], DiagonalOperator
             for each level of form, an array broadcast-compatible with the domain
+
+        Notes
+        -----
+        only pure regular grids now; add support for more complex metrics?
         """
-        # FIXME: use invertable operator?
-        # FIXME: add support for more complex metrics?
+        def h(n):
+            scale = (self.scale ** (self.ndim - n * 2))
+            def inner(x):
+                return x * scale
+            return inner
+        def hi(n):
+            scale = (self.scale ** (self.ndim - n * 2))
+            def inner(x):
+                return x / scale
+            return inner
         return [
-            StencilOperator(
-                lambda x: x * (self.scale ** (self.ndim - n * 2)),
-                lambda x: x * (self.scale ** (self.ndim - n * 2)),
-                (self.form(n).shape, self.form(n).shape),
+            DiagonalOperator(
+                h(n), hi(n),
+                self.form(n).shape,
             )
             for n in range(self.ndim + 1)
         ]
@@ -218,7 +225,7 @@ class StencilComplex(object):
             return inner
 
         return [
-            # NOTE: if varialbe scaling were to be absprbed here if would not longer be a true transpose relationship
+            # NOTE: if  scaling were to be absorbed here if would not longer be a true transpose relationship
             StencilOperator(
                 left=tile(n),
                 right=bin(n),
@@ -232,7 +239,11 @@ class StencilComplex(object):
         """
         Returns
         -------
-        array_like, [ndim], n-form
+        array_like, [ndim + 1], Operator
+
+        Notes
+        -----
+        transpose of refine exacept for scale
         """
         T = self.transfers
         S = self.smoothers(scale=True)
@@ -246,7 +257,11 @@ class StencilComplex(object):
         """
         Returns
         -------
-        array_like, [ndim], n-form
+        array_like, [ndim + 1], Operator
+
+        Notes
+        -----
+        transpose of coarsen exacept for scale
         """
         T = self.transfers
         S = self.smoothers(scale=False)
@@ -262,59 +277,6 @@ class StencilComplex2D(StencilComplex):
     def __init__(self, *args, **kwargs):
         super(self, StencilComplex).__init__(*args, **kwargs)
         assert self.ndim == 2
-
-    def coarsen(self):
-        """
-
-        Returns
-        -------
-
-        Notes
-        -----
-        conv and corr are the same here, considering symmetric smoothing stencil
-        """
-        def c0(p0):
-            s = ndimage.convolve(p0, weights=self.smoother, mode='wrap')
-            return s[:, ::2, ::2]
-        def c1(p1):
-            s = np.copy(p1)
-            ndimage.convolve(p1[0], output=s[0], weights=self.smoother, mode='wrap')
-            ndimage.convolve(p1[1], output=s[1], weights=self.smoother, mode='wrap')
-            x = s[0, :, ::2]
-            y = s[1, ::2, :]
-            return np.array([
-                binning(x, [2, 1]),
-                binning(y, [1, 2]),
-            ])
-        def c2(p2):
-            s = ndimage.convolve(p2[0], weights=self.smoother, mode='wrap')
-            return binning(s, [2, 2])
-
-        return [c0, c1, c2]
-
-    def refine(self):
-        """
-
-        Returns
-        -------
-
-        Notes
-        -----
-        These are effectively transposes of the coarsen operator
-        """
-        def r0(p0):
-            # tile with zeros inbetween; then convolve
-            return ndimage.convolve(s, weights=self.smoother, mode='wrap')
-
-        def r1(p1):
-            pass
-
-        def r2(p2):
-            s = np.tile(p2, (2, 2))
-            return ndimage.convolve(s, weights=self.smoother, mode='wrap')
-
-        return [r0, r1, r2]
-
 
 
 class StencilComplex3D(StencilComplex):

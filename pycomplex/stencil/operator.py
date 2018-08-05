@@ -33,13 +33,6 @@ class StencilOperator(object):
         )
 
 
-class InvertableOperator(object):
-    """Use for hodge?"""
-    pass
-
-class DiagonalOperator(object):
-    """left equals right; transpose returns self"""
-
 class SymmetricOperator(object):
     """left equals right; transpose returns self"""
     def __init__(self, op: callable, shape: Tuple):
@@ -56,6 +49,25 @@ class SymmetricOperator(object):
         ret = self.right(*args, **kwargs)
         assert ret.shape == self.shape[0]
         return ret
+
+
+class DiagonalOperator(SymmetricOperator):
+    def __init__(self, op: callable, inv: callable, shape: Tuple):
+        self.left = op
+        self.right = op
+        self.inv = inv
+        self.shape = shape, shape
+
+    @property
+    def inverse(self):
+        return DiagonalOperator(
+            self.inv, self.left, self.shape[0]
+        )
+
+
+class InvertableOperator(object):
+    """Use for hodge?"""
+    pass
 
 
 class ComposedOperator(object):
