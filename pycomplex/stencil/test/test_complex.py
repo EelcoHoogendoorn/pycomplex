@@ -45,8 +45,3 @@ def test_transfers():
 
     print(c0)
     print(f0)
-    # c1 = complex.coarse.form(1)
-    # c1[...] = 1
-    # f1 = t[1].left(c1)
-    # print(f1)
-    # print()

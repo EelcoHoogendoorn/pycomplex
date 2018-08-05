@@ -156,7 +156,9 @@ class StencilComplex(object):
         """
         def smooth(n):
             symbols = self.symbols[n]
-            sm = smoother(1) * scale
+            sm = smoother(1)
+            if not scale:
+                sm = sm / sm.max()
 
             def inner(f):
                 """smooth a primal n-form along directions normal to it"""
@@ -216,7 +218,7 @@ class StencilComplex(object):
             return inner
 
         return [
-            # NOTE: it is somewhat abusive to imply these are a pure transpose; they are transpose with variable scaling
+            # NOTE: if varialbe scaling were to be absprbed here if would not longer be a true transpose relationship
             StencilOperator(
                 left=tile(n),
                 right=bin(n),
@@ -233,7 +235,7 @@ class StencilComplex(object):
         array_like, [ndim], n-form
         """
         T = self.transfers
-        S = self.smoothers(scale=1)
+        S = self.smoothers(scale=True)
         return [
             ComposedOperator(T[n], S[n])
             for n in range(self.ndim + 1)
@@ -241,8 +243,17 @@ class StencilComplex(object):
 
     @property
     def refine(self):
-        # assume galerkin transfer operators as a default
-        return [c.transpose for c in self.coarsen]
+        """
+        Returns
+        -------
+        array_like, [ndim], n-form
+        """
+        T = self.transfers
+        S = self.smoothers(scale=False)
+        return [
+            ComposedOperator(T[n], S[n]).transpose
+            for n in range(self.ndim + 1)
+        ]
 
 
 class StencilComplex2D(StencilComplex):
