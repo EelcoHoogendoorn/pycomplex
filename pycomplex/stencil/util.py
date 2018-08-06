@@ -76,12 +76,12 @@ def binning(arr, steps):
     return arr.reshape(shape).mean(axis=tuple(np.arange(len(steps), dtype=np.int) * 2 + 1))
 
 
-def unbinning(arr, output, axes):
-    """scale a factor two in all directions, but fill some with zeros"""
-
-
 def smoother(ndim):
     """Note: this a seperable kernel. """
     if ndim == 1:
         return np.array([1, 2, 1]) / 4
     return smoother(1) * smoother(ndim-1)[..., None]
+
+
+def checkerboard(shape):
+    return np.indices(shape).sum(axis=0) % 2
