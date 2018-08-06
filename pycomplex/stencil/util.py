@@ -73,7 +73,7 @@ def binning(arr, steps):
     """inverse of tile"""
     shape = [(a // b, b) for a, b in zip(arr.shape, steps)]
     shape = [c for p in shape for c in p]
-    return arr.reshape(shape).sum(axis=tuple(np.arange(len(steps), dtype=np.int) * 2 + 1))
+    return arr.reshape(shape).mean(axis=tuple(np.arange(len(steps), dtype=np.int) * 2 + 1))
 
 
 def unbinning(arr, output, axes):

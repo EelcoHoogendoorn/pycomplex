@@ -14,8 +14,12 @@ class StencilComplex(object):
     The defining distinction of the stencil based approach is that all topology is implicit
     other than its shape it has no associated memory requirements
 
+    TODO
+    ----
     make component-first or component-last configurable?
 
+    emit code instead of making callables?
+    might eliminate quite some overhead and expose parralelism?
     """
 
     def __init__(self, shape: Tuple[int], scale=1, boundary: str = 'periodic'):
@@ -60,6 +64,8 @@ class StencilComplex(object):
             return np.zeros((components, ) + self.shape, dtype=dtype)
         if init == 'empty':
             return np.empty((components, ) + self.shape, dtype=dtype)
+        if init == 'ones':
+            return np.ones((components, ) + self.shape, dtype=dtype)
         raise Exception
 
     @property
@@ -77,7 +83,7 @@ class StencilComplex(object):
         def corr(*args, **kwargs):
             return ndimage.correlate1d(*args, **kwargs, mode='wrap')
 
-        def derivative(n, symbols, terms, axes, parities, func):
+        def primal(n, symbols, terms, axes, parities):
             """Exterior derivative operator"""
             def inner(f):
                 d = self.form(n + 1, init='empty')
@@ -90,17 +96,49 @@ class StencilComplex(object):
                         i = symbols.index(t)
                         weights = [-1, +1] if p else [+1, -1]
                         if initialized[c]:
-                            d[c] += func(f[i], axis=a, weights=weights)
+                            d[c] += conv(f[i], axis=a, weights=weights)
                         else:
-                            func(f[i], axis=a, output=d[c], weights=weights)
+                            conv(f[i], axis=a, output=d[c], weights=weights)
                             initialized[c] = True
+                return d
+            return inner
+        def dual(n, symbols, terms, axes, parities):
+            """Exterior derivative operator"""
+            def inner(f):
+                """
+
+                Parameters
+                ----------
+                f:
+                    n+1-form
+
+                Returns
+                -------
+                n-form
+                """
+                d = self.form(n, init='empty')
+                # write once; update afterwards
+                initialized = [False] * len(d)
+                # loop over all components of the new derived form
+                for c, (T, A, P) in enumerate(zip(terms, axes, parities)):
+                    # loop over all terms that the new symbol is composed of
+                    for t, a, p in zip(T, A, P):
+                        i = symbols.index(t)
+                        weights = [-1, +1] if p else [+1, -1]
+                        if initialized[i]:
+                            d[i] += corr(f[c], axis=a, weights=weights)
+                        else:
+                            corr(f[c], axis=a, output=d[i], weights=weights)
+                            initialized[i] = True
                 return d
             return inner
 
         return [
             StencilOperator(
-                left=derivative(n, symbols, terms, axes, parities, conv),
-                right=derivative(n, symbols, terms, axes, parities, corr),
+                # in boundary-free case, left operator equals dual derivative
+                # not just a conv/corr difference; also need to transpose summing logic!
+                left=dual(n, symbols, terms, axes, parities),
+                right=primal(n, symbols, terms, axes, parities),
                 shape=(self.form(n + 1).shape, self.form(n).shape)
             )
             for n, (symbols, terms, axes, parities)
@@ -136,19 +174,9 @@ class StencilComplex(object):
         -----
         only pure regular grids now; add support for more complex metrics?
         """
-        def h(n):
-            scale = (self.scale ** (self.ndim - n * 2))
-            def inner(x):
-                return x * scale
-            return inner
-        def hi(n):
-            scale = (self.scale ** (self.ndim - n * 2))
-            def inner(x):
-                return x / scale
-            return inner
         return [
             DiagonalOperator(
-                h(n), hi(n),
+                self.scale ** (self.ndim - n * 2),
                 self.form(n).shape,
             )
             for n in range(self.ndim + 1)
@@ -166,9 +194,12 @@ class StencilComplex(object):
             sm = smoother(1)
             if not scale:
                 sm = sm / sm.max()
+            else:
+                sm
 
             def inner(f):
                 """smooth a primal n-form along directions normal to it"""
+                # FIXME: for n-form we need no smoothing and we can exit early without copy
                 smoothed = np.copy(f)
                 # loop over all components of the form
                 for c, s in enumerate(symbols):
@@ -225,7 +256,7 @@ class StencilComplex(object):
             return inner
 
         return [
-            # NOTE: if  scaling were to be absorbed here if would not longer be a true transpose relationship
+            # NOTE: this is not a true transpose relationship when the call to binning is using a mean reduction
             StencilOperator(
                 left=tile(n),
                 right=bin(n),
@@ -236,38 +267,38 @@ class StencilComplex(object):
 
     @property
     def coarsen(self):
-        """
+        """Coarsen operators, mapping self to self.coarse
+
         Returns
         -------
         array_like, [ndim + 1], Operator
+            n-th operator maps primal self.form(n) to primal self.coarse.form(n)
 
         Notes
         -----
-        transpose of refine exacept for scale
+        transpose of refine except for a scale factor
         """
-        T = self.transfers
-        S = self.smoothers(scale=True)
         return [
-            ComposedOperator(T[n], S[n])
-            for n in range(self.ndim + 1)
+            ComposedOperator(T, S)
+            for T, S in zip(self.transfers, self.smoothers(scale=True))
         ]
 
     @property
     def refine(self):
-        """
+        """Refinement operators, mapping self.coarse to self
+
         Returns
         -------
         array_like, [ndim + 1], Operator
+            n-th operator maps primal self.coarse.form(n) to primal self.form(n)
 
         Notes
         -----
-        transpose of coarsen exacept for scale
+        transpose of coarsen except for a scale factor
         """
-        T = self.transfers
-        S = self.smoothers(scale=False)
         return [
-            ComposedOperator(T[n], S[n]).transpose
-            for n in range(self.ndim + 1)
+            ComposedOperator(T, S).transpose
+            for T, S in zip(self.transfers, self.smoothers(scale=False))
         ]
 
 

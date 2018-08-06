@@ -1,4 +1,5 @@
 from typing import Tuple
+import numpy as np
 
 
 class StencilOperator(object):
@@ -52,17 +53,18 @@ class SymmetricOperator(object):
 
 
 class DiagonalOperator(SymmetricOperator):
-    def __init__(self, op: callable, inv: callable, shape: Tuple):
-        self.left = op
-        self.right = op
-        self.inv = inv
+    def __init__(self, diagonal: np.ndarray, shape: Tuple):
+        self.diagonal = diagonal
         self.shape = shape, shape
 
     @property
     def inverse(self):
         return DiagonalOperator(
-            self.inv, self.left, self.shape[0]
+            1. / self.diagonal, self.shape[0]
         )
+
+    def __call__(self, x):
+        return self.diagonal * x
 
 
 class InvertableOperator(object):
