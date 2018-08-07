@@ -1,6 +1,8 @@
 import numpy as np
 import numpy_indexed as npi
 from fastcache import clru_cache
+# NOTE: interesting that we are reusing this code here...
+from pycomplex.topology.simplicial import permutation_map
 
 
 def pascal(n, k):
@@ -20,7 +22,7 @@ def totuple(a):
 
 @clru_cache()
 def generate(ndim):
-    """Generate symbols and their derivative relations of anticommutative exterior algebra
+    """Generate symbols and their derivative relations describing anticommutative exterior algebra
 
     Parameters
     ----------
@@ -32,11 +34,11 @@ def generate(ndim):
     symbols : tuple
         describes the interpretation of each component of each form
     terms : tuple
-        refers to symbols in the lower forms that derives forms are built from
+        indices refer to components in the parent forms that derived forms are built from
     axis : tuple
-        axis to differentiate any given term to
+        axis to differentiate any given parent component to
     parities : tuple
-        sign term
+        sign term of above mentioned differentiation
     """
     symbols = [(tuple(),)]  # 0-form is represented by empty symbol
     parities = []
@@ -44,27 +46,23 @@ def generate(ndim):
     axes = []
 
     for n in range(ndim):
-        # NOTE: interesting that we are reusing this code here...
-        from pycomplex.topology.simplicial import permutation_map
+        # new generation of terms consists of all previous symbols derived wrt all directions not yet derived to
+        t = [s + (d,) for d in range(ndim) for s in symbols[n] if d not in s]
+
+        # parity of each term relative to sorted order
         par, perm = permutation_map(n)
-        p = symbols[n]
-        # for new generation of symbols as all previous generations derived wrt all directions
-        s = [q + (i,) for i in range(ndim) for q in p if i not in q]
-        s = np.array(s)
-        ss = np.sort(s, axis=1)
-        arg = np.argsort(s, axis=1).astype(par.dtype)
-        parity = par[npi.indices(perm, arg)]    # parity of each term relative to sorted order
+        parity = par[npi.indices(perm, np.argsort(t, axis=1).astype(perm.dtype))]
 
-        idx = npi.as_index(ss)
-        u, up = npi.group_by(idx, parity)
-        # last dir added to s is the current diff direction. earlier columns are id of terms to diff to reach s
-        gs = npi.group_by(idx).split(s)
-        gid, gd = gs[..., :-1], gs[..., -1]
+        # group terms by identical symbols
+        idx = npi.as_index(np.sort(t, axis=1))
+        gp = npi.group_by(idx).split(parity)
+        gt = npi.group_by(idx).split(t)
+        gi = [[symbols[n].index(i) for i in q] for q in totuple(gt[..., :-1])]
 
-        symbols.append(totuple(u))
-        parities.append(totuple(up))
-        axes.append(totuple(gd))
-        terms.append(totuple(gid))
+        symbols.append(totuple(idx.unique))
+        parities.append(totuple(gp))
+        axes.append(totuple(gt[..., -1]))
+        terms.append(totuple(gi))
 
     return tuple(symbols), tuple(terms), tuple(axes), tuple(parities)
 

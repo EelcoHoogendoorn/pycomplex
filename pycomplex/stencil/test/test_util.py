@@ -4,8 +4,9 @@ from pycomplex.stencil.util import generate, pascal, smoother
 
 
 def test_generate():
-    ndim = 5
+    ndim = 3
     symbols, terms, axes, parities = generate(ndim)
+    print(symbols)
     assert len(symbols) == ndim + 1
     for i, s in enumerate(symbols):
         assert pascal(ndim, i) == len(s)

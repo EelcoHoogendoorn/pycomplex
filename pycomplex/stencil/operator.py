@@ -17,26 +17,34 @@ class StencilOperator(object):
             shape=(self.shape[1], self.shape[0])
         )
 
+    @property
+    def inverse(self):
+        raise NotImplementedError
+
     def __call__(self, *args, **kwargs):
         assert args[0].shape == self.shape[1]
         ret = self.right(*args, **kwargs)
         assert ret.shape == self.shape[0]
         return ret
 
-    def __mul__(self, other):
-        assert isinstance(other, type(self))
-        assert self.shape[1] == other.shape[0]
-        # construct composed operator functions
-        def left(*args, **kwargs):
-            self.left
+    def __add__(self, other):
+        # FIXME: if we make this a dedicated object it might enable compute graph optimisations
+        assert isinstance(other, type(StencilOperator))
+        assert self.shape == other.shape
         return StencilOperator(
-            left=self.left
+            right=lambda x: self(x) + other(x),
+            left=lambda x: self.transpose(x) + other.transpose(x),
+            shape=self.shape,
         )
 
+    def __mul__(self, other):
+        assert isinstance(other, type(StencilOperator))
+        return ComposedOperator(self, other)
 
-class SymmetricOperator(object):
+
+class SymmetricOperator(StencilOperator):
     """left equals right; transpose returns self"""
-    def __init__(self, op: callable, shape: Tuple):
+    def __init__(self, op: callable, shape):
         self.left = op
         self.right = op
         self.shape = shape, shape
@@ -45,17 +53,13 @@ class SymmetricOperator(object):
     def transpose(self):
         return self
 
-    def __call__(self, *args, **kwargs):
-        assert args[0].shape == self.shape[1]
-        ret = self.right(*args, **kwargs)
-        assert ret.shape == self.shape[0]
-        return ret
-
 
 class DiagonalOperator(SymmetricOperator):
-    def __init__(self, diagonal: np.ndarray, shape: Tuple):
+    def __init__(self, diagonal: np.ndarray, shape):
         self.diagonal = diagonal
         self.shape = shape, shape
+        self.right = lambda x: x * self.diagonal
+        self.left = lambda x: x / self.diagonal
 
     @property
     def inverse(self):
@@ -63,16 +67,8 @@ class DiagonalOperator(SymmetricOperator):
             1. / self.diagonal, self.shape[0]
         )
 
-    def __call__(self, x):
-        return self.diagonal * x
 
-
-class InvertableOperator(object):
-    """Use for hodge?"""
-    pass
-
-
-class ComposedOperator(object):
+class ComposedOperator(StencilOperator):
     def __init__(self, *args):
         self.operators = args
         for l, r in zip(self.operators[:-1], self.operators[1:]):

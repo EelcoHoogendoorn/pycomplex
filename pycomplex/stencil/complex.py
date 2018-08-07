@@ -83,8 +83,7 @@ class StencilComplex(object):
         def corr(*args, **kwargs):
             return ndimage.correlate1d(*args, **kwargs, mode='wrap')
 
-        def primal(n, symbols, terms, axes, parities):
-            """Exterior derivative operator"""
+        def primal(n, terms, axes, parities):
             def inner(f):
                 d = self.form(n + 1, init='empty')
                 # write once; update afterwards
@@ -93,29 +92,16 @@ class StencilComplex(object):
                 for c, (T, A, P) in enumerate(zip(terms, axes, parities)):
                     # loop over all terms that the new symbol is composed of
                     for t, a, p in zip(T, A, P):
-                        i = symbols.index(t)
                         weights = [-1, +1] if p else [+1, -1]
                         if initialized[c]:
-                            d[c] += conv(f[i], axis=a, weights=weights)
+                            d[c] += conv(f[t], axis=a, weights=weights)
                         else:
-                            conv(f[i], axis=a, output=d[c], weights=weights)
+                            conv(f[t], axis=a, output=d[c], weights=weights)
                             initialized[c] = True
                 return d
             return inner
-        def dual(n, symbols, terms, axes, parities):
-            """Exterior derivative operator"""
+        def dual(n, terms, axes, parities):
             def inner(f):
-                """
-
-                Parameters
-                ----------
-                f:
-                    n+1-form
-
-                Returns
-                -------
-                n-form
-                """
                 d = self.form(n, init='empty')
                 # write once; update afterwards
                 initialized = [False] * len(d)
@@ -123,13 +109,12 @@ class StencilComplex(object):
                 for c, (T, A, P) in enumerate(zip(terms, axes, parities)):
                     # loop over all terms that the new symbol is composed of
                     for t, a, p in zip(T, A, P):
-                        i = symbols.index(t)
                         weights = [-1, +1] if p else [+1, -1]
-                        if initialized[i]:
-                            d[i] += corr(f[c], axis=a, weights=weights)
+                        if initialized[t]:
+                            d[t] += corr(f[c], axis=a, weights=weights)
                         else:
-                            corr(f[c], axis=a, output=d[i], weights=weights)
-                            initialized[i] = True
+                            corr(f[c], axis=a, output=d[t], weights=weights)
+                            initialized[t] = True
                 return d
             return inner
 
@@ -137,12 +122,12 @@ class StencilComplex(object):
             StencilOperator(
                 # in boundary-free case, left operator equals dual derivative
                 # not just a conv/corr difference; also need to transpose summing logic!
-                left=dual(n, symbols, terms, axes, parities),
-                right=primal(n, symbols, terms, axes, parities),
+                left=dual(n, terms, axes, parities),
+                right=primal(n, terms, axes, parities),
                 shape=(self.form(n + 1).shape, self.form(n).shape)
             )
-            for n, (symbols, terms, axes, parities)
-            in enumerate(zip(self.symbols, self.terms, self.axes, self.parities))
+            for n, (terms, axes, parities)
+            in enumerate(zip(self.terms, self.axes, self.parities))
         ]
 
     @property
