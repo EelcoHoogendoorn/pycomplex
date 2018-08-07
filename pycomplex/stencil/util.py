@@ -33,12 +33,21 @@ def generate(ndim):
     -------
     symbols : tuple
         describes the interpretation of each component of each form
+        each form is described by a set of components
+        and each component is described by a set of integers
+        where the integers denote the directions in which these variables have an extent
+        for instance, in a 3d space, (1, 2) describes an area element dy*dz
     terms : tuple
-        indices refer to components in the parent forms that derived forms are built from
+        indices referring to components in the parent forms that derived forms are built from
     axis : tuple
         axis to differentiate any given parent component to
     parities : tuple
         sign term of above mentioned differentiation
+
+    Notes
+    -----
+    This function may be called often and is nontrivial to compute,
+    hence the immutable return types and caching
     """
     symbols = [(tuple(),)]  # 0-form is represented by empty symbol
     parities = []
@@ -49,15 +58,15 @@ def generate(ndim):
         # new generation of terms consists of all previous symbols derived wrt all directions not yet derived to
         t = [s + (d,) for d in range(ndim) for s in symbols[n] if d not in s]
 
-        # parity of each term relative to sorted order
+        # compute parity of each term
         par, perm = permutation_map(n)
         parity = par[npi.indices(perm, np.argsort(t, axis=1).astype(perm.dtype))]
 
-        # group terms by identical symbols
+        # group terms by identical output components
         idx = npi.as_index(np.sort(t, axis=1))
         gp = npi.group_by(idx).split(parity)
         gt = npi.group_by(idx).split(t)
-        gi = [[symbols[n].index(i) for i in q] for q in totuple(gt[..., :-1])]
+        gi = [[symbols[n].index(i) for i in t] for t in totuple(gt[..., :-1])]
 
         symbols.append(totuple(idx.unique))
         parities.append(totuple(gp))

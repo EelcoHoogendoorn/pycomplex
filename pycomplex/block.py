@@ -235,6 +235,7 @@ class BlockMatrix(BlockArray):
 
 class SparseBlockMatrix(BlockMatrix):
     """This wraps a block of scipy.sparse matrices"""
+    # FIXME: does this generalize to linear operators?
 
     def __mul__(self, other):
         """Compute self[i,j] * other[j,...] -> output[i,...]
