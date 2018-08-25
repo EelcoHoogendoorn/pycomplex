@@ -681,7 +681,7 @@ class System(BaseSystem):
         """Adjust boundary terms such as to achieve a symmetric system"""
         # divide each boundary row such that off-diagonal terms match their dual counterpart
         # off-diagonal terms may be zero; that is ok too
-        # in that case we may explicitly eliminiate those rows and cols if diag is nonzero
+        # in that case we may explicitly eliminate those rows and cols if diag is nonzero
         # to restore explicit symmetry; although this tends to be unnecessary when doing subsequent elimination
 
         sym = self.copy()

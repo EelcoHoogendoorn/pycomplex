@@ -10,12 +10,19 @@ class StencilOperator(object):
         self.shape = shape
 
     @property
+    def operators(self):
+        return [self]
+
+    @property
     def transpose(self):
         return StencilOperator(
             right=self.left,
             left=self.right,
             shape=(self.shape[1], self.shape[0])
         )
+    @property
+    def T(self):
+        return self.transpose
 
     @property
     def inverse(self):
@@ -29,8 +36,15 @@ class StencilOperator(object):
 
     def __add__(self, other):
         # FIXME: if we make this a dedicated object it might enable compute graph optimisations
-        assert isinstance(other, type(StencilOperator))
+        # FIXME: alternatively, implement some simple optimizations here; fold diagonal operators, and so on
+        assert isinstance(other, StencilOperator)
         assert self.shape == other.shape
+
+        if isinstance(self, ZeroOperator):
+            return other
+        if isinstance(other, ZeroOperator):
+            return self
+
         return StencilOperator(
             right=lambda x: self(x) + other(x),
             left=lambda x: self.transpose(x) + other.transpose(x),
@@ -38,8 +52,28 @@ class StencilOperator(object):
         )
 
     def __mul__(self, other):
-        assert isinstance(other, type(StencilOperator))
-        return ComposedOperator(self, other)
+        assert isinstance(other, StencilOperator)
+        return ComposedOperator(self.operators + other.operators).simplify()
+
+
+class ZeroOperator(StencilOperator):
+    """Operator that maps all input to zero"""
+    def __init__(self, shape):
+        zero = lambda x: x * 0
+        super(ZeroOperator, self).__init__(zero, zero, shape)
+
+    @property
+    def inverse(self):
+        raise NotImplementedError
+
+
+class ClosedOperator(StencilOperator):
+    """Operator which produces closed forms;
+     that is an operator which applied to itself equals zero.
+
+    """
+    # FIXME: Name is wrong, but nilpotent with n is 2 makes for such a poor class name.
+    # maybe just call it derivativeOperator?
 
 
 class SymmetricOperator(StencilOperator):
@@ -55,6 +89,7 @@ class SymmetricOperator(StencilOperator):
 
 
 class DiagonalOperator(SymmetricOperator):
+    """Operator that makes only pointwise changes"""
     def __init__(self, diagonal: np.ndarray, shape):
         self.diagonal = diagonal
         self.shape = shape, shape
@@ -69,12 +104,30 @@ class DiagonalOperator(SymmetricOperator):
 
 
 class ComposedOperator(StencilOperator):
+    """Chains a sequence of operators"""
     def __init__(self, *args):
+        for op in args:
+            assert isinstance(op, StencilOperator)
         self.operators = args
         for l, r in zip(self.operators[:-1], self.operators[1:]):
             assert l.shape[1] == r.shape[0]
 
         self.shape = self.operators[0].shape[0], self.operators[-1].shape[-1]
+
+    def is_zero(self):
+        """Returns true if the sequence of operators can be deduced to be zero"""
+        if any(isinstance(op, ZeroOperator) for op in self.operators):
+            return True
+        if any(isinstance(l, ClosedOperator) and isinstance(r, ClosedOperator)
+               for l, r in zip(self.operators[:-1], self.operators[1:])):
+            return True
+        return False
+
+    def simplify(self):
+        """Implement some simplification rules, like combining diagonal operators"""
+        if self.is_zero():
+            return ZeroOperator(self.shape)
+        return self
 
     @property
     def transpose(self):

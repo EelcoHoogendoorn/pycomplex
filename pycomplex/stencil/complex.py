@@ -2,7 +2,7 @@ from typing import Tuple
 
 import numpy as np
 from scipy import ndimage
-from pycomplex.stencil.operator import StencilOperator, SymmetricOperator, ComposedOperator, DiagonalOperator
+from pycomplex.stencil.operator import StencilOperator, SymmetricOperator, ComposedOperator, DiagonalOperator, ClosedOperator
 
 from pycomplex.stencil.util import generate, smoother
 
@@ -49,6 +49,10 @@ class StencilComplex(object):
             scale=self.scale / 2,
         )
 
+    @property
+    def n_elements(self):
+        return [(len(s), ) + self.shape for s in self.symbols]
+
     def form(self, n, dtype=np.float32, init='zeros'):
         """Allocate an n-form
 
@@ -58,14 +62,14 @@ class StencilComplex(object):
         """
         assert self.boundary == 'periodic'
         # with periodic boundaries all forms have the same shape
-        components = len(self.symbols[n])
+        shape = self.n_elements[n]
         # in more general case, different forms and different components of forms may have different shape
         if init == 'zeros':
-            return np.zeros((components, ) + self.shape, dtype=dtype)
+            return np.zeros(shape, dtype=dtype)
         if init == 'empty':
-            return np.empty((components, ) + self.shape, dtype=dtype)
+            return np.empty(shape, dtype=dtype)
         if init == 'ones':
-            return np.ones((components, ) + self.shape, dtype=dtype)
+            return np.ones(shape, dtype=dtype)
         raise Exception
 
     @property
@@ -119,7 +123,7 @@ class StencilComplex(object):
             return inner
 
         return [
-            StencilOperator(
+            ClosedOperator(
                 # in boundary-free case, left operator equals dual derivative
                 # not just a conv/corr difference; also need to transpose summing logic!
                 left=dual(n, terms, axes, parities),
