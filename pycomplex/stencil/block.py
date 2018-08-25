@@ -117,6 +117,7 @@ class BlockOperator(BlockArray):
         DenseBlockArray
         """
         assert self.is_square
+        # NOTE: bruto force the stencil diagonal using some checkerboard-type evaluation
         raise NotImplementedError
 
     def __mul__(self, other):
@@ -139,6 +140,7 @@ class BlockOperator(BlockArray):
         L = [self.block[i, 0].shape[0] for i in range(self.block.shape[0])]
         R = [other.block[0, i].shape[1] for i in range(other.block.shape[1])]
         output = BlockOperator.zeros(L, R).block
+
         for i in range(self.rows):
             for j in range(self.cols):
                 for k in range(output_shape[1]):

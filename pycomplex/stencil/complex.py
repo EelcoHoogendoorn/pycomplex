@@ -268,7 +268,7 @@ class StencilComplex(object):
         transpose of refine except for a scale factor
         """
         return [
-            ComposedOperator(T, S)
+            T * S
             for T, S in zip(self.transfers, self.smoothers(scale=True))
         ]
 
@@ -286,7 +286,7 @@ class StencilComplex(object):
         transpose of coarsen except for a scale factor
         """
         return [
-            ComposedOperator(T, S).transpose
+            (T * S).transpose
             for T, S in zip(self.transfers, self.smoothers(scale=False))
         ]
 

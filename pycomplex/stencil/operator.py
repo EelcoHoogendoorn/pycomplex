@@ -35,25 +35,25 @@ class StencilOperator(object):
         return ret
 
     def __add__(self, other):
-        # FIXME: if we make this a dedicated object it might enable compute graph optimisations
-        # FIXME: alternatively, implement some simple optimizations here; fold diagonal operators, and so on
-        assert isinstance(other, StencilOperator)
-        assert self.shape == other.shape
-
-        if isinstance(self, ZeroOperator):
-            return other
-        if isinstance(other, ZeroOperator):
-            return self
-
-        return StencilOperator(
-            right=lambda x: self(x) + other(x),
-            left=lambda x: self.transpose(x) + other.transpose(x),
-            shape=self.shape,
-        )
+        return CombinedOperator(self.operators + other.operators).simplify()
 
     def __mul__(self, other):
-        assert isinstance(other, StencilOperator)
         return ComposedOperator(self.operators + other.operators).simplify()
+
+    def simplify(self):
+        return self
+
+    def to_dense(self):
+        """Transform a matrix-free operator into a dense operator by brute force evaluation"""
+        shape = self.shape[1]
+        def canonical(i):
+            r = np.zeros(shape)
+            r[tuple(i)] = 1
+            return r
+
+        idx = np.indices(shape)
+        r = [self(canonical(c)) for c in idx.reshape(len(shape), -1).T]
+        return np.array(r).reshape(len(r), -1)
 
 
 class ZeroOperator(StencilOperator):
@@ -61,10 +61,6 @@ class ZeroOperator(StencilOperator):
     def __init__(self, shape):
         zero = lambda x: x * 0
         super(ZeroOperator, self).__init__(zero, zero, shape)
-
-    @property
-    def inverse(self):
-        raise NotImplementedError
 
 
 class ClosedOperator(StencilOperator):
@@ -102,17 +98,43 @@ class DiagonalOperator(SymmetricOperator):
             1. / self.diagonal, self.shape[0]
         )
 
+    def simplify(self):
+        if np.allclose(self.diagonal, 0):
+            return ZeroOperator(self.shape)
+        if np.allclose(self.diagonal, 1):
+            return IdentityOperator(self.shape)
+        return self
+
+
+class IdentityOperator(DiagonalOperator):
+    def __init__(self, shape):
+        self.shape = shape, shape
+        self.right = lambda x: x
+        self.left = lambda x: x
+
+    @property
+    def inverse(self):
+        return self
+
+    @property
+    def diagonal(self):
+        return 1
+
 
 class ComposedOperator(StencilOperator):
-    """Chains a sequence of operators"""
-    def __init__(self, *args):
+    """Chains the action of a sequence of operators"""
+    def __init__(self, args):
         for op in args:
             assert isinstance(op, StencilOperator)
-        self.operators = args
+        self._operators = args
         for l, r in zip(self.operators[:-1], self.operators[1:]):
             assert l.shape[1] == r.shape[0]
 
         self.shape = self.operators[0].shape[0], self.operators[-1].shape[-1]
+
+    @property
+    def operators(self):
+        return self._operators
 
     def is_zero(self):
         """Returns true if the sequence of operators can be deduced to be zero"""
@@ -127,11 +149,23 @@ class ComposedOperator(StencilOperator):
         """Implement some simplification rules, like combining diagonal operators"""
         if self.is_zero():
             return ZeroOperator(self.shape)
+        # drop identity terms
+        if any(isinstance(op, IdentityOperator) for op in self.operators):
+            return ComposedOperator([op for op in self.operators if not isinstance(op, IdentityOperator)]).simplify()
+        # combine adjecent diagonals
+        for i in range(len(self.operators) - 2):
+            l, r = self.operators[i: i+2]
+            if isinstance(l, DiagonalOperator) and isinstance(r, DiagonalOperator):
+                d = DiagonalOperator(diagonal=l.diagonal * r.diagonal, shape=l.shape[0])
+                # FIXME: detect and eliminate identity diagonals?
+                return ComposedOperator(self.operators[:i] + [d] + self.operators[i+2:]).simplify()
+        if len(self.operators) == 1:
+            return self.operators[0].simplify()
         return self
 
     @property
     def transpose(self):
-        return ComposedOperator(*[o.transpose for o in self.operators[::-1]])
+        return ComposedOperator([o.transpose for o in self.operators[::-1]])
 
     def __call__(self, x):
         assert x.shape == self.shape[1]
@@ -139,3 +173,35 @@ class ComposedOperator(StencilOperator):
             x = op(x)
         assert x.shape == self.shape[0]
         return x
+
+
+class CombinedOperator(StencilOperator):
+    """Add the action of a set op operators"""
+
+    def __init__(self, args):
+        # FIXME: add possibility for sign flags to each operator term?
+        self._operators = args
+
+        self.shape = self.operators[0].shape
+
+        for op in self.operators:
+            assert isinstance(op, StencilOperator)
+            assert op.shape == self.shape
+
+        self.right = lambda x: sum(op(x) for op in self.operators)
+        self.left = lambda x: sum(op.transpose(x) for op in self.operators)
+
+    @property
+    def operators(self):
+        return self._operators
+
+    def simplify(self):
+
+        # drop zero terms
+        if any(isinstance(op, ZeroOperator) for op in self.operators):
+            return ComposedOperator([op for op in self.operators if not isinstance(op, ZeroOperator)]).simplify()
+
+        if len(self.operators) == 1:
+            return self.operators[0].simplify()
+        # FIXME: add check for summing repeated diagonal operators? never really happens does it?
+        return self
