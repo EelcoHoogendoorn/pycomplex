@@ -46,7 +46,7 @@ class BlockArray(object):
         block = [t(b) for b in self.block.T.flatten()]
         return type(self)(np.asarray(block, np.object).reshape(self.block.T.shape))
 
-    def __getitem__(self, slc):
+    def __getslice__(self, slc):
         """Slicing simply passes on to the block"""
         return type(self)(self.block.__getitem__(slc))
 
@@ -76,6 +76,26 @@ class BlockArray(object):
     def copy(self):
         return type(self)(self.block.copy())
 
+    def __getitem__(self, item):
+        return self.block[item]
+
+    def __setitem__(self, key, value):
+        if value == 0:
+            from pycomplex.stencil.operator import ZeroOperator
+            self.block[key] = ZeroOperator(shape=self.block[key].shape)
+            return
+        if value == 1:
+            from pycomplex.stencil.operator import IdentityOperator
+            assert self.block[key].shape[0] == self.block[key].shape[1]
+            self.block[key] = IdentityOperator(shape=self.block[key].shape[0])
+            return
+        from pycomplex.stencil.operator import StencilOperator
+        if isinstance(value, StencilOperator):
+            assert self.block[key].shape == value.shape
+            self.block[key] = value
+            return
+        raise NotImplementedError
+
 
 class BlockOperator(BlockArray):
     """Blocked linear algebra
@@ -102,6 +122,12 @@ class BlockOperator(BlockArray):
                     for l in L]
         )
 
+    @staticmethod
+    def identity(L):
+        eye = BlockOperator.zeros(L, L)
+        for i, l in enumerate(L):
+            eye[i] = 1
+        return eye
 
     @cached_property
     def is_square(self):
@@ -109,16 +135,38 @@ class BlockOperator(BlockArray):
         r, c = np.array(self.shape).T
         return np.alltrue(r.T == c)
 
+    def to_dense(self):
+        # dense = self.apply(lambda x: x.to_dense())
+        return np.block([[e.to_dense() for e in r] for r in self.block])
+
     def diagonal(self):
         """Get the diagonal of the block
 
         Returns
         -------
         DenseBlockArray
+
+        Notes
+        -----
+        This brute-forces the stencil diagonal using some checkerboard-type evaluation
+        Perhaps there may be a more efficient method of reaching the same result?
+
         """
+        from pycomplex.stencil.util import checkerboard
+
         assert self.is_square
-        # NOTE: bruto force the stencil diagonal using some checkerboard-type evaluation
-        raise NotImplementedError
+        def block(i):
+            db = self.block[i, i]
+            shape = db.shape[1]
+
+            # NOTE: how to generate patterns? some kind of checkerboard for 0-form.
+            # but what about forms with multiple components? walk each component seperately, using checker grid?
+            # might be expensive; but it should work?
+            pattern = checkerboard(shape)
+            antipattern = 1 - pattern
+
+            return db(pattern) * pattern + db(antipattern) * antipattern
+        return BlockArray([block(i) for i in range(self.rows)])
 
     def __mul__(self, other):
         """Compute self[i,j] * other[j,...] -> output[i,...]
@@ -132,6 +180,8 @@ class BlockOperator(BlockArray):
         -------
         type(other)
         """
+        if not isinstance(other, BlockOperator):
+            return self.vector_mul(other)
         assert self.block.shape[1] == other.block.shape[0]
         output_shape = self.rows, np.prod(other.block.shape[1:], dtype=np.int)
         other_block = other.block.reshape(other.block.shape[0], output_shape[1])
@@ -147,3 +197,13 @@ class BlockOperator(BlockArray):
                     output[i, k] = output[i, k] + self.block[i, j] * other_block[j, k]
 
         return type(other)(output.reshape(self.rows, *other.block.shape[1:]))
+
+    def vector_mul(self, other: BlockArray):
+        L = [self.block[i, 0].shape[0] for i in range(self.block.shape[0])]
+
+        output = [np.zeros(b) for b in L]
+        for i in range(self.rows):
+            for j in range(self.cols):
+                    output[i] = output[i] + self.block[i, j] * other.block[j]
+
+        return type(other)(output)

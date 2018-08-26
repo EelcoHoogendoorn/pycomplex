@@ -8,7 +8,6 @@ import numpy as np
 
 from pycomplex.stencil.complex import StencilComplex
 from pycomplex.stencil.block import BlockOperator, BlockArray
-from pycomplex.stencil.operator import ZeroOperator
 from pycomplex.topology.util import index_dtype
 
 
@@ -119,12 +118,12 @@ class System(object):
 
         PD = complex.hodge
         for i, (tp, td) in enumerate(zip(Tp, Td)):
-            A.block[i, i + 1] = PD[i] * td.T
-            A.block[i + 1, i] = A.block[i, i + 1].T
+            A[i, i + 1] = PD[i] * td.T
+            A[i + 1, i] = A[i, i + 1].T
 
         # put hodges on diag by default; easier to zero out than to fill in
         for i in range(N):
-            A.block[i, i] = PD[i]
+            A[i, i] = PD[i]
 
         LR = np.arange(N, dtype=index_dtype)
         return System(complex, A=A, B=None, L=LR, R=LR)
@@ -146,10 +145,10 @@ class System(object):
     def __getitem__(self, item):
         """Slice a subsystem of full cochain complex"""
         return self.copy(
-            A=self.A.__getitem__(item).copy(),
+            A=self.A.__getslice__(item).copy(),
             L=self.L[item[0]],
             R=self.R[item[1]],
-            rhs=self.rhs[item[0]].copy()
+            rhs=self.rhs.__getslice__(item[0]).copy()
         )
 
     def normal(self):
@@ -167,3 +166,4 @@ class System(object):
             R=self.R,
             L=self.R,   # NOTE: this is the crux of forming normal equations
         )
+

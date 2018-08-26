@@ -92,3 +92,7 @@ def smoother(ndim):
 
 def checkerboard(shape):
     return np.indices(shape).sum(axis=0) % 2
+
+
+def checkerboard_2(shape, offset=0):
+    return np.einsum('i, i...->...', 2**np.arange(len(shape)), np.indices(shape) % 2) == offset
