@@ -96,6 +96,9 @@ class BlockArray(object):
             return
         raise NotImplementedError
 
+    # def to_dense(self):
+    #     return np.block([r for r in self.block])
+
 
 class BlockOperator(BlockArray):
     """Blocked linear algebra
@@ -136,7 +139,7 @@ class BlockOperator(BlockArray):
         return np.alltrue(r.T == c)
 
     def to_dense(self):
-        # dense = self.apply(lambda x: x.to_dense())
+        # dense = self.apply(lambda x: x.to_dense())    # something broken with apply
         return np.block([[e.to_dense() for e in r] for r in self.block])
 
     def diagonal(self):
@@ -154,7 +157,15 @@ class BlockOperator(BlockArray):
         """
         from pycomplex.stencil.util import checkerboard
 
-        assert self.is_square
+        def pattern(shape, c, sign):
+            pattern = np.zeros(shape)
+            pattern[c] = checkerboard(shape[1:]) if sign else 1 - checkerboard(shape[1:])
+            return pattern
+
+        def do(db, shape, c):
+            p, a = pattern(shape, c, 0), pattern(shape, c, 1)
+            return db(p) * p + db(a) * a
+        # assert self.is_square
         def block(i):
             db = self.block[i, i]
             shape = db.shape[1]
@@ -162,10 +173,11 @@ class BlockOperator(BlockArray):
             # NOTE: how to generate patterns? some kind of checkerboard for 0-form.
             # but what about forms with multiple components? walk each component seperately, using checker grid?
             # might be expensive; but it should work?
-            pattern = checkerboard(shape)
-            antipattern = 1 - pattern
+            # pattern = checkerboard(shape)
+            # antipattern = 1 - pattern
 
-            return db(pattern) * pattern + db(antipattern) * antipattern
+            return sum([do(db, shape, i) for i in range(shape[0])])
+
         return BlockArray([block(i) for i in range(self.rows)])
 
     def __mul__(self, other):

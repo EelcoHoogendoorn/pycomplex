@@ -1,4 +1,8 @@
 
+
+import numpy as np
+import numpy.testing as npt
+
 from pycomplex.stencil.complex import StencilComplex
 from pycomplex.stencil.linear_system import System
 
@@ -30,8 +34,15 @@ def test_dense():
 def test_normal():
     complex = StencilComplex((2, 4, 6))
     #system = System.canonical(complex)[[0, 2], 1:2]
-    system = System.canonical(complex)[:2, :2]
-    system.A[0, 0] = 0
+    system = System.canonical(complex)#[:2, :2]
+    # system.A[0, 0] = 0
     # plot_sys(system)
     normal = system.normal()
-    plot_sys(normal)
+    diag = normal.A.diagonal()
+
+    d = np.block([e.flatten() for e in diag.block])
+
+    s = np.diag(normal.A.to_dense())
+    # FIXME: see if it still passes when we add nontrivial scalings
+    npt.assert_allclose(s, d)
+    # plot_sys(normal)
