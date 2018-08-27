@@ -5,6 +5,7 @@ dont worry about it yet, can unify things when we know what they look like
 """
 
 import numpy as np
+from cached_property import cached_property
 
 from pycomplex.stencil.complex import StencilComplex
 from pycomplex.stencil.block import BlockOperator, BlockArray
@@ -55,10 +56,8 @@ class System(object):
         -------
         System
             system of full cochain complex
-            default boundaries are blank
             maps from dual to primal
             as a result the first order system is symmetric
-            and we avoid needing to have a dual boundary metric
 
         Examples
         --------
@@ -116,7 +115,10 @@ class System(object):
         NE = complex.n_elements
         A = BlockOperator.zeros(NE, NE)
 
+        from pycomplex.stencil.operator import DiagonalOperator
+
         PD = complex.hodge
+        # PD = [h * DiagonalOperator(np.random.random(h.shape[0]) + 1, h.shape[0]) for h in PD] # randomize hodges
         for i, (tp, td) in enumerate(zip(Tp, Td)):
             A[i, i + 1] = PD[i] * td.T
             A[i + 1, i] = A[i, i + 1].T
@@ -166,4 +168,12 @@ class System(object):
             R=self.R,
             L=self.R,   # NOTE: this is the crux of forming normal equations
         )
+
+    @cached_property
+    def diagonal(self):
+        return self.A.diagonal()
+    def jacobi(self, x):
+        d = self.diagonal
+        residual = self.A * x - self.rhs
+        return x + residual / d
 

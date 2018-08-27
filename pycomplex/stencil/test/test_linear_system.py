@@ -43,6 +43,6 @@ def test_normal():
     d = np.block([e.flatten() for e in diag.block])
 
     s = np.diag(normal.A.to_dense())
-    # FIXME: see if it still passes when we add nontrivial scalings
+    # FIXME: see if it still passes when we add nontrivial scalings?
     npt.assert_allclose(s, d)
-    # plot_sys(normal)
+    plot_sys(normal)

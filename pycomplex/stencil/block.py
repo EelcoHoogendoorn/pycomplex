@@ -4,7 +4,6 @@ import numpy as np
 
 
 class BlockArray(object):
-    """Blocked linear operators"""
     """ndim-blocked array object"""
 
     def __init__(self, block):
@@ -153,8 +152,16 @@ class BlockOperator(BlockArray):
         -----
         This brute-forces the stencil diagonal using some checkerboard-type evaluation
         Perhaps there may be a more efficient method of reaching the same result?
+        This requires two evaluations for each form-component,
+        where each form is evaluated typically over a laplacian-like operator,
+        so about a sixfold multiplier relative to a single forward smoother evaluation,
+        which is about the cost of a single V-cycle; so manageble.
+
+        Proven to work for for a full complex with random hodges
 
         """
+        # FIXME: should this not be moved elsewhere? seems quite problem-specific;
+        # and needs to know about seperate components
         from pycomplex.stencil.util import checkerboard
 
         def pattern(shape, c, sign):
@@ -169,13 +176,6 @@ class BlockOperator(BlockArray):
         def block(i):
             db = self.block[i, i]
             shape = db.shape[1]
-
-            # NOTE: how to generate patterns? some kind of checkerboard for 0-form.
-            # but what about forms with multiple components? walk each component seperately, using checker grid?
-            # might be expensive; but it should work?
-            # pattern = checkerboard(shape)
-            # antipattern = 1 - pattern
-
             return sum([do(db, shape, i) for i in range(shape[0])])
 
         return BlockArray([block(i) for i in range(self.rows)])
