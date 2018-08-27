@@ -11,7 +11,7 @@ class StencilOperator(object):
 
     @property
     def transpose(self):
-        return StencilOperator(
+        return type(self)(
             right=self.left,
             left=self.right,
             shape=(self.shape[1], self.shape[0])
@@ -62,6 +62,12 @@ class ZeroOperator(StencilOperator):
             lambda x: np.zeros(shape[1]),
             lambda x: np.zeros(shape[0]),
             shape
+        )
+
+    @property
+    def transpose(self):
+        return ZeroOperator(
+            shape=(self.shape[1], self.shape[0])
         )
 
 
@@ -214,3 +220,7 @@ class CombinedOperator(StencilOperator):
             return self.operators[0].simplify()
         # FIXME: add check for summing repeated diagonal operators? never really happens does it?
         return self
+
+    @property
+    def transpose(self):
+        return CombinedOperator([o.transpose for o in self.operators])
