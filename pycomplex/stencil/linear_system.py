@@ -169,11 +169,44 @@ class System(object):
             L=self.R,   # NOTE: this is the crux of forming normal equations
         )
 
-    @cached_property
-    def diagonal(self):
-        return self.A.diagonal()
-    def jacobi(self, x):
-        d = self.diagonal
-        residual = self.A * x - self.rhs
-        return x + residual / d
 
+class Equation(object):
+    def __init__(self, system):
+        self.system = system
+
+    @cached_property
+    def inverse_diagonal(self) -> BlockArray:
+        d = self.system.A.diagonal()
+        return BlockArray([1 / b for b in d.blocks])
+
+    def jacobi(self, x, y, relaxation: float=1) -> BlockArray:
+        """Jacobi iteration.
+
+        Notes
+        -----
+        More efficient than Richardson?
+        Scaling with an equation-specific factor might indeed adapt better to anisotropy
+        Requires presence of nonzero diagonal on A, which richardson does not
+        but unlike richardson, zero mass diagonal terms are fine
+        """
+        residual = (self.system.A * x - self.system.B * y)
+        return x - self.inverse_diagonal * residual * (relaxation / 2)
+
+    def overrelax(self, x: BlockArray, y: BlockArray, knots):
+        """overrelax, forcing the eigencomponent to zero at the specified overrelaxation knots
+
+        Parameters
+        ----------
+        x : ndarray
+        y : ndarray
+        knots : List[float]
+            for interpretation, see self.descent
+        """
+        for s in knots:
+            x = self.jacobi(x, y, s)
+        return x
+
+    def smooth(self, x: BlockArray, y: BlockArray):
+        """Basic smoother; inspired by time integration of heat diffusion equation"""
+        knots = np.linspace(1, 4, 3, endpoint=True)
+        return self.overrelax(x, y, knots)
