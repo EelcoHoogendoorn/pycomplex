@@ -8,13 +8,19 @@ from pycomplex.stencil.complex import StencilComplex2D
 from pycomplex.stencil.linear_system import System
 
 
+def plot_sys(system):
+    import matplotlib.pyplot as plt
+    plt.imshow(system.A.to_dense())
+    plt.show()
+
+
 def test_diffusion():
     """setup and solve 2d diffusion problem
 
     solve by means of dec-multigrid; without variable elimination
     this is likely to be less efficient but generelizes better to more complex problems
     """
-    complex = StencilComplex2D((64, 64))
+    complex = StencilComplex2D((16, 16))
     system = System.canonical(complex)[:2, :2]
     system.A[0, 0] = 0  # nothing acts on temperature directly; just want to constrain divergence
 
@@ -52,10 +58,33 @@ def test_diffusion():
 
     """
 
-    source[0, 32-3-16:32+3-16, 32-3:32+3] = -1
-    source[0, 32-3+16:32+3+16, 32-3:32+3] = +1
+    mid = 8
+    ext = 2
+    sep = 4
+    source[0, mid-ext-sep:mid+ext-sep, mid-ext:mid+ext] = -1
+    source[0, mid-ext+sep:mid+ext+sep, mid-ext:mid+ext] = +1
 
-    complex.plot_0(source)
+    system.rhs[0] = source
+    normal = system.normal()
+    # plot_sys(normal)
+
+    diagonal = normal.A.diagonal()
+    print(diagonal[0])
+    print(diagonal[1])
+
+
+    x = normal.allocate_x()
+
+    from pycomplex.stencil.linear_system import Equation
+    eq = Equation(normal)
+
+
+    for i in range(300):
+        x = eq.smooth(x, normal.rhs)
+
+
+    complex.plot_0(x[0])
+    # complex.plot_0(system.rhs[0])
 
 
 

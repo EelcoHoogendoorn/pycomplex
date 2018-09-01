@@ -16,4 +16,4 @@ class StencilEquation(object):
         maybe richardson smoother is easier after all?
         finding largest eig may take more iters than solving the problem though
         """
-        return
+        raise NotImplementedError

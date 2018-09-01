@@ -47,10 +47,6 @@ class BlockArray(object):
         block = [t(b) for b in self.block.T.flatten()]
         return type(self)(np.asarray(block, np.object).reshape(self.block.T.shape))
 
-    def __getslice__(self, slc):
-        """Slicing simply passes on to the block"""
-        return type(self)(self.block.__getitem__(slc))
-
     def broadcasting_operator(self, other, op):
         try:
             A = self.block
@@ -70,31 +66,64 @@ class BlockArray(object):
         """Add two block operators"""
         return self.broadcasting_operator(other, lambda a, b: a + b)
 
+    def __sub__(self, other):
+        """Sub two block operators"""
+        return self.broadcasting_operator(other, lambda a, b: a - b)
+
     def __mul__(self, other):
         """pointwise multiply two block operators"""
         return self.broadcasting_operator(other, lambda a, b: a * b)
 
+    def sum(self):
+        return sum(b.sum() for b in self.block)
+
+    def abs(self):
+        return self.apply(np.abs)
+
+    def invert(self):
+        return self.apply(lambda x: 1 / x)
+
     def copy(self):
         return type(self)(self.block.copy())
+
+    def __getslice__(self, slc):
+        """Slicing simply passes on to the block"""
+        return type(self)(self.block.__getitem__(slc))
 
     def __getitem__(self, item):
         return self.block[item]
 
     def __setitem__(self, key, value):
-        if value == 0:
-            from pycomplex.stencil.operator import ZeroOperator
-            self.block[key] = ZeroOperator(shape=self.block[key].shape)
-            return
-        if value == 1:
-            from pycomplex.stencil.operator import IdentityOperator
-            assert self.block[key].shape[0] == self.block[key].shape[1]
-            self.block[key] = IdentityOperator(shape=self.block[key].shape[0])
-            return
-        from pycomplex.stencil.operator import StencilOperator
-        if isinstance(value, StencilOperator):
-            assert self.block[key].shape == value.shape
-            self.block[key] = value
-            return
+        try:
+            if value == 0:
+                from pycomplex.stencil.operator import ZeroOperator
+                self.block[key] = ZeroOperator(shape=self.block[key].shape)
+                return
+        except:
+            pass
+        try:
+            if value == 1:
+                from pycomplex.stencil.operator import IdentityOperator
+                assert self.block[key].shape[0] == self.block[key].shape[1]
+                self.block[key] = IdentityOperator(shape=self.block[key].shape[0])
+                return
+        except:
+            pass
+        try:
+            from pycomplex.stencil.operator import StencilOperator
+            if isinstance(value, StencilOperator):
+                assert self.block[key].shape == value.shape
+                self.block[key] = value
+                return
+        except:
+            pass
+        try:
+            if isinstance(value, np.ndarray):
+                assert self.block[key].shape == value.shape
+                self.block[key] = value
+                return
+        except:
+            pass
         raise NotImplementedError
 
     # def to_dense(self):

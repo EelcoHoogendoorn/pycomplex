@@ -35,7 +35,7 @@ def test_normal():
     complex = StencilComplex((2, 4, 6))
     #system = System.canonical(complex)[[0, 2], 1:2]
     system = System.canonical(complex)#[:2, :2]
-    # system.A[0, 0] = 0
+    system.A[0, 0] = 0
     # plot_sys(system)
     normal = system.normal()
     diag = normal.A.diagonal()

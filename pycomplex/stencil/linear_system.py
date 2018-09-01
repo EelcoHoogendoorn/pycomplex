@@ -179,8 +179,7 @@ class Equation(object):
 
     @cached_property
     def inverse_diagonal(self) -> BlockArray:
-        d = self.system.A.diagonal()
-        return BlockArray([1 / b for b in d.blocks])
+        return self.system.A.diagonal().invert()
 
     def jacobi(self, x, y, relaxation: float=1) -> BlockArray:
         """Jacobi iteration.
@@ -192,10 +191,15 @@ class Equation(object):
         Requires presence of nonzero diagonal on A, which richardson does not
         but unlike richardson, zero mass diagonal terms are fine
         """
-        residual = (self.system.A * x - self.system.B * y)
+        if self.system.B:
+            residual = (self.system.A * x - self.system.B * y)
+        else:
+            residual = (self.system.A * x - y)
+        print(residual.abs().sum())
         return x - self.inverse_diagonal * residual * (relaxation / 2)
 
-    def block_gauss_seidel(self):
+    def block_jacobi(self):
+        """Perform jacobi iteration in blockwise fashion"""
         raise NotImplementedError
 
     def overrelax(self, x: BlockArray, y: BlockArray, knots):
@@ -209,7 +213,8 @@ class Equation(object):
             for interpretation, see self.descent
         """
         for s in knots:
-            x = self.jacobi(x, y, s)
+            # NOTE base relaxation rate needs to be lower in case of a
+            x = self.jacobi(x, y, s / 2)
         return x
 
     def smooth(self, x: BlockArray, y: BlockArray):

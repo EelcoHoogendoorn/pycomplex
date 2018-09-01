@@ -71,14 +71,29 @@ class ZeroOperator(StencilOperator):
         )
 
 
-class ClosedOperator(StencilOperator):
+class DerivativeOperator(StencilOperator):
     """Operator which produces closed forms;
      that is an operator which applied to itself equals zero.
 
     Only used as a tag to simplify expressions
     """
-    # FIXME: Name is wrong, but nilpotent with n is 2 makes for such a poor class name.
-    # maybe just call it derivativeOperator?
+    @property
+    def transpose(self):
+        return DualDerivativeOperator(
+            right=self.left,
+            left=self.right,
+            shape=(self.shape[1], self.shape[0])
+        )
+
+
+class DualDerivativeOperator(StencilOperator):
+    @property
+    def transpose(self):
+        return DerivativeOperator(
+            right=self.left,
+            left=self.right,
+            shape=(self.shape[1], self.shape[0])
+        )
 
 
 class SymmetricOperator(StencilOperator):
@@ -147,7 +162,10 @@ class ComposedOperator(StencilOperator):
         """Returns true if the sequence of operators can be deduced to be zero"""
         if any(isinstance(op, ZeroOperator) for op in self.operators):
             return True
-        if any(isinstance(l, ClosedOperator) and isinstance(r, ClosedOperator)
+        if any(isinstance(l, DerivativeOperator) and isinstance(r, DerivativeOperator)
+               for l, r in zip(self.operators[:-1], self.operators[1:])):
+            return True
+        if any(isinstance(l, DualDerivativeOperator) and isinstance(r, DualDerivativeOperator)
                for l, r in zip(self.operators[:-1], self.operators[1:])):
             return True
         return False
@@ -203,7 +221,6 @@ class CombinedOperator(StencilOperator):
         self.left = lambda x: sum(op.transpose(x) for op in self.operators)
 
     def simplify(self):
-
         # drop zero terms
         if any(isinstance(op, ZeroOperator) for op in self.operators):
             operators = [op for op in self.operators if not isinstance(op, ZeroOperator)]

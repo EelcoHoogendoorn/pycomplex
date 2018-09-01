@@ -2,7 +2,7 @@ from typing import Tuple
 
 import numpy as np
 from scipy import ndimage
-from pycomplex.stencil.operator import StencilOperator, SymmetricOperator, ComposedOperator, DiagonalOperator, ClosedOperator
+from pycomplex.stencil.operator import StencilOperator, SymmetricOperator, ComposedOperator, DiagonalOperator, DerivativeOperator
 
 from pycomplex.stencil.util import generate, smoother
 
@@ -123,7 +123,7 @@ class StencilComplex(object):
             return inner
 
         return [
-            ClosedOperator(
+            DerivativeOperator(
                 # in boundary-free case, left operator equals dual derivative
                 # not just a conv/corr difference; also need to transpose summing logic!
                 left=dual(n, terms, axes, parities),
@@ -301,7 +301,9 @@ class StencilComplex2D(StencilComplex):
     def plot_0(self, f0):
         """Plot a 0-form"""
         import matplotlib.pyplot as plt
+        assert len(f0) == 1, "Not a zero-form"
         plt.imshow(f0[0])
+        plt.colorbar()
         plt.show()
 
 
