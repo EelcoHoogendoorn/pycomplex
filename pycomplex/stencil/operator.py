@@ -3,7 +3,12 @@ import numpy as np
 
 
 class StencilOperator(object):
-    """Transposable linear operator for use in stencil based operations"""
+    """Transposable linear operator for use in stencil based operations
+
+    Notes
+    -----
+    Nothing terribly stencil specific here
+    """
     def __init__(self, left: callable, right: callable, shape: Tuple):
         self.left = left
         self.right = right
@@ -54,6 +59,9 @@ class StencilOperator(object):
         r = [self(canonical(c)) for c in idx.reshape(len(shape), -1).T]
         return np.array(r).reshape(len(r), -1).T
 
+    def __repr__(self):
+        return 'f'
+
 
 class ZeroOperator(StencilOperator):
     """Operator that maps all input to zero"""
@@ -70,6 +78,9 @@ class ZeroOperator(StencilOperator):
             shape=(self.shape[1], self.shape[0])
         )
 
+    def __repr__(self):
+        return '0'
+
 
 class DerivativeOperator(StencilOperator):
     """Operator which produces closed forms;
@@ -85,6 +96,9 @@ class DerivativeOperator(StencilOperator):
             shape=(self.shape[1], self.shape[0])
         )
 
+    def __repr__(self):
+        return 'd'
+
 
 class DualDerivativeOperator(StencilOperator):
     @property
@@ -94,6 +108,9 @@ class DualDerivativeOperator(StencilOperator):
             left=self.right,
             shape=(self.shape[1], self.shape[0])
         )
+
+    def __repr__(self):
+        return 'δ'
 
 
 class SymmetricOperator(StencilOperator):
@@ -120,7 +137,7 @@ class DiagonalOperator(SymmetricOperator):
     @property
     def inverse(self):
         with np.errstate(divide='raise'):
-            return DiagonalOperator(
+            return type(self)(
                 1. / self.diagonal, self.shape[0]
             )
 
@@ -130,6 +147,14 @@ class DiagonalOperator(SymmetricOperator):
         if np.allclose(self.diagonal, 1):
             return IdentityOperator(self.shape[0])
         return self
+
+    def __repr__(self):
+        return "\\"
+
+
+class HodgeOperator(DiagonalOperator):
+    def __repr__(self):
+        return r"*"
 
 
 class IdentityOperator(DiagonalOperator):
@@ -145,6 +170,9 @@ class IdentityOperator(DiagonalOperator):
     @property
     def diagonal(self):
         return 1
+
+    def __repr__(self):
+        return 'I'
 
 
 class ComposedOperator(StencilOperator):
@@ -203,6 +231,11 @@ class ComposedOperator(StencilOperator):
         assert x.shape == self.shape[0]
         return x
 
+    def __repr__(self):
+        terms = ''.join(repr(o) for o in self.operators)
+        return f'({terms})'
+
+
 
 class CombinedOperator(StencilOperator):
     """Add the action of a set op operators"""
@@ -243,3 +276,7 @@ class CombinedOperator(StencilOperator):
     @property
     def transpose(self):
         return CombinedOperator([o.transpose for o in self.operators])
+
+    def __repr__(self):
+        terms = '+'.join(repr(o) for o in self.operators)
+        return f'({terms})'

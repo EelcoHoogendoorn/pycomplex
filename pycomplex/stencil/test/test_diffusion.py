@@ -14,6 +14,21 @@ def plot_sys(system):
     plt.show()
 
 
+def build_hierarchy(equation):
+    """Build a hierarchy for a given equation object
+
+    equation.system.complex
+
+    Parameters
+    ----------
+    complex
+
+    Returns
+    -------
+
+    """
+
+
 def test_diffusion():
     """setup and solve 2d diffusion problem
 
@@ -22,7 +37,12 @@ def test_diffusion():
     """
     complex = StencilComplex2D((16, 16))
     system = System.canonical(complex)[:2, :2]
+    print()
+    print(system.A)
+    print()
     system.A[0, 0] = 0  # nothing acts on temperature directly; just want to constrain divergence
+    print(system.A)
+    print()
 
     # setup simple source and sink
     source = complex.form(0)
@@ -66,21 +86,21 @@ def test_diffusion():
 
     system.rhs[0] = source
     normal = system.normal()
+
+    # FIXME: this symbolic print looks postively aweful
+    # repeat diagonals do not get merged, and no longer have all primal input after making normal eq
+    print(normal.A)
     # plot_sys(normal)
 
     diagonal = normal.A.diagonal()
-    print(diagonal[0])
-    print(diagonal[1])
 
 
-    x = normal.allocate_x()
 
     from pycomplex.stencil.linear_system import Equation
     eq = Equation(normal)
 
 
-    for i in range(300):
-        x = eq.smooth(x, normal.rhs)
+    x = eq.solve(normal.rhs)
 
 
     complex.plot_0(x[0])

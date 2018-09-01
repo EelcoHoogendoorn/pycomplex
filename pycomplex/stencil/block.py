@@ -253,3 +253,6 @@ class BlockOperator(BlockArray):
                     output[i] = output[i] + self.block[i, j] * other.block[j]
 
         return type(other)(output)
+
+    def __repr__(self):
+        return '\n'.join('\t'.join([repr(e) for e in row]) for row in self.block)

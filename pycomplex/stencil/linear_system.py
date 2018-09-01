@@ -174,12 +174,45 @@ class System(object):
 
 
 class Equation(object):
+    """Wraps a linear system with some solver-specific logic"""
     def __init__(self, system):
         self.system = system
 
+    def residual(self, x, y):
+        if self.system.B:
+            return (self.system.A * x - self.system.B * y)
+        else:
+            return (self.system.A * x - y)
+
+    def smooth(self):
+        raise NotImplementedError
+
+    def interpolate(self, x):
+
+        raise NotImplementedError
+    def coarsen(self, x):
+        raise NotImplementedError
+
+    def solve(self, y, x=None, iterations=10):
+        if x is None:
+            x = y * 0
+        for i in range(iterations):
+            x = self.smooth(x, y)
+        return x
+
+    @cached_property
+    def normal(self):
+        """Return normal equations corresponding to self"""
+        return NormalEquation(self.system.normal())
+
+
+
+class NormalSmoothEquation(Equation):
+    """Equation object set up to be smoothed through its normal equations"""
+
     @cached_property
     def inverse_diagonal(self) -> BlockArray:
-        return self.system.A.diagonal().invert()
+        return self.normal.system.A.diagonal().invert()
 
     def jacobi(self, x, y, relaxation: float=1) -> BlockArray:
         """Jacobi iteration.
@@ -191,10 +224,7 @@ class Equation(object):
         Requires presence of nonzero diagonal on A, which richardson does not
         but unlike richardson, zero mass diagonal terms are fine
         """
-        if self.system.B:
-            residual = (self.system.A * x - self.system.B * y)
-        else:
-            residual = (self.system.A * x - y)
+        residual = self.residual(x, y)
         print(residual.abs().sum())
         return x - self.inverse_diagonal * residual * (relaxation / 2)
 
@@ -213,11 +243,21 @@ class Equation(object):
             for interpretation, see self.descent
         """
         for s in knots:
-            # NOTE base relaxation rate needs to be lower in case of a
-            x = self.jacobi(x, y, s / 2)
+            x = self.jacobi(x, y, s)
         return x
 
-    def smooth(self, x: BlockArray, y: BlockArray):
-        """Basic smoother; inspired by time integration of heat diffusion equation"""
-        knots = np.linspace(1, 4, 3, endpoint=True)
+    def smooth(self, x: BlockArray, y: BlockArray, base=0.5):
+        """Basic smoother; inspired by time integration of heat diffusion equation
+
+        Notes
+        -----
+        base relaxation rate needs to be lower in case of a multi-block jacobi
+        not yet fully understood
+
+        """
+        knots = np.linspace(1, 4, 3, endpoint=True) * base
         return self.overrelax(x, y, knots)
+
+
+class NormalEquation(Equation):
+    pass

@@ -2,7 +2,7 @@ from typing import Tuple
 
 import numpy as np
 from scipy import ndimage
-from pycomplex.stencil.operator import StencilOperator, SymmetricOperator, ComposedOperator, DiagonalOperator, DerivativeOperator
+from pycomplex.stencil.operator import StencilOperator, SymmetricOperator, HodgeOperator, DerivativeOperator
 
 from pycomplex.stencil.util import generate, smoother
 
@@ -164,7 +164,7 @@ class StencilComplex(object):
         only pure regular grids now; add support for more complex metrics?
         """
         return [
-            DiagonalOperator(
+            HodgeOperator(
                 self.scale ** (self.ndim - n * 2),
                 self.form(n).shape,
             )

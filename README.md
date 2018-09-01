@@ -39,6 +39,7 @@ Possible novelties
 - Fundamental-domain interpolation of dual 0-forms; much simpler conceptually than barycentric, and can be efficiently implemented
 - Semi-structured multigrid transfer operator
 
+
 See also
 --------
 The discrete exterior calculus components of this package provide a lot of overlapping functionality with <a href="https://github.com/hirani/pydec">pydec</a>,
@@ -49,6 +50,7 @@ which will become the first real use-cases of this package.
 
 Todo
 ----
+- Stencil-based cochain complexes on regular nd-grids; possibly with efficient gpu kernels
 - Add 3d electrodynamics example; preferably also by means of implementing a complex with spacetime-metric
 - Multigrid support
     - Black box multigrid on simplicial and regular meshes, for all k-forms
@@ -61,7 +63,6 @@ Speculative todo
 - Try to implement something along the lines of these references
     https://pdfs.semanticscholar.org/f3b2/532c517e1e6efaff90e7fe69d2b9e8ff75bc.pdf
     https://arxiv.org/pdf/0804.0279.pdf
-- Implement matrix-free stencil-based subclasses for regular grids
 
 Development
 -----------
