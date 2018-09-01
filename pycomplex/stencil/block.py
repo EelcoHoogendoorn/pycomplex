@@ -2,6 +2,8 @@ from cached_property import cached_property
 
 import numpy as np
 
+from pycomplex.stencil.operator import ZeroOperator
+
 
 class BlockArray(object):
     """ndim-blocked array object"""
@@ -206,7 +208,9 @@ class BlockOperator(BlockArray):
         for i in range(self.rows):
             for j in range(self.cols):
                 for k in range(output_shape[1]):
-                    output[i, k] = output[i, k] + self.block[i, j] * other_block[j, k]
+                    # FIXME: cleaner to make operator implement a fused multiply-add
+                    if not isinstance(self.block[i, j], ZeroOperator):
+                        output[i, k] = output[i, k] + self.block[i, j] * other_block[j, k]
 
         return type(other)(output.reshape(self.rows, *other.block.shape[1:]))
 
@@ -216,6 +220,7 @@ class BlockOperator(BlockArray):
         output = [np.zeros(b) for b in L]
         for i in range(self.rows):
             for j in range(self.cols):
+                if not isinstance(self.block[i, j], ZeroOperator):
                     output[i] = output[i] + self.block[i, j] * other.block[j]
 
         return type(other)(output)

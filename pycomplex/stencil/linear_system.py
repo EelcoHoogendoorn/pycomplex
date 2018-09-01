@@ -169,6 +169,9 @@ class System(object):
             L=self.R,   # NOTE: this is the crux of forming normal equations
         )
 
+    def eliminate(self):
+        raise NotImplementedError
+
 
 class Equation(object):
     def __init__(self, system):
@@ -191,6 +194,9 @@ class Equation(object):
         """
         residual = (self.system.A * x - self.system.B * y)
         return x - self.inverse_diagonal * residual * (relaxation / 2)
+
+    def block_gauss_seidel(self):
+        raise NotImplementedError
 
     def overrelax(self, x: BlockArray, y: BlockArray, knots):
         """overrelax, forcing the eigencomponent to zero at the specified overrelaxation knots

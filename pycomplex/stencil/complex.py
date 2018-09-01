@@ -295,11 +295,18 @@ class StencilComplex2D(StencilComplex):
     """Make this as light as possible; mostly plotting code?"""
 
     def __init__(self, *args, **kwargs):
-        super(self, StencilComplex).__init__(*args, **kwargs)
+        super(StencilComplex2D, self).__init__(*args, **kwargs)
         assert self.ndim == 2
+
+    def plot_0(self, f0):
+        """Plot a 0-form"""
+        import matplotlib.pyplot as plt
+        plt.imshow(f0[0])
+        plt.show()
 
 
 class StencilComplex3D(StencilComplex):
+    """Adding a wavefront-based cuda/opencl kernel here would pay off the most"""
     def __init__(self, *args, **kwargs):
-        super(self, StencilComplex).__init__(*args, **kwargs)
+        super(StencilComplex3D, self).__init__(*args, **kwargs)
         assert self.ndim == 3

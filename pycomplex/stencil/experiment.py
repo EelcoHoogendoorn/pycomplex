@@ -1,30 +1,4 @@
-"""Implement convolution stencil based exterior derivatives and grid transfer operators
-
-having these operators present would allow easy testing of vector-laplace friendly mg solvers,
-through first order representation and grid transfer with least-squared jacobi-relaxation
-
-should work for both elasticity and stokes; but start with 2d heat transfer
-all boundary conditions are of an immersive type for these applications
-
-
-applications:
-    heat solver for wall thickness analysis.
-    model mold as higher temperature condition cells, where heat 'leaks away' in proportion to temp?
-    with source a func of temp we get a 'shielded poisson' behavior away from surface
-
-    eigen mode solver for stiffness
-    use air cell method outside as bc.
-
-    hard to remove support / tight cavities
-    stokes with uniform divergece outside the part; check resulting pressure of 'expanding foam'
-
-    heat solver outside the part, to detect tiny hard to cut regions?
-
-    can we do some type of flow analysis inside the part? can we identify
-    the point of easiest mold fill, for instance? akin to finding to point most distant from everything,
-    in some flow-ease weighted manner
-
-
+"""
 would be neat to create general mechanism that creates code for all stencil operators in all dimensions
 may be easier in scipy with wrapping mode. probably a decent start.
 given any form, composed of a set of form-maps, we can take derivative wrt each spatial coordinate.
@@ -40,6 +14,16 @@ could make numba kernal that acts on sparse add and sub list?
 however, need transfer operators too. tf makes those easy using striding
 how to do transfer ops at the boundary tho?
 
+
+really should focuss here on the 3d first rather than writing a completely general solution
+just having a 3d wavefront kernel with a 2d shared mem buffer
+that can act on multiple input/output channels would be great
+
+could easily fuse pre/post scalar operations in kernel
+also the option to increment an existing buffer, as opposed to write to a fresh one.
+gives us read-write, instead of write-read-write for each output pixel
+
+can also fuse loops around multiple stencil operations at the same time; although it sounds complicated
 """
 
 

@@ -98,14 +98,16 @@ class DiagonalOperator(SymmetricOperator):
     def __init__(self, diagonal: np.ndarray, shape):
         self.diagonal = diagonal
         self.shape = shape, shape
-        self.right = lambda x: x * self.diagonal
-        self.left = lambda x: x / self.diagonal
+        op = lambda x: x * self.diagonal
+        self.right = op
+        self.left = op
 
     @property
     def inverse(self):
-        return DiagonalOperator(
-            1. / self.diagonal, self.shape[0]
-        )
+        with np.errstate(divide='raise'):
+            return DiagonalOperator(
+                1. / self.diagonal, self.shape[0]
+            )
 
     def simplify(self):
         if np.allclose(self.diagonal, 0):
