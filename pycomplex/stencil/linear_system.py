@@ -30,7 +30,7 @@ class System(object):
             primal form associated with columns of the system
             or space of right-multiplication
         """
-        # FIXME: is there any point in having the right-hand operator based form for stencils
+        # FIXME: is there any point in having the right-hand operator based form for stencils? seems like it, for symbolic normal equations
         self.complex = complex
         self.A = A
         self.B = B
@@ -114,6 +114,7 @@ class System(object):
 
         NE = complex.n_elements
         A = BlockOperator.zeros(NE, NE)
+        B = BlockOperator.identity(NE)
 
         from pycomplex.stencil.operator import DiagonalOperator
 
@@ -128,7 +129,7 @@ class System(object):
             A[i, i] = PD[i]
 
         LR = np.arange(N, dtype=index_dtype)
-        return System(complex, A=A, B=None, L=LR, R=LR)
+        return System(complex, A=A, B=B, L=LR, R=LR)
 
     def copy(self, **kwargs):
         """Copy self with some constructor args overridden. Part of general functional logic"""
@@ -148,6 +149,7 @@ class System(object):
         """Slice a subsystem of full cochain complex"""
         return self.copy(
             A=self.A.__getslice__(item).copy(),
+            B=self.B.__getslice__([item[0], item[0]]).copy(),
             L=self.L[item[0]],
             R=self.R[item[1]],
             rhs=self.rhs.__getslice__(item[0]).copy()
@@ -163,8 +165,10 @@ class System(object):
         """
         AT = self.A.transpose()
         return self.copy(
-            A=AT * self.A,
-            rhs=AT * self.rhs,
+            A=(AT * self.A).simplify(),
+            # FIXME: add premultiplication of B; dont have a fixed rhs in mg scheme
+            B=(AT * self.B).simplify(),
+            rhs=(AT * self.rhs),
             R=self.R,
             L=self.R,   # NOTE: this is the crux of forming normal equations
         )
@@ -179,21 +183,21 @@ class Equation(object):
         self.system = system
 
     def residual(self, x, y):
-        if self.system.B:
-            return (self.system.A * x - self.system.B * y)
-        else:
-            return (self.system.A * x - y)
+        # if self.system.B:
+        return (self.system.A * x - self.system.B * y)
+        # else:
+        #     return (self.system.A * x - y)
 
     def smooth(self):
         raise NotImplementedError
 
     def interpolate(self, x):
-
         raise NotImplementedError
+
     def coarsen(self, x):
         raise NotImplementedError
 
-    def solve(self, y, x=None, iterations=10):
+    def solve(self, y, x=None, iterations=100):
         if x is None:
             x = y * 0
         for i in range(iterations):
@@ -211,7 +215,8 @@ class NormalSmoothEquation(Equation):
     """Equation object set up to be smoothed through its normal equations"""
 
     @cached_property
-    def inverse_diagonal(self) -> BlockArray:
+    def inverse_normal_diagonal(self) -> BlockArray:
+        """Expensive; only compute this once"""
         return self.normal.system.A.diagonal().invert()
 
     def jacobi(self, x, y, relaxation: float=1) -> BlockArray:
@@ -223,10 +228,14 @@ class NormalSmoothEquation(Equation):
         Scaling with an equation-specific factor might indeed adapt better to anisotropy
         Requires presence of nonzero diagonal on A, which richardson does not
         but unlike richardson, zero mass diagonal terms are fine
+        But given normal equations, we always have a nonzero on the diagonal
         """
-        residual = self.residual(x, y)
+        # residual = self.system.A.transpose() * self.residual(x, y)
+        # FIXME: is the below more efficient? seems like keeping A.T factored out of the residual calc is more efficient
+        # In factored calc we have twice the cost of the first order system; otherwise once first order and once second order
+        residual = self.normal.residual(x, y)
         print(residual.abs().sum())
-        return x - self.inverse_diagonal * residual * (relaxation / 2)
+        return x - self.inverse_normal_diagonal * residual * (relaxation / 2)
 
     def block_jacobi(self):
         """Perform jacobi iteration in blockwise fashion"""

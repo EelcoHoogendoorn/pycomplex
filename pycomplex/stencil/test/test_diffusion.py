@@ -14,19 +14,70 @@ def plot_sys(system):
     plt.show()
 
 
-def build_hierarchy(equation):
+def build_hierarchy(equation, depth):
     """Build a hierarchy for a given equation object
+
+    The the complex of the equation, split that, and hook it up
 
     equation.system.complex
 
     Parameters
     ----------
-    complex
+    equation
 
     Returns
     -------
-
+    List[Equation]
     """
+    equations = [equation]
+    for d in range(depth):
+        coarse = equations[-1].system.complex.coarse
+        # FIXME: need logic here for coarsening all fields that occur in the system
+        # need this be encapsulated by the equation object? does that mean specific equation should be a subclass
+        # complex object contains logic for applying scale to hodges
+        # but we need similar logic for other fields introduced at the system/equation level
+        # we really need to reconsider the fields at each level, considering constucting the coarse operator
+        # as some kind of petrov-galerkin method is unthinkable for a stencil based method
+        # could maintain each field as a seperate symbolic expression;
+        # coarse variant then just a matter of swapping out hodge and fields.
+        # kindof an optimization tho and more complex code
+        system = None
+        eq = equations[-1].copy(system=system)
+        equations.append(eq)
+
+
+class Diffusion(System):
+    """0-form based diffusion
+
+    constraint field has physical analogy; if domain is 2d, constraint is thermal connection in z-layer
+    could have seperate setpoint and constraint fields,
+    but for now all setpoints are zero so no point
+
+    conduction can be set on either 0 or 1 form
+    """
+
+    @classmethod
+    def formulate(cls, complex, fields):
+        self = cls.canonical(complex)[:2, :2]
+
+        self.A[0, 0] = fields['constraint']
+        self.A[1, 1] = self.A[1, 1] * fields['conduction']
+        self.rhs[0] = fields['source']
+        return self
+
+    def downsample(self, fields):
+        """Down sample all required fields to a coarser level
+
+        Parameters
+        ----------
+        fields: List[Tuple[int, form]]
+            primal form describing a field over the domain, with an int denoting its degree
+        """
+        # FIXME: move to baseclass?
+        # FIXME: do we need control over coarsening field versus coarsening its inverse?
+        return {k: self.complex.coarsen[n] * f for k, (n, f) in fields.items()}
+
+
 
 
 def test_diffusion():
@@ -79,33 +130,24 @@ def test_diffusion():
     """
 
     mid = 8
-    ext = 2
+    ext = 3
     sep = 4
     source[0, mid-ext-sep:mid+ext-sep, mid-ext:mid+ext] = -1
     source[0, mid-ext+sep:mid+ext+sep, mid-ext:mid+ext] = +1
 
     system.rhs[0] = source
-    normal = system.normal()
-
-    # FIXME: this symbolic print looks postively aweful
-    # repeat diagonals do not get merged, and no longer have all primal input after making normal eq
-    print(normal.A)
-    # plot_sys(normal)
-
-    diagonal = normal.A.diagonal()
 
 
+    from pycomplex.stencil.linear_system import NormalSmoothEquation
+    eq = NormalSmoothEquation(system)
 
-    from pycomplex.stencil.linear_system import Equation
-    eq = Equation(normal)
-
-
-    x = eq.solve(normal.rhs)
-
+    x = eq.solve(system.rhs)
 
     complex.plot_0(x[0])
+    complex.coarse.plot_0(complex.coarsen[0](x[0]))
+    complex.plot_0(complex.refine[0](complex.coarsen[0](x[0])))
+
+    import matplotlib.pyplot as plt
     # complex.plot_0(system.rhs[0])
-
-
-
+    plt.show()
 

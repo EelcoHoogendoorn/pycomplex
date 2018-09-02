@@ -21,6 +21,8 @@ def plot_sys(system):
 def test_basic():
     complex = StencilComplex((8, 16, 4))
     system = System.canonical(complex)
+    # canonical complex is fully symmetric on the symbolic level
+    assert repr(system.A) == repr(system.A.transpose())
 
     print_sys(system[1:, 1:])
 

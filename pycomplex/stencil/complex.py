@@ -302,9 +302,14 @@ class StencilComplex2D(StencilComplex):
         """Plot a 0-form"""
         import matplotlib.pyplot as plt
         assert len(f0) == 1, "Not a zero-form"
-        plt.imshow(f0[0])
+        f0 = f0[0]
+        # enforce periodicty
+        w, h = f0.shape
+        f0 = np.tile(f0, (2, 2))[:w+1, :h+1]
+        plt.figure()
+        plt.imshow(f0, interpolation='bilinear', extent=[0, w, 0, h])
         plt.colorbar()
-        plt.show()
+        # plt.show()
 
 
 class StencilComplex3D(StencilComplex):

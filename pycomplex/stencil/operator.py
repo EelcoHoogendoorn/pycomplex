@@ -7,7 +7,8 @@ class StencilOperator(object):
 
     Notes
     -----
-    Nothing terribly stencil specific here
+    Nothing terribly stencil specific here; rename?
+    Note that unlike scipy.sparse.operator, shapes of these operators can be more complex objects
     """
     def __init__(self, left: callable, right: callable, shape: Tuple):
         self.left = left
@@ -149,7 +150,7 @@ class DiagonalOperator(SymmetricOperator):
         return self
 
     def __repr__(self):
-        return "\\"
+        return "D"
 
 
 class HodgeOperator(DiagonalOperator):
@@ -175,13 +176,21 @@ class IdentityOperator(DiagonalOperator):
         return 'I'
 
 
+def adjecent_pairs(iter):
+    j = None
+    for i in iter:
+        if j:
+            yield j, i
+        j = i
+
+
 class ComposedOperator(StencilOperator):
     """Chains the action of a sequence of operators"""
     def __init__(self, args):
         for op in args:
             assert isinstance(op, StencilOperator)
         self.operators = args
-        for l, r in zip(self.operators[:-1], self.operators[1:]):
+        for l, r in adjecent_pairs(self.operators):
             assert l.shape[1] == r.shape[0]
 
         self.shape = self.operators[0].shape[0], self.operators[-1].shape[-1]
@@ -200,6 +209,9 @@ class ComposedOperator(StencilOperator):
 
     def simplify(self):
         """Implement some simplification rules, like combining diagonal operators"""
+        # unpack
+        if len(self.operators) == 1:
+            return self.operators[0].simplify()
         if self.is_zero():
             return ZeroOperator(self.shape)
         # associativity
@@ -211,13 +223,10 @@ class ComposedOperator(StencilOperator):
         if any(isinstance(op, IdentityOperator) for op in self.operators):
             return ComposedOperator([op for op in self.operators if not isinstance(op, IdentityOperator)]).simplify()
         # combine adjacent diagonals
-        for i in range(len(self.operators) - 2):
-            l, r = self.operators[i: i+2]
+        for i, (l, r) in enumerate(adjecent_pairs(self.operators)):
             if isinstance(l, DiagonalOperator) and isinstance(r, DiagonalOperator):
                 d = DiagonalOperator(diagonal=l.diagonal * r.diagonal, shape=l.shape[0]).simplify()
                 return ComposedOperator(self.operators[:i] + [d] + self.operators[i+2:]).simplify()
-        if len(self.operators) == 1:
-            return self.operators[0].simplify()
         return self
 
     @property
@@ -234,7 +243,6 @@ class ComposedOperator(StencilOperator):
     def __repr__(self):
         terms = ''.join(repr(o) for o in self.operators)
         return f'({terms})'
-
 
 
 class CombinedOperator(StencilOperator):
@@ -254,6 +262,10 @@ class CombinedOperator(StencilOperator):
         self.left = lambda x: sum(op.transpose(x) for op in self.operators)
 
     def simplify(self):
+        # FIXME: should we try and recurse simplification into each suboperator regardless?
+        # unpack
+        if len(self.operators) == 1:
+            return self.operators[0].simplify()
         # drop zero terms
         if any(isinstance(op, ZeroOperator) for op in self.operators):
             operators = [op for op in self.operators if not isinstance(op, ZeroOperator)]
@@ -268,8 +280,6 @@ class CombinedOperator(StencilOperator):
                 ops = self.operators[:i] + self.operators[i].operators + self.operators[i+1:]
                 return CombinedOperator(ops).simplify()
 
-        if len(self.operators) == 1:
-            return self.operators[0].simplify()
         # FIXME: add check for summing repeated diagonal operators? never really happens does it?
         return self
 

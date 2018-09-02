@@ -83,6 +83,9 @@ class BlockArray(object):
     def invert(self):
         return self.apply(lambda x: 1 / x)
 
+    def simplify(self):
+        return self.apply(lambda x: x.simplify())
+
     def copy(self):
         return type(self)(self.block.copy())
 
@@ -159,7 +162,7 @@ class BlockOperator(BlockArray):
     def identity(L):
         eye = BlockOperator.zeros(L, L)
         for i, l in enumerate(L):
-            eye[i] = 1
+            eye[i, i] = 1
         return eye
 
     @cached_property
