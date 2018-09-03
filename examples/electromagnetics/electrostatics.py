@@ -42,20 +42,18 @@ lines of electric field always at right angles to the surface
 
 can use the following system:
 
-with V primal-0
-[0, δ, 0] [V]   [0]     curl(E)=0
-[d, I, 0] [E] = [0]     grad(V)=E
-[0, d, I] [r]   [r0]    div(E)=r
+with V dual-0
+[δ, 0, 0] [E]   [0]     curl(E)=0
+[I, δ, 0] [V] = [0]     grad(V)=E
+[d, 0, I] [r]   [r0]    div(E)=r+r0
 
-or with V dual-0
-[0, δ, 0] [r]   [0]
-[0, I, δ] [E] = [0]
-[I, d, 0] [V]   [r0]
-
-or without V; this can still be written as a cochain slice
+or without V; is V really necessary in this? nice for bcs I guess; but otherwise?
+note that we should only permit nonzero r0 inside conductor
+yet conductor is defined on grad(V) equation... is V equation required here after all?
+perhaps it is; we zero out some aspects of the system;
+though would mostly expect to need it to replace zero terms in curl equation?
 [δ, 0] [E]   [0]
-[0, 0] [r] = [0]
-[d, I]       [r0]
+[d, I] [r] = [r0]
 
 note that top and right row/col accomplish the same. if i had to choose would rather
 keep V in this scenario as it can be useful in bcs; rotation of E is never relevant though
@@ -66,5 +64,10 @@ and rho zero outside the conductor
 these can both be set on the middle equation
 rho and V are both forms of the same kind, so we cannot slice the system from the canonical one;
 need to concat the rho-related section
+
+still havnt fully figured this out yet... in grad(V)=E equation, how to represent a conductor?
+if diagonal goes to zero, grad(V) needs to be zero, and any E is fine, subject to curl and div
+seems like this is fine in first-order equation solver
+does it necessitate a mobile surface charge, however?
 
 """

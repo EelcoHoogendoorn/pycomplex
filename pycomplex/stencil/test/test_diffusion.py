@@ -61,7 +61,7 @@ class Diffusion(System):
         self = cls.canonical(complex)[:2, :2]
 
         self.A[0, 0] = fields['constraint']
-        self.A[1, 1] = self.A[1, 1] * fields['conduction']
+        self.A[1, 1] = self.A[1, 1] * fields['resistance']
         self.rhs[0] = fields['source']
         return self
 
@@ -70,11 +70,14 @@ class Diffusion(System):
 
         Parameters
         ----------
-        fields: List[Tuple[int, form]]
+        fields: Dict[str, Tuple[int, form]]
             primal form describing a field over the domain, with an int denoting its degree
         """
         # FIXME: move to baseclass?
         # FIXME: do we need control over coarsening field versus coarsening its inverse?
+        # or should this be controlled by the place in which the effect is inserted?
+        # FIXME: also... maybe it is time for a dedicated form class, that tracks its degree, duality
+        # give our operators an input and output 'signature', instead of a shape?
         return {k: self.complex.coarsen[n] * f for k, (n, f) in fields.items()}
 
 
@@ -137,7 +140,9 @@ def test_diffusion(show_plot):
     this would have been possible with var-eliminated second order laplace already.
     
     but so even for a simple diffusion problem, first order form has objective benefits, at least in terms of generality 
-
+    
+    would there by any benefit in having both a conductivity and resistance field,
+    and coarsening both independently?
     """
 
     mid = 8
