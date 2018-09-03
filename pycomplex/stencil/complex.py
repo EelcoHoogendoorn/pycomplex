@@ -290,6 +290,33 @@ class StencilComplex(object):
             for T, S in zip(self.transfers, self.smoothers(scale=False))
         ]
 
+    def sample_0(self, f0, points):
+        """Sample a 0-form at the given points, using linear interpolation
+
+        Parameters
+        ----------
+        f0 : ndarray
+            0-form
+        points : ndarray, [n_points, n_dim], float
+            coordinates in the space defined by the complex
+
+        Returns
+        -------
+        ndarray, [n_points], float
+            the 0-form sampled for each row in `points`
+
+        Notes
+        -----
+        map_coordinates(mode='wrap') is rather broken; or does not do what it should, hence the custom logic
+
+        """
+        assert self.boundary == 'periodic'
+        f0 = np.pad(f0[0], [(0, 1)] * self.ndim, mode='wrap')
+        points = np.asarray(points) / self.scale
+        points = np.remainder(points, self.shape)
+
+        return ndimage.map_coordinates(f0, points.T, order=1)
+
 
 class StencilComplex2D(StencilComplex):
     """Make this as light as possible; mostly plotting code?"""

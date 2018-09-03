@@ -80,7 +80,7 @@ class Diffusion(System):
 
 
 
-def test_diffusion():
+def test_diffusion(show_plot):
     """setup and solve 2d diffusion problem
 
     solve by means of dec-multigrid; without variable elimination
@@ -135,6 +135,17 @@ def test_diffusion():
     source[0, mid-ext-sep:mid+ext-sep, mid-ext:mid+ext] = -1
     source[0, mid-ext+sep:mid+ext+sep, mid-ext:mid+ext] = +1
 
+    print(source[0])
+    sample = complex.sample_0(source, [[4, 4], [4, 4.5], [4, 5]])
+
+    source[0, 0, :] = 10
+    sample = complex.sample_0(source, [[0, 0], [-0.5, 0], [-1, 0]])
+
+    sample = complex.sample_0(source, [[15, 0], [15.5, 0], [16, 0], [16.5, 0], [17, 0]])
+    sample = complex.sample_0(source, [[-1, 0], [-0.5, 0], [0, 0], [0.5, 0], [1, 0]])
+
+    print(sample)
+
     system.rhs[0] = source
 
 
@@ -147,7 +158,5 @@ def test_diffusion():
     complex.coarse.plot_0(complex.coarsen[0](x[0]))
     complex.plot_0(complex.refine[0](complex.coarsen[0](x[0])))
 
-    import matplotlib.pyplot as plt
     # complex.plot_0(system.rhs[0])
-    plt.show()
-
+    show_plot()

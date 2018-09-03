@@ -8,7 +8,7 @@ from pycomplex.stencil.complex import StencilComplex
 
 @pytest.mark.parametrize('i', [2, 3, 4])
 def test_transpose(i):
-    """Test numerically that matching primal and dual operators obey a tranpose relationship"""
+    """Test numerically that matching primal and dual operators obey a transpose relationship"""
     complex = StencilComplex(tuple(np.arange(i, dtype=np.int) * 2 + 2))
 
     for n in range(complex.ndim):

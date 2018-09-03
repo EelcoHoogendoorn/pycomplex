@@ -13,7 +13,7 @@ def test_generate():
 
 
 def test_smoother():
-    for n in range(3):
+    for n in range(1, 3):
         assert smoother(n).sum() == 1
 
 
