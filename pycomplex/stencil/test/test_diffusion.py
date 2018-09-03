@@ -125,7 +125,18 @@ def test_diffusion(show_plot):
     
     which makes an interesting point; we can do per-variable gauss-seidel
     that way, the elimination candidate would have zero residual
-    is this equivalent to variable elimination?
+    is this equivalent to variable elimination, if done in the right order?
+    
+    not really. note that variable elimination fails for diffusion in areas where diagonal goes to zero;
+    that is, where gradients in the 0-form are constrained to be 0. using normal equation method, 
+    like other zero-diagonal terms, this is not an issue, and we can solve for this flat region,
+    which is effectively a super-conductor.
+    
+    does it go both ways; does normal equation enable regions of zero-conductivity too?
+    here, diagonal goes to infinity; or off-diag to zero. no matter the gradient, there is no flux
+    this would have been possible with var-eliminated second order laplace already.
+    
+    but so even for a simple diffusion problem, first order form has objective benefits, at least in terms of generality 
 
     """
 
@@ -138,7 +149,7 @@ def test_diffusion(show_plot):
     print(source[0])
     sample = complex.sample_0(source, [[4, 4], [4, 4.5], [4, 5]])
 
-    source[0, 0, :] = 10
+    # source[0, 0, :] = 10
     sample = complex.sample_0(source, [[0, 0], [-0.5, 0], [-1, 0]])
 
     sample = complex.sample_0(source, [[15, 0], [15.5, 0], [16, 0], [16.5, 0], [17, 0]])
