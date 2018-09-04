@@ -81,6 +81,14 @@ class Diffusion(System):
         return {k: self.complex.coarsen[n] * f for k, (n, f) in fields.items()}
 
 
+class StencilForm(object):
+    def __init__(self, degree, shape, dual=False):
+        self.degree = degree
+        self.data = np.zeros(shape)
+        self.dual = dual
+
+    def __add__(self, other):
+        """plain operators passed on to data array, given that degree and duality match"""
 
 
 def test_diffusion(show_plot):

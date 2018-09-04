@@ -70,4 +70,62 @@ if diagonal goes to zero, grad(V) needs to be zero, and any E is fine, subject t
 seems like this is fine in first-order equation solver
 does it necessitate a mobile surface charge, however?
 
+note that V is continuous but E is discontinuous over a surface charge.
+just as temperature flux is discontinuous over a line of sources
+for a superconductor, solution does not involve discontinuous flux though;
+or does it? flux conservation demands continuous flux; but with zero gradient there is none to be determined
+might be best modelled as an effective source/sink at the surface?
+
+so can we obtain surface charge by means of limiting process? reduce resistance until gradient
+in conductor approaches zero; and then consider divergence-violation when set to zero
+
+wait; in superconducting matter flux is not zero; only temp gradient is.
+makes flux underconstrained by potential; but still solvable using relaxation;
+and could throw a zero-curl in there for good measure? anyway we need no source/sink modelling
+
+by contrast, in electrostatic conductor, it is the vector field explicitly that must become zero,
+in order to reach equilibrium. dont think there is a difference as viewed from the outside tho?
+potential looks the same in any case no? is this strange? not really; charge redistribution
+within a conductor is never felt outside the conductor
+
+so for conductor in electric field, we define a (soft) conductivity mask,
+which is 1 in dielectric and zero in conductor, we move inverse permittivity to zero accordingly,
+then solve for the E-field, which may have indeterminate components within the conductor.
+then, we multiply the E-field with our mask, zeroing it out inside the conductor,
+and then we may find the bound surface charged by simply taking the div of this modified E-field
+
+when working in terms of curl and div, without potential, is solving superconductor equally easy?
+C * grad(P) = flux, or grad(P) = flux * R, so curl(flux * R) = 0 has the same information content.
+or similar...
+
+in curl form, R going to zero means we only have a div constraint left, but otherwise anything goes
+with potential, grad(P) is forced to zero. flux however is left unconstrained;
+but we lose the ability to derive flux from the potential, which really calls into question its use
+
+what about C going to zero? does not happen in electro case, but anyway, still want to simulate it.
+this is  trivial in the second order potential formulation; just zero flux for any grad(P)
+
+[δ, 0] [E]   [0]     curl(E)=0
+[I, δ] [V] = [0]     E = -grad(V) * mu
+[d, 0]       [r0]    div(E)=r0
+
+what happens if we leave it to curl equation?
+resistance going to infinity will also push corresponding flux to zero,
+but literally plugging in np.inf most likely does not fly?
+what if flux * R is our unknown to solve for? would need multiply with C in div,
+which would lead to identical trouble?
+perhaps a decoupling is needed; a seperate equation to capture this divide
+
+[C, R, 0]       [0]     C * G = R * F
+[δ, 0, 0] [G]   [0]     curl(G)=0
+[I, 0, δ] [F] = [0]     G = -grad(P)
+[0, d, 0] [P]   [r0]    div(F)=r0
+
+would potential-based system be able to handle both zero-C and zero-R? I think so.
+since it is a two-term equation we can move the zero to either side
+in magnetics we need the curl relations though;
+need to consider how zeros in material properties work out there too
+seems like splitting the constitutive relations into a seperate equation solves the problem in a general way;
+but at the same time it seems like it would also increase computational load,
+since information will take longer to diffuse over the grid.
 """
