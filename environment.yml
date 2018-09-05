@@ -16,3 +16,4 @@ dependencies:
   - fastcache
   - funcsigs
   - pyamg
+  - vtk

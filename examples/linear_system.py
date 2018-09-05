@@ -4,6 +4,7 @@
 import numpy
 import numpy as np
 import scipy.sparse
+import scipy.sparse.linalg
 from pycomplex.topology import sign_dtype, index_dtype
 
 from cached_property import cached_property

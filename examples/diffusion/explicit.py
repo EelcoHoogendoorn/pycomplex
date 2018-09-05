@@ -5,6 +5,7 @@ the simplest 'introduction to vector calculus' possible, while still doing somet
 
 import numpy as np
 import scipy.sparse
+import scipy.sparse.linalg
 from cached_property import cached_property
 
 

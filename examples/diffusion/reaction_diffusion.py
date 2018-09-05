@@ -126,10 +126,10 @@ if __name__ == '__main__':
     if False:
         surface.plot(plot_dual=False, plot_vertices=False)
 
-    path = r'../output/reaction_diffusion_8'
-    rd = ReactionDiffusion(surface, key='swimming_medusae')
+    path = r'../output/reaction_diffusion_fingerprints'
+    rd = ReactionDiffusion(surface, key='fingerprints')
 
-    for i in save_animation(path, frames=200, overwrite=True):
+    for i in save_animation(path, frames=300, overwrite=True):
 
         rd.simulate(1)
         form = rd.state[1]

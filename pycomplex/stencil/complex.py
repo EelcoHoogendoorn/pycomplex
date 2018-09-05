@@ -344,3 +344,8 @@ class StencilComplex3D(StencilComplex):
     def __init__(self, *args, **kwargs):
         super(StencilComplex3D, self).__init__(*args, **kwargs)
         assert self.ndim == 3
+
+
+
+
+

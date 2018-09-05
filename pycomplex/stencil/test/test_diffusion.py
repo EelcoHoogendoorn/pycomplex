@@ -42,7 +42,7 @@ def build_hierarchy(equation, depth):
         # coarse variant then just a matter of swapping out hodge and fields.
         # kindof an optimization tho and more complex code
         system = None
-        eq = equations[-1].copy(system=system)
+        eq = equations[-1].copy(system=system.coarse())
         equations.append(eq)
 
 
@@ -63,22 +63,53 @@ class Diffusion(System):
         self.A[0, 0] = fields['constraint']
         self.A[1, 1] = self.A[1, 1] * fields['resistance']
         self.rhs[0] = fields['source']
+
+        self.fields = fields
         return self
 
-    def downsample(self, fields):
-        """Down sample all required fields to a coarser level
+    def coarse(self):
+        """Create coarse variant of self"""
+        return type(self).formulate(self.coarse, self.fields)
 
-        Parameters
-        ----------
-        fields: Dict[str, Tuple[int, form]]
-            primal form describing a field over the domain, with an int denoting its degree
-        """
-        # FIXME: move to baseclass?
-        # FIXME: do we need control over coarsening field versus coarsening its inverse?
-        # or should this be controlled by the place in which the effect is inserted?
-        # FIXME: also... maybe it is time for a dedicated form class, that tracks its degree, duality
-        # give our operators an input and output 'signature', instead of a shape?
-        return {k: self.complex.coarsen[n] * f for k, (n, f) in fields.items()}
+    def coarsen(self, y):
+        """coarsen a residual vector; one block for each equation"""
+        l = self.L
+        assert y.shape == (2,)
+        from pycomplex.stencil.block import BlockArray
+        C = self.complex.coarsen
+        return BlockArray([C[n] * b for b, n in zip(y.blocks, l)])
+
+    def refine(self, x):
+        """refine solution vector"""
+        r = self.R
+        assert y.shape == (2,)
+        from pycomplex.stencil.block import BlockArray
+        R = self.complex.refine
+        return BlockArray([R[n] * b for b, n in zip(y.blocks, r)])
+
+    def downsample(self, fields):
+        """Down sample all required fields to a coarser level"""
+        return {
+            'resistance': self.complex.coarsen[1] * fields['resistance'],   # FIXME: constant resistance would be fine for starters?
+            'constraint': self.complex.coarsen[0] * fields['constraint'],
+            'source': self.complex.coarsen[0] * fields['source'],   # FIXME: source should be treated as a dual form?
+        }
+
+    # FIXME: need to find a nice way to track dimension of fields used, like we do for equations and unknowns
+    # def downsample(self, fields):
+    #     """Down sample all required fields to a coarser level
+    #
+    #     Parameters
+    #     ----------
+    #     fields: Dict[str, Tuple[int, form]]
+    #         primal form describing a field over the domain, with an int denoting its degree
+    #     """
+    #     # FIXME: move to baseclass?
+    #     # FIXME: do we need control over coarsening field versus coarsening its inverse?
+    #     # or should this be controlled by the place in which the effect is inserted?
+    #     # FIXME: also... maybe it is time for a dedicated form class, that tracks its degree, duality
+    #     # give our operators an input and output 'signature', instead of a shape?
+    #     return {k: self.complex.coarsen[n] * f for k, (n, f) in fields.items()}
 
 
 

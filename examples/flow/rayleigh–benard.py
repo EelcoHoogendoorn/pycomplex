@@ -49,14 +49,14 @@ temperature_p0 = perlin_noise(
 )
 
 
-flux_d1 = grid.topology.dual.chain(n=1)
+flux_d1 = grid.topology.dual.chain(n=1).astype(np.float64)
 
 
 vorticity_advector = VorticityAdvector(grid, diffusion=1e-4)
 edges_d1 = grid.topology.dual.matrices_2[0].T * grid.dual_position[0]
 
 
-path = r'../output/rayleigh_bernard_1'
+path = r'../output/rayleigh_bernard_0'
 
 dt = 0.002
 gravity = [0, -4000]
@@ -80,10 +80,13 @@ for i in save_animation(path, frames=1000, overwrite=True):
 
     # advect vorticity
     def advect(flux_d1, dt):
-        return vorticity_advector.advect_vorticity(flux_d1, dt, force=force_d1)
+        return vorticity_advector.advect_vorticity(flux_d1, dt)
     # cant use BFECC or the likes if diffusion is part of the update step
-    # flux_d1 = BFECC(advect, flux_d1, dt=dt)
-    flux_d1 = advect(flux_d1, dt=dt)
+    # seems better to keep force update outside BFECC too
+    flux_d1 += grid.topology.dual.selector_interior[1].T * force_d1 * dt
+
+    flux_d1 = BFECC(advect, flux_d1, dt=dt)
+    # flux_d1 = advect(flux_d1, dt=dt)
 
     # plot temperature field
     form = tris.topology.transfer_operators[0] * temperature_p0

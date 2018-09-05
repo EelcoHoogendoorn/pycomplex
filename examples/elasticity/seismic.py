@@ -57,6 +57,7 @@ from cached_property import cached_property
 
 import numpy as np
 import scipy.sparse
+import scipy.sparse.linalg
 
 import pycomplex
 from examples.multigrid.equation import SymmetricEquation
@@ -295,7 +296,7 @@ if __name__ == '__main__':
     # sigma 0.5 -> 1.0 takes rotation mode from 37 to 29;
     # hard to imagine a significant impact on body modes, but surface modes are probably affected
     # also has impact on first pinching mode; at least on relative position; should check absolute eigenvalues
-    if True:
+    if False:
         d = circle(pp) + air_density
     else:
         d = rect(pp) + air_density
@@ -383,12 +384,12 @@ if __name__ == '__main__':
         # however, modes without preconditioning are completely useless, so hard to say
         # for simple isotropic square domain, pattern persists: adding amg slows down by factor two,
         # but yields purer modes, despite being forced to lower tolerance
-        V, v = equation.eigen_basis(K=100, preconditioner='amg', tol=1e-6)
+        V, v = equation.eigen_basis(K=80, preconditioner='amg', tol=1e-6)
         print('eigen solve time:', clock() - t)
         print(v)
         # quit()
         for i in save_animation(path, frames=len(v), overwrite=True):
-            plot_flux(V[:, i] * (r**0) * 1e-2)
+            plot_flux(V[:, i] * (r**0) * 5e-3)
 
     elif output == 'explicit_integration':
         # time integration using explicit integration

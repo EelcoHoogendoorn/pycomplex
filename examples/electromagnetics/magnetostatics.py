@@ -152,7 +152,7 @@ def setup_magnetostatics(complex, regions):
 
 
 if __name__ == '__main__':
-    mesh, hierarchy = setup_mesh(levels=5)
+    mesh, hierarchy = setup_mesh(levels=7)
     regions = setup_domain(mesh)
     # mesh.plot(plot_dual=False, plot_vertices=False)
 
