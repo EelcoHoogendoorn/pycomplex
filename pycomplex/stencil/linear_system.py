@@ -5,10 +5,9 @@ dont worry about it yet, can unify things when we know what they look like
 """
 
 import numpy as np
-from cached_property import cached_property
 
-from pycomplex.stencil.complex import StencilComplex
 from pycomplex.stencil.block import BlockOperator, BlockArray
+from pycomplex.stencil.complex import StencilComplex
 from pycomplex.topology.util import index_dtype
 
 
@@ -25,10 +24,10 @@ class System(object):
             right matrix in A x = B y
         L : List[int]
             primal form associated with rows of the system
-            or space of left-multiplication
+            or space of left-multiplication of A
         R : List[int]
             primal form associated with columns of the system
-            or space of right-multiplication
+            or space of right-multiplication of A
         """
         # FIXME: is there any point in having the right-hand operator based form for stencils? seems like it, for symbolic normal equations
         self.complex = complex
@@ -116,13 +115,13 @@ class System(object):
         A = BlockOperator.zeros(NE, NE)
         B = BlockOperator.identity(NE)
 
-        from pycomplex.stencil.operator import DiagonalOperator
 
         PD = complex.hodge
+        # from pycomplex.stencil.operator import DiagonalOperator
         # PD = [h * DiagonalOperator(np.random.random(h.shape[0]) + 1, h.shape[0]) for h in PD] # randomize hodges
         for i, (tp, td) in enumerate(zip(Tp, Td)):
-            A[i, i + 1] = PD[i] * td.T
-            A[i + 1, i] = A[i, i + 1].T
+            A[i, i + 1] = PD[i] * tp
+            A[i + 1, i] = td * PD[i]
 
         # put hodges on diag by default; easier to zero out than to fill in
         for i in range(N):
@@ -166,7 +165,6 @@ class System(object):
         AT = self.A.transpose()
         return self.copy(
             A=(AT * self.A).simplify(),
-            # FIXME: add premultiplication of B; dont have a fixed rhs in mg scheme
             B=(AT * self.B).simplify(),
             rhs=(AT * self.rhs),
             R=self.R,
@@ -174,99 +172,10 @@ class System(object):
         )
 
     def eliminate(self):
+        """Eliminate equations containing an invertable diagonal"""
         raise NotImplementedError
 
-
-class Equation(object):
-    """Wraps a linear system with some solver-specific logic"""
-    def __init__(self, system):
-        self.system = system
-
-    def residual(self, x, y):
-        # if self.system.B:
-        return (self.system.A * x - self.system.B * y)
-        # else:
-        #     return (self.system.A * x - y)
-
-    def smooth(self):
+    @staticmethod
+    def laplace_beltrami(n: int):
         raise NotImplementedError
 
-    def interpolate(self, x):
-        raise NotImplementedError
-
-    def coarsen(self, x):
-        raise NotImplementedError
-
-    def solve(self, y, x=None, iterations=100):
-        if x is None:
-            x = y * 0
-        for i in range(iterations):
-            x = self.smooth(x, y)
-        return x
-
-    @cached_property
-    def normal(self):
-        """Return normal equations corresponding to self"""
-        return NormalEquation(self.system.normal())
-
-
-
-class NormalSmoothEquation(Equation):
-    """Equation object set up to be smoothed through its normal equations"""
-
-    @cached_property
-    def inverse_normal_diagonal(self) -> BlockArray:
-        """Expensive; only compute this once"""
-        return self.normal.system.A.diagonal().invert()
-
-    def jacobi(self, x, y, relaxation: float=1) -> BlockArray:
-        """Jacobi iteration.
-
-        Notes
-        -----
-        More efficient than Richardson?
-        Scaling with an equation-specific factor might indeed adapt better to anisotropy
-        Requires presence of nonzero diagonal on A, which richardson does not
-        but unlike richardson, zero mass diagonal terms are fine
-        But given normal equations, we always have a nonzero on the diagonal
-        """
-        # residual = self.system.A.transpose() * self.residual(x, y)
-        # FIXME: is the below more efficient? seems like keeping A.T factored out of the residual calc is more efficient
-        # In factored calc we have twice the cost of the first order system; otherwise once first order and once second order
-        residual = self.normal.residual(x, y)
-        print(residual.abs().sum())
-        return x - self.inverse_normal_diagonal * residual * (relaxation / 2)
-
-    def block_jacobi(self):
-        """Perform jacobi iteration in blockwise fashion"""
-        raise NotImplementedError
-
-    def overrelax(self, x: BlockArray, y: BlockArray, knots):
-        """overrelax, forcing the eigencomponent to zero at the specified overrelaxation knots
-
-        Parameters
-        ----------
-        x : ndarray
-        y : ndarray
-        knots : List[float]
-            for interpretation, see self.descent
-        """
-        for s in knots:
-            x = self.jacobi(x, y, s)
-        return x
-
-    def smooth(self, x: BlockArray, y: BlockArray, base=0.5):
-        """Basic smoother; inspired by time integration of heat diffusion equation
-
-        Notes
-        -----
-        base relaxation rate needs to be lower in case of a multi-block jacobi
-        not yet fully understood
-
-        """
-        knots = np.linspace(1, 4, 3, endpoint=True) * base
-        return self.overrelax(x, y, knots)
-
-
-class NormalEquation(Equation):
-    pass

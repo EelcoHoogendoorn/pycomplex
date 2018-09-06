@@ -148,7 +148,7 @@ class StencilComplex(object):
         A simple transpose suffices in the periodic case
         """
         assert self.boundary == 'periodic'
-        return [c.transpose for c in self.primal]
+        return [c.transpose() for c in self.primal]
 
     @property
     def hodge(self):
@@ -286,7 +286,7 @@ class StencilComplex(object):
         transpose of coarsen except for a scale factor
         """
         return [
-            (T * S).transpose
+            (T * S).transpose()
             for T, S in zip(self.transfers, self.smoothers(scale=False))
         ]
 
@@ -330,7 +330,7 @@ class StencilComplex2D(StencilComplex):
         import matplotlib.pyplot as plt
         assert len(f0) == 1, "Not a zero-form"
         f0 = f0[0]
-        # enforce periodicty
+        # enforce periodicity
         w, h = f0.shape
         f0 = np.tile(f0, (2, 2))[:w+1, :h+1]
         plt.figure()

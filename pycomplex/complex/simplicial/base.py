@@ -186,13 +186,13 @@ class BaseComplexSimplicial(BaseComplex):
 
         Returns
         -------
-        copy of self, with optimized weights such that the dual vertex is well-centered
+        copy of self, with optimized weights such that the dual vertex is well-centered (assuming its parent is simplicial)
         """
         assert self.weights is None
         parent = self.topology.parent
-        # FIXME: not sure why this check made sense? why cant parent by cubical?
-        from pycomplex.topology.simplicial import TopologySimplicial
-        assert isinstance(parent, TopologySimplicial)
+        # FIXME: not sure why this check made sense? why cant parent be cubical? letter_a example in fact requires it?
+        # from pycomplex.topology.simplicial import TopologySimplicial
+        # assert isinstance(parent, TopologySimplicial)
 
         weights = self.topology.form(0)
 

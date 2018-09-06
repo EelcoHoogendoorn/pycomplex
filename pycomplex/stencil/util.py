@@ -77,9 +77,8 @@ def generate(ndim):
 
 
 def binning(arr, steps):
-    """inverse of tile"""
-    shape = [(a // b, b) for a, b in zip(arr.shape, steps)]
-    shape = [c for p in shape for c in p]
+    """Inverse of tile"""
+    shape = [c for a, b in zip(arr.shape, steps) for c in (a // b, b)]
     return arr.reshape(shape).mean(axis=tuple(np.arange(len(steps), dtype=np.int) * 2 + 1))
 
 
@@ -96,3 +95,12 @@ def checkerboard(shape):
 
 def checkerboard_2(shape, offset=0):
     return np.einsum('i, i...->...', 2**np.arange(len(shape)), np.indices(shape) % 2) == offset
+
+
+def adjecent_pairs(iter):
+    """Yield all adjacent pairs from the given iterable"""
+    j = None
+    for i in iter:
+        if j:
+            yield j, i
+        j = i

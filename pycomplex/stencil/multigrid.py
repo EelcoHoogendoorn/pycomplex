@@ -1,6 +1,22 @@
-
-import numpy as np
+"""This module has for the time being been duplicated from non-stencil mg.
+There is no fundamental reason for this,
+and once the requirements crystallize the two should be merged back together
+"""
 import scipy.sparse
+
+
+class MGEquation(object):
+    """Abstract interface class for Equation participating in this multigrid solver"""
+    def residual(self, x, y):
+        raise NotImplementedError
+    def smooth(self, x, y):
+        raise NotImplementedError
+    def solve(self, y):
+        raise NotImplementedError
+    def restrict(self, y):
+        raise NotImplementedError
+    def interpolate(self, x):
+        raise NotImplementedError
 
 
 def v_cycle(hierarchy, y, x=None):
@@ -8,7 +24,7 @@ def v_cycle(hierarchy, y, x=None):
 
     Parameters
     ----------
-    hierarchy: List[Equation]
+    hierarchy: List[MGEquation]
         discrete equations, from root to finest
     y : array_like, float
         right hand side of equation on finest level
@@ -24,13 +40,6 @@ def v_cycle(hierarchy, y, x=None):
     -----
     array_like is something that resembles an ndarray in interface
     could be an actual ndarray, or a blocked array, for instance
-
-    Equation object must have the following methods
-        residual
-        smooth
-        solve
-        restrict
-        interpolate
     """
     if x is None:
         x = y * 0
@@ -49,7 +58,7 @@ def v_cycle(hierarchy, y, x=None):
         return x - fine_error      # apply residual correction scheme
 
     x = fine.smooth(x, y)       # presmooth
-    x = coarsesmooth(x)
+    x = coarsesmooth(x)         # FIXME: could iterate on this if the problem benefits from it
     x = fine.smooth(x, y)       # postsmooth
 
     return x
@@ -58,7 +67,19 @@ def v_cycle(hierarchy, y, x=None):
 def solve_v_cycle(hierarchy, y, x=None, iterations=10):
     """Repeated v-cycle multigrid solver.
 
-    Not as efficient as full cycle but conceptually simpler
+    Parameters
+    ----------
+    hierarchy: List[MGEquation]
+        discrete equations, from root to finest
+    y : array_like, float
+        right hand side of equation on finest level
+    x : array_like, float, optional
+        current best guess at a solution on finest level
+    iterations : int
+
+    Notes
+    -----
+    If used in isolation it is not as efficient as full cycle, but conceptually simpler
     """
     for i in range(iterations):
         x = v_cycle(hierarchy, y, x)
@@ -73,15 +94,16 @@ def solve_full_cycle(hierarchy, y, iterations=2):
 
     Parameters
     ----------
-    hierarchy : List[Equation]
-    y : ndarray, float
+    hierarchy: List[MGEquation]
+        discrete equations, from root to finest
+    y : array_like
         right hand side
     iterations : int
         number of v-cycles to correct coarse result
 
     Returns
     -------
-    x : ndarray, float
+    x : array_like
     """
 
     fine = hierarchy[-1]
@@ -91,7 +113,13 @@ def solve_full_cycle(hierarchy, y, iterations=2):
         return fine.solve(y)
 
     # get solution on coarser level first
-    x = fine.interpolate(solve_full_cycle(hierarchy[:-1], y=fine.restrict(y), iterations=iterations))
+    x = fine.interpolate(
+        solve_full_cycle(
+            hierarchy[:-1],
+            y=fine.restrict(y),
+            iterations=iterations
+        )
+    )
 
     # do some V-cycles to correct residual error
     x = solve_v_cycle(hierarchy, y=y, x=x, iterations=iterations)
@@ -105,15 +133,17 @@ def as_preconditioner(hierarchy):
 
     Parameters
     ----------
-    hierarchy : List[Equation]
+    hierarchy: List[MGEquation]
+        discrete equations, from root to finest
 
     Returns
     -------
     LinearOperator
         Linear operator that approximately inverts the linear relation Ax=By,
-        returning an approximate x given a y
+        returning an approximate `x` given a `y`
 
     """
+    # FIXME: .operators attribute not available in stencil context
     A, B, Bi = hierarchy[-1].operators
     def inner(y):
         # FIXME: expose inner iteration parameters and restrict them; single smooth v-cycle best precondition found so far

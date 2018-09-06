@@ -1,5 +1,8 @@
 from typing import Tuple
+
 import numpy as np
+
+from pycomplex.stencil.util import adjecent_pairs
 
 
 class StencilOperator(object):
@@ -15,7 +18,6 @@ class StencilOperator(object):
         self.right = right
         self.shape = shape
 
-    @property
     def transpose(self):
         return type(self)(
             right=self.left,
@@ -24,7 +26,7 @@ class StencilOperator(object):
         )
     @property
     def T(self):
-        return self.transpose
+        return self.transpose()
 
     @property
     def inverse(self):
@@ -66,6 +68,8 @@ class StencilOperator(object):
 
 class ZeroOperator(StencilOperator):
     """Operator that maps all input to zero"""
+    # FIXME: add optimized fused-multiply-add method to this operator?
+
     def __init__(self, shape):
         super(ZeroOperator, self).__init__(
             lambda x: np.zeros(shape[1]),
@@ -73,7 +77,6 @@ class ZeroOperator(StencilOperator):
             shape
         )
 
-    @property
     def transpose(self):
         return ZeroOperator(
             shape=(self.shape[1], self.shape[0])
@@ -89,7 +92,6 @@ class DerivativeOperator(StencilOperator):
 
     Only used as a tag to simplify expressions
     """
-    @property
     def transpose(self):
         return DualDerivativeOperator(
             right=self.left,
@@ -102,7 +104,6 @@ class DerivativeOperator(StencilOperator):
 
 
 class DualDerivativeOperator(StencilOperator):
-    @property
     def transpose(self):
         return DerivativeOperator(
             right=self.left,
@@ -121,7 +122,6 @@ class SymmetricOperator(StencilOperator):
         self.right = op
         self.shape = shape, shape
 
-    @property
     def transpose(self):
         return self
 
@@ -135,12 +135,14 @@ class DiagonalOperator(SymmetricOperator):
         self.right = op
         self.left = op
 
-    @property
     def inverse(self):
         with np.errstate(divide='raise'):
             return type(self)(
                 1. / self.diagonal, self.shape[0]
             )
+    @property
+    def I(self):
+        return self.inverse()
 
     def simplify(self):
         if np.allclose(self.diagonal, 0):
@@ -164,24 +166,14 @@ class IdentityOperator(DiagonalOperator):
         self.right = lambda x: x
         self.left = lambda x: x
 
-    @property
     def inverse(self):
         return self
 
-    @property
     def diagonal(self):
         return 1
 
     def __repr__(self):
         return 'I'
-
-
-def adjecent_pairs(iter):
-    j = None
-    for i in iter:
-        if j:
-            yield j, i
-        j = i
 
 
 class ComposedOperator(StencilOperator):
@@ -229,9 +221,8 @@ class ComposedOperator(StencilOperator):
                 return ComposedOperator(self.operators[:i] + [d] + self.operators[i+2:]).simplify()
         return self
 
-    @property
     def transpose(self):
-        return ComposedOperator([o.transpose for o in self.operators[::-1]])
+        return ComposedOperator([o.transpose() for o in self.operators[::-1]])
 
     def __call__(self, x):
         assert x.shape == self.shape[1]
@@ -259,7 +250,7 @@ class CombinedOperator(StencilOperator):
             assert op.shape == self.shape
 
         self.right = lambda x: sum(op(x) for op in self.operators)
-        self.left = lambda x: sum(op.transpose(x) for op in self.operators)
+        self.left = lambda x: sum(op.transpose()(x) for op in self.operators)
 
     def simplify(self):
         # FIXME: should we try and recurse simplification into each suboperator regardless?
@@ -283,9 +274,8 @@ class CombinedOperator(StencilOperator):
         # FIXME: add check for summing repeated diagonal operators? never really happens does it?
         return self
 
-    @property
     def transpose(self):
-        return CombinedOperator([o.transpose for o in self.operators])
+        return CombinedOperator([o.transpose() for o in self.operators])
 
     def __repr__(self):
         terms = '+'.join(repr(o) for o in self.operators)

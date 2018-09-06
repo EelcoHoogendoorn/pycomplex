@@ -1,4 +1,9 @@
-"""Create a letter 'a' using subdivision
+"""Create a letter 'a' using subdivision, illustrating the concept of 'creases' [1]
+
+Two approaches are taken; both direct subdivision of the mesh is employed,
+as well as constructing a series of sparse matrices mapping between the vertices at each level.
+Concatenating these sparse matrices allows for super efficient animations of the subdivision surface,
+as the original control points are manipulated.
 
 Notes
 -----
@@ -65,10 +70,7 @@ def create_letter_3d(quads, subdivisions=2):
     segment = synthetic.n_cube(1)
     # get boundary of cubes
     grid = quads.product(segment).boundary
-    # product perserves orientation
-    print(grid.topology.is_oriented)
-
-    # boundary preserves orientation
+    # product preserves orientation
     print(grid.topology.is_oriented)
 
     # get bottom face chain
@@ -76,8 +78,13 @@ def create_letter_3d(quads, subdivisions=2):
     fi = np.argsort(fp[:, 1])[:2]
     fc = grid.topology.chain(2, 0)
     fc[fi] = 1
+    # get faces around hole
+    fi = np.argsort(np.linalg.norm(fp - [1, 2, 0] - 0.5, axis=1))[:4]
+    fc[fi] = 1
     c1 = grid.topology.matrix(1, 2) * fc
     c0 = grid.topology.chain(0)
+
+
     if False:
         # test interaction between crease-types
         c0[0] = 1
@@ -99,6 +106,7 @@ def create_letter_3d(quads, subdivisions=2):
         plt.scatter(t.row, t.col, c=t.data)
         # plt.axis('equal')
         plt.show()
+
     # test if operator approach gives identical results
     grid = grid.copy(vertices=total_operator * original.vertices)
 
@@ -119,7 +127,8 @@ if __name__ == '__main__':
 
     # add random rotation
     np.random.seed(6)
-    letter = letter.transform(linalg.orthonormalize(np.random.randn(3, 3)))
+
+    letter = letter.transform(linalg.power(linalg.orthonormalize(np.random.randn(3, 3)), 0.2))
 
     letter.plot(plot_dual=False, plot_vertices=False)
 
@@ -143,6 +152,4 @@ if __name__ == '__main__':
         print(m.min(), m.max())
     plt.figure()
     plt.hist(DM[2], bins=100)
-    plt.show()
-    quit()
     plt.show()

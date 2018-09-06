@@ -20,3 +20,5 @@ curve.as_12().plot(plot_vertices=False)
 # overwrite vertices with operator based ones to demonstrate equivalence
 curve = curve.copy(vertices = total_operator * root.vertices)
 curve.as_12().plot(plot_vertices=False)
+import matplotlib.pyplot as plt
+plt.show()

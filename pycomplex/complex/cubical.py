@@ -81,28 +81,17 @@ class ComplexCubical(BaseComplex):
         Parameters
         ----------
         creases : dict of (int: ndarray), optional
-            dict of n to n-chains, where nonzero elements denote crease elements
+            dict of n-chains, where nonzero elements denote crease elements
         smooth : bool
             if true, smoothing is performed after subdivision
 
         Returns
         -------
         operator : sparse array, [coarse.n_vertices, fine.n_vertices]
-            sparse array mapping coarse to fine vertices
-
-        Notes
-        -----
-        How to construct subdivision matrix?
-        pure subdivision without smoothing:
-            Just stack the topology.averaging_operators of the coarse meshes,
-            to map coarse vertices to unsmooth fine vertices
-        to add smoothing:
-            add topology.averaging_operators of fine; mapping fine verts to centroids of fine n-elements
-            multiplied by transpose; average centroids back to new vert positions
-            transposed matrix product needs diagonal crease selector matrix inbetween
+            sparse array mapping coarse to fine vertex positions
 
         """
-        # relationship between coarse and fine vertices
+        # relationship between coarse and fine vertices; without smoothing could not be simpler
         coarse_averaging = scipy.sparse.vstack(coarse.topology.averaging_operators_0)
 
         if smooth:

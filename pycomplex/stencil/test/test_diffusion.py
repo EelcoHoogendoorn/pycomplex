@@ -172,8 +172,7 @@ def test_diffusion(show_plot):
 
     system.rhs[0] = source
 
-
-    from pycomplex.stencil.linear_system import NormalSmoothEquation
+    from pycomplex.stencil.equation import NormalSmoothEquation
     eq = NormalSmoothEquation(system)
 
     x = eq.solve(system.rhs)
