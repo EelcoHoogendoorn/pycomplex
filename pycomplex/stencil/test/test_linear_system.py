@@ -27,10 +27,11 @@ def test_basic():
     print_sys(system[1:, 1:])
 
 
-def test_dense():
+def test_dense(show_plot):
     complex = StencilComplex((2, 4, 6))
     system = System.canonical(complex)
     plot_sys(system[:3, 1:2])
+    show_plot()
 
 
 def test_normal(show_plot):
@@ -45,7 +46,7 @@ def test_normal(show_plot):
     d = np.block([e.flatten() for e in diag.block])
 
     s = np.diag(normal.A.to_dense())
-    # FIXME: see if it still passes when we add nontrivial scalings?
+    # NOTE: test still passes if we add random noise to hodge!
     npt.assert_allclose(s, d)
     plot_sys(normal)
     show_plot()

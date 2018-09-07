@@ -686,3 +686,7 @@ class ComplexTriangularEuclidian3(ComplexTriangularEuclidian):
         solid = self.copy(vertices=solid_points, triangles=solid_tris, topology=None)
         assert solid.topology.is_oriented
         return solid
+
+    def plot_vispy(self, vertex_data):
+        import vispy
+        raise NotImplementedError

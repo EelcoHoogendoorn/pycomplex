@@ -16,3 +16,5 @@ dependencies:
   - fastcache
   - funcsigs
   - pyamg
+  - vispy
+  - scikit-image

@@ -13,7 +13,7 @@ from pycomplex.topology.util import index_dtype
 
 class System(object):
 
-    def __init__(self, complex, A, B=None, L=None, R=None, rhs=None):
+    def __init__(self, complex, A, B=None, L=None, R=None):
         """
 
         Parameters
@@ -29,13 +29,11 @@ class System(object):
             primal form associated with columns of the system
             or space of right-multiplication of A
         """
-        # FIXME: is there any point in having the right-hand operator based form for stencils? seems like it, for symbolic normal equations
         self.complex = complex
         self.A = A
         self.B = B
         self.L = np.array(L)
         self.R = np.array(R)
-        self.rhs = self.allocate_y() if rhs is None else rhs
 
     def allocate_x(self):
         return BlockArray([self.complex.form(n) for n in self.R])
@@ -108,20 +106,19 @@ class System(object):
         """
 
         Tp = complex.primal
-        Td = complex.dual[::-1]
-        N = complex.ndim + 1
+        Td = complex.dual
+        N = complex.n_dim + 1
 
         NE = complex.n_elements
         A = BlockOperator.zeros(NE, NE)
         B = BlockOperator.identity(NE)
 
-
         PD = complex.hodge
         # from pycomplex.stencil.operator import DiagonalOperator
         # PD = [h * DiagonalOperator(np.random.random(h.shape[0]) + 1, h.shape[0]) for h in PD] # randomize hodges
         for i, (tp, td) in enumerate(zip(Tp, Td)):
-            A[i, i + 1] = PD[i] * tp
-            A[i + 1, i] = td * PD[i]
+            A[i + 1, i] = PD[i + 1] * tp
+            A[i, i + 1] = td * PD[i + 1]
 
         # put hodges on diag by default; easier to zero out than to fill in
         for i in range(N):
@@ -151,7 +148,6 @@ class System(object):
             B=self.B.__getslice__([item[0], item[0]]).copy(),
             L=self.L[item[0]],
             R=self.R[item[1]],
-            rhs=self.rhs.__getslice__(item[0]).copy()
         )
 
     def normal(self):
@@ -166,7 +162,6 @@ class System(object):
         return self.copy(
             A=(AT * self.A).simplify(),
             B=(AT * self.B).simplify(),
-            rhs=(AT * self.rhs),
             R=self.R,
             L=self.R,   # NOTE: this is the crux of forming normal equations
         )

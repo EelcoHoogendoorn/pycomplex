@@ -169,6 +169,9 @@ class IdentityOperator(DiagonalOperator):
     def inverse(self):
         return self
 
+    def simplify(self):
+        return self
+
     def diagonal(self):
         return 1
 
