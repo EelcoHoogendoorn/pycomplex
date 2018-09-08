@@ -125,7 +125,20 @@ would potential-based system be able to handle both zero-C and zero-R? I think s
 since it is a two-term equation we can move the zero to either side
 in magnetics we need the curl relations though;
 need to consider how zeros in material properties work out there too
+yeah seems like it would work; both for flow blocking obdtacle in potential flow
+as well as superconductor in magnetic field. taking the curl of the masked field
+should give surface current or vorticity distribution required to zero out field under the mask
+in terms of streamfunction, this would simply be an area of constant streamfunction,
+thus excluding flowlines
+
+what about zero heat conduction? this is the same as streamfunction,
+except we interpret isolator with flat potential as area of zero normal flux, instead of zero tangent flux
+so to simulate perfect diffusion isolator we also constrain the divergence under the mask
+
 seems like splitting the constitutive relations into a seperate equation solves the problem in a general way;
 but at the same time it seems like it would also increase computational load,
 since information will take longer to diffuse over the grid.
+
+also, the immerse boundaries again show the strength of considering the equations
+in first-order form, just as in a complex with a boundary
 """

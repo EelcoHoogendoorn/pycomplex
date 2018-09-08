@@ -24,7 +24,7 @@ Add some nontrivial materials; dielectrics and so on
 """
 
 import numpy as np
-import scipy.sparse
+import scipy.sparse.linalg
 import matplotlib.pyplot as plt
 from cached_property import cached_property
 
