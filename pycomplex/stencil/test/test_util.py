@@ -7,6 +7,7 @@ def test_generate():
     ndim = 3
     symbols, terms, axes, parities = generate(ndim)
     print(symbols)
+    print(axes)
     assert len(symbols) == ndim + 1
     for i, s in enumerate(symbols):
         assert pascal(ndim, i) == len(s)

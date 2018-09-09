@@ -4,7 +4,7 @@ import numpy as np
 from cached_property import cached_property
 from scipy import ndimage
 
-from pycomplex.stencil.operator import StencilOperator, SymmetricOperator, HodgeOperator
+from pycomplex.stencil.operator import SymmetricOperator, HodgeOperator
 from pycomplex.stencil.util import smoother
 from pycomplex.stencil.topology import StencilTopology
 
@@ -19,11 +19,6 @@ class StencilComplex(object):
     or toroidal global topology. The appeal of this is that all forms have the exact same spatial extent,
     and there is no need to deal with domain boundaries; allowing us to focus on immersed boundaries instead,
     which are required to maximize the usefulness of such a regular grid based method.
-
-    TODO
-    ----
-    emit code instead of making callables?
-    might eliminate quite some overhead and expose parralelism?
     """
 
     def __init__(self, topology, scale):
@@ -207,10 +202,16 @@ class StencilComplex(object):
 
         return ndimage.map_coordinates(f0, points.T, order=1)
 
+    @cached_property
     def primal_position(self):
         """Average position of all primal n-elements"""
-        raise NotImplementedError
+        p = np.indices(self.shape) * self.scale
+        p = np.moveaxis(p, 0, -1)
+        return [
+            p[None, ...]
+        ]
 
+    @cached_property
     def dual_position(self):
         raise NotImplementedError
 
@@ -242,7 +243,16 @@ class StencilComplex2D(StencilComplex):
         plt.figure()
         plt.imshow(f0, interpolation='bilinear', extent=[0, w, 0, h])
         plt.colorbar()
-        # plt.show()
+
+    def plot_2(self, f2):
+        """Plot a 2-form"""
+        import matplotlib.pyplot as plt
+        assert f2.shape == self.n_elements[2], "Not a two-form"
+        f2 = f2[0]
+        plt.figure()
+        w, h = f2.shape
+        plt.imshow(f2, interpolation='nearest', extent=[0, w, 0, h])
+        plt.colorbar()
 
 
 class StencilComplex3D(StencilComplex):

@@ -49,6 +49,7 @@ def build_hierarchy(equation, depth):
 from pycomplex.stencil.multigrid import MGEquation
 from pycomplex.stencil.block import BlockArray
 
+
 class Diffusion(System, MGEquation):
     """0-form based diffusion, based on first-order operator logic
 
@@ -77,26 +78,11 @@ class Diffusion(System, MGEquation):
         # field effect can be driven to zero in either equation
         self.A[0, 1] = self.A[0, 1] * fields['conductance']
         self.A[1, 1] = self.A[1, 1] * fields['resistance']
-        # FIXME: source should not be part of equations anymore, no?
+        # FIXME: source should not be part of equations anymore, no? will get coarsened as part of residual
         # self.rhs[0] = fields['source']
         self.fine = fine
         self.fields = fields
         return self
-
-    def downsample(self, fields):
-        """Down sample all required fields to a coarser level
-
-        Parameters
-        ----------
-        fields: Dict[str, Tuple[int, form]]
-            primal form describing a field over the domain, with an int denoting its degree
-        """
-        # FIXME: move to baseclass?
-        # FIXME: do we need control over coarsening field versus coarsening its inverse?
-        # or should this be controlled by the place in which the effect is inserted?
-        # FIXME: also... maybe it is time for a dedicated form class, that tracks its degree, duality
-        # give our operators an input and output 'signature', instead of a shape?
-        return {k: self.complex.coarsen[n] * f for k, (n, f) in fields.items()}
 
     @cached_property
     def coarse(self):
@@ -113,8 +99,11 @@ class Diffusion(System, MGEquation):
 
     # NOTE: we restrict the residual, and interpolate error-corrections
     # FIXME: interpolate, refine, prolongate... need to make up our mind sometime
-    def restrict(self, x):
-        return BlockArray([self.complex.coarsen[n] * b for n, b in zip(self.L, x.block)])
+    # note that solution is in terms of primal forms
+    # residual of first order equation tends to be dual forms
+    # but residual of normal equations ought to be in primal space too?
+    def restrict(self, y):
+        return BlockArray([self.complex.coarsen[n] * b for n, b in zip(self.L, y.block)])
     def interpolate(self, x):
         return BlockArray([self.complex.refine[n] * b for n, b in zip(self.R, x.block)])
 
@@ -136,18 +125,16 @@ def test_diffusion(show_plot):
     solve by means of dec-multigrid; without variable elimination
     this is likely to be less efficient but generalizes better to more complex problems;
     that is zero-resistance term precludes elimination
+    and even when it is not precluding elimination,
+    dividing by small values leads to poor conditioning.
+    remains to be seen how this works out in first order system exactly,
+    but the suspicion is that it will work much better
+
     """
     complex = StencilComplex2D.from_shape((16, 16))
-    system = System.canonical(complex)[:2, :2]
-    print()
-    print(system.A)
-    print()
-    system.A[0, 0] = 0  # nothing acts on temperature directly; just want to constrain divergence
-    print(system.A)
-    print()
 
     # setup simple source and sink
-    source = complex.form(0)
+    source = complex.topology.form(0)
 
     """    
     pin value at boundary to zero? infact not obvious how to set these constraints
@@ -196,26 +183,39 @@ def test_diffusion(show_plot):
     mid = 8
     ext = 3
     sep = 4
-    source[0, mid-ext-sep:mid+ext-sep, mid-ext:mid+ext] = -1
-    source[0, mid-ext+sep:mid+ext+sep, mid-ext:mid+ext] = +1
 
-    print(source[0])
-    sample = complex.sample_0(source, [[4, 4], [4, 4.5], [4, 5]])
 
-    # source[0, 0, :] = 10
-    sample = complex.sample_0(source, [[0, 0], [-0.5, 0], [-1, 0]])
+    def rect(pos, size):
+        r = complex.topology.form(0)
+        r[0, pos[0]-size[0]:pos[0]+size[0], pos[1]-size[1]:pos[1]+size[1]] = 1
+        return r
 
-    sample = complex.sample_0(source, [[15, 0], [15.5, 0], [16, 0], [16.5, 0], [17, 0]])
-    sample = complex.sample_0(source, [[-1, 0], [-0.5, 0], [0, 0], [0.5, 0], [1, 0]])
+    def circle(pos, radius):
+        p = complex.primal_position[0]
+        d = np.linalg.norm(p - pos, axis=-1) - radius
+        return 1 / (1 + np.exp(d * 8))
 
-    print(sample)
 
-    system.rhs[0] = source
+    source = circle([8, 8], 4)
+    constraint = 1 - source
+
+    complex.plot_0(source)
+    complex.plot_2(complex.topology.averaging_operators_0[2] * source)
+    show_plot()
+
+
+    fields = {
+        'constraint': constraint,
+        'conduction': np.ones_like(source),
+        'resistance': np.ones_like(source),
+    }
+
+    system = Diffusion(complex, fields)
 
     from pycomplex.stencil.equation import NormalSmoothEquation
     eq = NormalSmoothEquation(system)
 
-    x = eq.solve(system.rhs)
+    x = eq.solve(source)
 
     complex.plot_0(x[0])
     complex.coarse.plot_0(complex.coarsen[0](x[0]))

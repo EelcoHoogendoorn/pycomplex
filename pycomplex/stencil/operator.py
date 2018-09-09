@@ -12,6 +12,8 @@ class StencilOperator(object):
     -----
     Nothing terribly stencil specific here; rename?
     Note that unlike scipy.sparse.operator, shapes of these operators can be more complex objects
+    Rename to transposable operator?
+    would perhaps be good to derive this from non-transposable operator
     """
     def __init__(self, left: callable, right: callable, shape: Tuple):
         self.left = left
@@ -28,9 +30,11 @@ class StencilOperator(object):
     def T(self):
         return self.transpose()
 
-    @property
     def inverse(self):
         raise NotImplementedError
+    @property
+    def I(self):
+        return self.inverse()
 
     def __call__(self, *args, **kwargs):
         assert args[0].shape == self.shape[1]
@@ -140,9 +144,6 @@ class DiagonalOperator(SymmetricOperator):
             return type(self)(
                 1. / self.diagonal, self.shape[0]
             )
-    @property
-    def I(self):
-        return self.inverse()
 
     def simplify(self):
         if np.allclose(self.diagonal, 0):

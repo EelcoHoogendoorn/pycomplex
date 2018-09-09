@@ -4,8 +4,8 @@ import numpy as np
 from cached_property import cached_property
 from scipy import ndimage
 
-from pycomplex.stencil.operator import DerivativeOperator, SymmetricOperator, StencilOperator
-from pycomplex.stencil.util import generate, smoother
+from pycomplex.stencil.operator import DerivativeOperator, StencilOperator
+from pycomplex.stencil.util import generate
 
 
 class StencilTopology(object):
@@ -200,8 +200,37 @@ class StencilTopology(object):
             for n in range(self.n_dim + 1)
         ]
 
-    def averaging_operators(self):
-        """implement analogues of topology operators here"""
+    @cached_property
+    def averaging_operators_0(self):
+        """implement analogues of topology operators here;
+        average 0-forms onto n-forms
+        """
+        def average(n):
+            def stencil(axes):
+                shape = np.ones(self.n_dim, np.int)
+                shape[list(axes)] = 2
+                return np.ones(shape) / np.prod(shape)
+            # one stencil for each output component
+            stencils = [stencil(a) for a in self.symbols[n]]
+
+            def inner(f0):
+                output = self.form(n, dtype=f0.dtype)
+                for i, stencil in enumerate(stencils):
+                    ndimage.convolve(f0[0], stencil, output[i], mode='wrap')
+                return output
+            return inner
+
+        return [
+            StencilOperator(
+                right=average(n),
+                left=None,  # FIXME: implement transpose?
+                shape=(self.n_elements[n], self.n_elements[0])
+            )
+            for n in range(self.n_dim + 1)
+        ]
+
+    @cached_property
+    def averaging_operators_N(self):
         raise NotImplementedError
 
     def explicit(self):
