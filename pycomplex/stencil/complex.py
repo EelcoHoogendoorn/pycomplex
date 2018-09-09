@@ -14,6 +14,11 @@ class StencilComplex(object):
     The defining distinction of the stencil based approach is that all topology is implicit
     other than its shape it has no associated memory requirements
 
+    The only implemented variant of this stencil based approach is one with a periodic boundary,
+    or toroidal global topology. The appeal of this is that all forms have the exact same spatial extent,
+    and there is no need to deal with domain boundaries; allowing us to focus on immersed boundaries instead,
+    which are required to maximize the usefulness of such a regular grid based method.
+
     TODO
     ----
     emit code instead of making callables?
@@ -29,10 +34,14 @@ class StencilComplex(object):
         self.symbols, self.terms, self.axes, self.parities = generate(self.n_dim)
 
     @cached_property
+    def is_even(self):
+        return all(s % 2 == 0 for s in self.shape)
+
+    @cached_property
     def coarse(self):
         """Construct coarse counterpart"""
         # FIXME: add pointer back to parent?
-        assert all(s % 2 == 0 for s in self.shape)
+        assert self.is_even
         return type(self)(
             boundary=self.boundary,
             shape=tuple([s // 2 for s in self.shape]),
@@ -50,7 +59,8 @@ class StencilComplex(object):
 
     @cached_property
     def n_elements(self):
-        """
+        """Number of elements in each direction
+        That is, the shape of each n-form
 
         Returns
         -------
@@ -156,17 +166,27 @@ class StencilComplex(object):
         return [c.transpose() for c in self.primal]
 
     @cached_property
+    def metric(self):
+        """would be cool if we could supply a variable spacing for each primal edge / axis,
+        and translate that into primal and dual n-cube metrics.
+
+        This might quite substantially improve the efficiency of simulating on a fixed-topology grid in practice
+        """
+        raise NotImplementedError
+
+    @cached_property
     def hodge(self):
         """Operators that map primal to dual
 
         Returns
         -------
         array_like, [ndim + 1], HodgeOperator
-            for each level of form, an array broadcast-compatible with the domain
+            for each level of form, a pointwise-Operator broadcast-compatible with the domain
 
         Notes
         -----
-        only pure regular grids now; add support for more complex metrics?
+        only pure regular grids now, with only a single scalar parameter;
+        add support for more complex metrics?
         """
         return [
             HodgeOperator(

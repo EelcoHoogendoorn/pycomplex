@@ -4,6 +4,10 @@ refactor later
 need to rewrite mg code to accept blockarrays
 """
 
+from cached_property import cached_property
+
+import numpy as np
+
 from pycomplex.stencil.complex import StencilComplex2D
 from pycomplex.stencil.linear_system import System
 
@@ -16,10 +20,6 @@ def plot_sys(system):
 
 def build_hierarchy(equation, depth):
     """Build a hierarchy for a given equation object
-
-    The the complex of the equation, split that, and hook it up
-
-    equation.system.complex
 
     Parameters
     ----------
@@ -46,23 +46,41 @@ def build_hierarchy(equation, depth):
         equations.append(eq)
 
 
-class Diffusion(System):
-    """0-form based diffusion
+from pycomplex.stencil.multigrid import MGEquation
+from pycomplex.stencil.block import BlockArray
+
+class Diffusion(System, MGEquation):
+    """0-form based diffusion, based on first-order operator logic
 
     constraint field has physical analogy; if domain is 2d, constraint is thermal connection in z-layer
     could have seperate setpoint and constraint fields,
-    but for now all setpoints are zero so no point
+    but for now all setpoints are zero so it drops out
 
-    conduction can be set on either 0 or 1 form
+    Add R and C mask fields as well?
+    driving conductance to zero changes divergence operator interpretation
+    driving resistance to zero changes gradient operator interpretation
+
+    is there a difference between a domain mask and a regular parameter?
+    we do not scale the field afterwards with regular parameter I suppose;
+    or do we? can we just think of them as distinguishing flux and gradient?
+
+    Note that having dual R and C fields need not be bad; it also gives us control over
+    parallel vs series coarsening
     """
 
     @classmethod
-    def formulate(cls, complex, fields):
+    def formulate(cls, complex, fields, fine=None):
         self = cls.canonical(complex)[:2, :2]
 
+        # overwrite diagonal; set constraint term
         self.A[0, 0] = fields['constraint']
+        # field effect can be driven to zero in either equation
+        self.A[0, 1] = self.A[0, 1] * fields['conductance']
         self.A[1, 1] = self.A[1, 1] * fields['resistance']
-        self.rhs[0] = fields['source']
+        # FIXME: source should not be part of equations anymore, no?
+        # self.rhs[0] = fields['source']
+        self.fine = fine
+        self.fields = fields
         return self
 
     def downsample(self, fields):
@@ -80,8 +98,29 @@ class Diffusion(System):
         # give our operators an input and output 'signature', instead of a shape?
         return {k: self.complex.coarsen[n] * f for k, (n, f) in fields.items()}
 
+    @cached_property
+    def coarse(self):
+        """Coarse variant of self"""
+        return type(self)(
+            complex=self.complex.coarse,
+            fine=self,
+            fields={
+                'constraint': self.complex.coarsen[0] * self.fields['constraint'],
+                'conductance': self.complex.coarsen[1] * self.fields['conductance'],
+                'resistance': self.complex.coarsen[1] * self.fields['resistance'],
+            }
+        )
+
+    # NOTE: we restrict the residual, and interpolate error-corrections
+    # FIXME: interpolate, refine, prolongate... need to make up our mind sometime
+    def restrict(self, x):
+        return BlockArray([self.complex.coarsen[n] * b for n, b in zip(self.L, x.block)])
+    def interpolate(self, x):
+        return BlockArray([self.complex.refine[n] * b for n, b in zip(self.R, x.block)])
+
 
 class StencilForm(object):
+    """Lets see how this feels; form object... not sure yet"""
     def __init__(self, degree, shape, dual=False):
         self.degree = degree
         self.data = np.zeros(shape)
@@ -95,7 +134,8 @@ def test_diffusion(show_plot):
     """setup and solve 2d diffusion problem
 
     solve by means of dec-multigrid; without variable elimination
-    this is likely to be less efficient but generelizes better to more complex problems
+    this is likely to be less efficient but generalizes better to more complex problems;
+    that is zero-resistance term precludes elimination
     """
     complex = StencilComplex2D((16, 16))
     system = System.canonical(complex)[:2, :2]

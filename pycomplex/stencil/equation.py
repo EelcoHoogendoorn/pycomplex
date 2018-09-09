@@ -59,6 +59,7 @@ class NormalSmoothEquation(Equation):
         # In factored calc we have twice the cost of the first order system; otherwise once first order and once second order
         residual = self.normal.residual(x, y)
         print(residual.abs().sum())
+        # FIXME: loop fusion on expressions like this would also be great from memory bandwidth perspective
         return x - self.inverse_normal_diagonal * residual * (relaxation / 2)
 
     def block_jacobi(self):
