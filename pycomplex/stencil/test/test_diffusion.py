@@ -10,6 +10,7 @@ import numpy as np
 
 from pycomplex.stencil.complex import StencilComplex2D
 from pycomplex.stencil.linear_system import System
+from pycomplex.stencil.operator import DiagonalOperator
 
 
 def plot_sys(system):
@@ -72,14 +73,12 @@ class Diffusion(System, MGEquation):
     @classmethod
     def formulate(cls, complex, fields, fine=None):
         self = cls.canonical(complex)[:2, :2]
-
         # overwrite diagonal; set constraint term
-        self.A[0, 0] = fields['constraint']
+        self.A[0, 0] = DiagonalOperator(fields['constraint'])
         # field effect can be driven to zero in either equation
-        self.A[0, 1] = self.A[0, 1] * fields['conductance']
-        self.A[1, 1] = self.A[1, 1] * fields['resistance']
-        # FIXME: source should not be part of equations anymore, no? will get coarsened as part of residual
-        # self.rhs[0] = fields['source']
+        self.A[0, 1] = self.A[0, 1] * DiagonalOperator(fields['conductance'])
+        self.A[1, 1] = self.A[1, 1] * DiagonalOperator(fields['resistance'])
+
         self.fine = fine
         self.fields = fields
         return self

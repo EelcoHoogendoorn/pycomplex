@@ -241,8 +241,20 @@ class StencilComplex2D(StencilComplex):
         w, h = f0.shape
         f0 = np.pad(f0, [(0, 1)] * self.n_dim, mode='wrap')
         plt.figure()
-        plt.imshow(f0, interpolation='bilinear', extent=[0, w, 0, h])
+        plt.imshow(f0.T, interpolation='bilinear', extent=[0, w, 0, h])
         plt.colorbar()
+
+    def plot_1(self, f1):
+        """Visualize a 1-form as a streamplot"""
+        import matplotlib.pyplot as plt
+        assert f1.shape == self.n_elements[1], "Not a one-form"
+        # FIXME: need to implement mapping from 1-form to vertex-based vector-field; method on complex
+        u, v = f1.copy()
+        u = u + np.roll(u, shift=1, axis=0)
+        v = v + np.roll(v, shift=1, axis=1)
+        x = np.arange(self.shape[0]) * self.scale
+        y = np.arange(self.shape[1]) * self.scale
+        plt.streamplot(x, y, u.T, v.T)
 
     def plot_2(self, f2):
         """Plot a 2-form"""
@@ -251,7 +263,7 @@ class StencilComplex2D(StencilComplex):
         f2 = f2[0]
         plt.figure()
         w, h = f2.shape
-        plt.imshow(f2, interpolation='nearest', extent=[0, w, 0, h])
+        plt.imshow(f2.T, interpolation='nearest', extent=[0, w, 0, h])
         plt.colorbar()
 
 

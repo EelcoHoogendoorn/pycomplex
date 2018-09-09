@@ -3,7 +3,7 @@ import numpy as np
 import numpy.testing as npt
 import pytest
 
-from pycomplex.stencil.complex import StencilComplex
+from pycomplex.stencil.complex import StencilComplex, StencilComplex2D
 
 
 @pytest.mark.parametrize('i', [2, 3, 4])
@@ -31,3 +31,14 @@ def test_sample():
     sample = complex.sample_0(source, [[-1, 0], [-0.5, 0], [0, 0], [0.5, 0], [1, 0]])
     npt.assert_allclose(sample, [ 0.,  5., 10.,  5.,  0.])
 
+
+def test_streamplot(show_plot):
+    complex = StencilComplex2D.from_shape((32, 16))
+
+    d = np.linalg.norm(complex.primal_position[0] - 8, axis=-1)
+
+    f = complex.topology.primal[0] * d
+
+    complex.plot_0(d)
+    complex.plot_1(f)
+    show_plot()

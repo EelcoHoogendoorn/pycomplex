@@ -202,8 +202,12 @@ class StencilTopology(object):
 
     @cached_property
     def averaging_operators_0(self):
-        """implement analogues of topology operators here;
-        average 0-forms onto n-forms
+        """Average 0-forms onto n-forms
+
+        Returns
+        -------
+        array_like, [n_dim + 1], StencilOperator
+            n-th operator averages zero-forms to n-forms
         """
         def average(n):
             def stencil(axes):
@@ -231,6 +235,11 @@ class StencilTopology(object):
 
     @cached_property
     def averaging_operators_N(self):
+        """Not much different to implement from 0-averaging; just take inverse of symbol-set
+
+        however; may even be possible to implement n-to-n averaging operators;
+        just consider diff of input and output order symbols
+        """
         raise NotImplementedError
 
     def explicit(self):
