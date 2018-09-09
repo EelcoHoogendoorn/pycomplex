@@ -36,7 +36,7 @@ def test_chain(i):
         npt.assert_allclose(f2, 0, atol=1e-5)
 
 
-@pytest.mark.parametrize('i', [ 2])
+@pytest.mark.parametrize('i', [1, 2, 3])
 def test_averaging(i):
     print('i', i)
     topology = StencilTopology(tuple(np.arange(i, dtype=np.int) * 2 + 2))

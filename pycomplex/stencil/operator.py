@@ -217,7 +217,11 @@ class ComposedOperator(StencilOperator):
                 return ComposedOperator(ops).simplify()
         # drop identity terms
         if any(isinstance(op, IdentityOperator) for op in self.operators):
-            return ComposedOperator([op for op in self.operators if not isinstance(op, IdentityOperator)]).simplify()
+            ops = [op for op in self.operators if not isinstance(op, IdentityOperator)]
+            if len(ops):
+                return ComposedOperator(ops).simplify()
+            else:
+                return IdentityOperator(shape=self.shape[0])
         # combine adjacent diagonals
         for i, (l, r) in enumerate(adjecent_pairs(self.operators)):
             if isinstance(l, DiagonalOperator) and isinstance(r, DiagonalOperator):

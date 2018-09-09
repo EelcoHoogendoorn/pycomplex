@@ -72,12 +72,14 @@ class Diffusion(System, MGEquation):
 
     @classmethod
     def formulate(cls, complex, fields, fine=None):
+        def DO(d):
+            return DiagonalOperator(d, d.shape)
         self = cls.canonical(complex)[:2, :2]
         # overwrite diagonal; set constraint term
-        self.A[0, 0] = DiagonalOperator(fields['constraint'])
+        self.A[0, 0] = DO(-fields['constraint'])
         # field effect can be driven to zero in either equation
-        self.A[0, 1] = self.A[0, 1] * DiagonalOperator(fields['conductance'])
-        self.A[1, 1] = self.A[1, 1] * DiagonalOperator(fields['resistance'])
+        self.A[0, 1] = self.A[0, 1] * DO(fields['conductance'])
+        self.A[1, 1] = self.A[1, 1] * DO(fields['resistance'])
 
         self.fine = fine
         self.fields = fields
@@ -130,10 +132,6 @@ def test_diffusion(show_plot):
     but the suspicion is that it will work much better
 
     """
-    complex = StencilComplex2D.from_shape((16, 16))
-
-    # setup simple source and sink
-    source = complex.topology.form(0)
 
     """    
     pin value at boundary to zero? infact not obvious how to set these constraints
@@ -179,6 +177,11 @@ def test_diffusion(show_plot):
     and coarsening both independently?
     """
 
+    complex = StencilComplex2D.from_shape((16, 16))
+
+    # setup simple source and sink
+    source = complex.topology.form(0)
+
     mid = 8
     ext = 3
     sep = 4
@@ -198,27 +201,30 @@ def test_diffusion(show_plot):
     source = circle([8, 8], 4)
     constraint = 1 - source
 
-    complex.plot_0(source)
-    complex.plot_2(complex.topology.averaging_operators_0[2] * source)
-    show_plot()
+    # complex.plot_0(source)
+    # complex.plot_2(complex.topology.averaging_operators_0[2] * source)
+    # show_plot()
 
 
     fields = {
         'constraint': constraint,
-        'conduction': np.ones_like(source),
-        'resistance': np.ones_like(source),
+        'conductance': complex.topology.form(1, init='ones'),
+        'resistance': complex.topology.form(1, init='ones'),
     }
 
-    system = Diffusion(complex, fields)
+    system = Diffusion.formulate(complex, fields)
 
     from pycomplex.stencil.equation import NormalSmoothEquation
     eq = NormalSmoothEquation(system)
+    print(eq.normal.system.A)
 
-    x = eq.solve(source)
+    rhs = BlockArray([-source, complex.topology.form(1)])
+
+    x = eq.solve(rhs, iterations=1000)
 
     complex.plot_0(x[0])
-    complex.coarse.plot_0(complex.coarsen[0](x[0]))
-    complex.plot_0(complex.refine[0](complex.coarsen[0](x[0])))
+    # complex.coarse.plot_0(complex.coarsen[0](x[0]))
+    # complex.plot_0(complex.refine[0](complex.coarsen[0](x[0])))
 
     # complex.plot_0(system.rhs[0])
     show_plot()
