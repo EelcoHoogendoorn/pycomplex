@@ -105,8 +105,8 @@ class System(object):
 
         """
 
-        Tp = complex.primal
-        Td = complex.dual
+        Tp = complex.topology.primal
+        Td = complex.topology.dual
         N = complex.n_dim + 1
 
         NE = complex.n_elements

@@ -19,7 +19,7 @@ def plot_sys(system):
 
 
 def test_basic():
-    complex = StencilComplex((8, 16, 4))
+    complex = StencilComplex.from_shape((8, 16, 4))
     system = System.canonical(complex)
     # canonical complex is fully symmetric on the symbolic level
     assert repr(system.A) == repr(system.A.transpose())
@@ -28,14 +28,14 @@ def test_basic():
 
 
 def test_dense(show_plot):
-    complex = StencilComplex((2, 4, 6))
+    complex = StencilComplex.from_shape((2, 4, 6))
     system = System.canonical(complex)
     plot_sys(system[:3, 1:2])
     show_plot()
 
 
 def test_normal(show_plot):
-    complex = StencilComplex((2, 4, 6))
+    complex = StencilComplex.from_shape((2, 4, 6))
     #system = System.canonical(complex)[[0, 2], 1:2]
     system = System.canonical(complex)#[:2, :2]
     system.A[0, 0] = 0

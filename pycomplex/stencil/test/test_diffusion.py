@@ -137,7 +137,7 @@ def test_diffusion(show_plot):
     this is likely to be less efficient but generalizes better to more complex problems;
     that is zero-resistance term precludes elimination
     """
-    complex = StencilComplex2D((16, 16))
+    complex = StencilComplex2D.from_shape((16, 16))
     system = System.canonical(complex)[:2, :2]
     print()
     print(system.A)
