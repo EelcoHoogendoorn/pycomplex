@@ -41,8 +41,8 @@ class System(object):
     def allocate_y(self):
         return BlockArray([self.complex.form(n) for n in self.L])
 
-    @staticmethod
-    def canonical(complex: StencilComplex):
+    @classmethod
+    def canonical(cls, complex: StencilComplex):
         """Set up the full cochain complex
 
         Parameters
@@ -125,7 +125,7 @@ class System(object):
             A[i, i] = PD[i]
 
         LR = np.arange(N, dtype=index_dtype)
-        return System(complex, A=A, B=B, L=LR, R=LR)
+        return cls(complex, A=A, B=B, L=LR, R=LR)
 
     def copy(self, **kwargs):
         """Copy self with some constructor args overridden. Part of general functional logic"""

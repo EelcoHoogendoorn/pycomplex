@@ -5,7 +5,7 @@ and once the requirements crystallize the two should be merged back together
 import scipy.sparse
 
 
-class MGEquation(object):
+class MultiGridEquation(object):
     """Abstract interface class for Equation participating in this multigrid solver"""
     def residual(self, x, y):
         raise NotImplementedError
@@ -17,6 +17,24 @@ class MGEquation(object):
         raise NotImplementedError
     def interpolate(self, x):
         raise NotImplementedError
+
+    def hierarchy(self, levels):
+        """Build a hierarchy for a given equation object
+
+        Parameters
+        ----------
+        self : MultiGridEquation
+
+        Returns
+        -------
+        List[MultiGridEquation]
+            coarsest first, finest last
+        """
+        hierarchy = [self]
+        for l in range(levels):
+            hierarchy.append(hierarchy[-1].coarse)
+        return hierarchy[::-1]
+
 
 
 def v_cycle(hierarchy, y, x=None):
@@ -116,7 +134,7 @@ def solve_full_cycle(hierarchy, y, iterations=2):
     x = fine.interpolate(
         solve_full_cycle(
             hierarchy[:-1],
-            y=fine.restrict(y),
+            y=fine.restrict(y),     # NOTE: note restricting residual here, but actual right hand side
             iterations=iterations
         )
     )

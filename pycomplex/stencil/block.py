@@ -259,3 +259,15 @@ class BlockOperator(BlockArray):
 
     def __repr__(self):
         return '\n'.join('\t'.join([repr(e) for e in row]) for row in self.block)
+
+
+    def aslinearoperator(self):
+        """Return as flattened and concatenated scipy linear operator"""
+        from scipy.sparse.linalg import LinearOperator
+        raise NotImplementedError
+        # return LinearOperator(
+        #     shape=tuple([np.prod(s) for s in self.shape]),
+        #     matvec=lambda x: self.right(x.flatten()),
+        #     rmatvec=lambda x: self.left(x.flatten()),
+        #     dtype=np.float32,
+        # )

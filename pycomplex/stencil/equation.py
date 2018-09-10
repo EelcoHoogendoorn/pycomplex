@@ -14,14 +14,14 @@ class Equation(object):
 
     def smooth(self):
         raise NotImplementedError
+    #
+    # def interpolate(self, x):
+    #     raise NotImplementedError
+    #
+    # def coarsen(self, x):
+    #     raise NotImplementedError
 
-    def interpolate(self, x):
-        raise NotImplementedError
-
-    def coarsen(self, x):
-        raise NotImplementedError
-
-    def solve(self, y, x=None, iterations=100):
+    def solve(self, y, x=None, iterations=10):
         if x is None:
             x = y * 0
         for i in range(iterations):
@@ -52,13 +52,17 @@ class NormalSmoothEquation(Equation):
         """
         return self.normal.system.A.diagonal().invert()
 
+    @cached_property
+    def AT(self):
+        return self.system.A.transpose()
+
     def jacobi(self, x, y, relaxation: float=1) -> BlockArray:
         """Jacobi iteration."""
-        # residual = self.system.A.transpose() * self.residual(x, y)
+        residual = self.AT * self.residual(x, y)
         # FIXME: is the below more efficient? seems like keeping A.T factored out of the residual calc is more efficient
         # In factored calc we have twice the cost of the first order system; otherwise once first order and once second order
-        residual = self.normal.residual(x, y)
-        print(residual.abs().sum())
+        # residual = self.normal.residual(x, y)
+        # print(residual.abs().sum())
         # FIXME: loop fusion on expressions like this would also be great from memory bandwidth perspective
         return x - self.inverse_normal_diagonal * residual * (relaxation / 2)
 
@@ -80,13 +84,13 @@ class NormalSmoothEquation(Equation):
             x = self.jacobi(x, y, s)
         return x
 
-    def smooth(self, x: BlockArray, y: BlockArray, base=0.5):
+    def smooth(self, x: BlockArray, y: BlockArray, base=0.6):
         """Basic smoother; inspired by time integration of heat diffusion equation
 
         Notes
         -----
         base relaxation rate needs to be lower in case of a multi-block jacobi
-        not yet fully understood
+        not yet fully understood; 0.75 no longer stable; 0.7 is
 
         """
         knots = np.linspace(1, 4, 3, endpoint=True) * base

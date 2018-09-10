@@ -19,39 +19,12 @@ def plot_sys(system):
     plt.show()
 
 
-def build_hierarchy(equation, depth):
-    """Build a hierarchy for a given equation object
-
-    Parameters
-    ----------
-    equation
-
-    Returns
-    -------
-    List[Equation]
-    """
-    equations = [equation]
-    for d in range(depth):
-        coarse = equations[-1].system.complex.coarse
-        # FIXME: need logic here for coarsening all fields that occur in the system
-        # need this be encapsulated by the equation object? does that mean specific equation should be a subclass
-        # complex object contains logic for applying scale to hodges
-        # but we need similar logic for other fields introduced at the system/equation level
-        # we really need to reconsider the fields at each level, considering constucting the coarse operator
-        # as some kind of petrov-galerkin method is unthinkable for a stencil based method
-        # could maintain each field as a seperate symbolic expression;
-        # coarse variant then just a matter of swapping out hodge and fields.
-        # kindof an optimization tho and more complex code
-        system = None
-        eq = equations[-1].copy(system=system)
-        equations.append(eq)
-
-
-from pycomplex.stencil.multigrid import MGEquation
+from pycomplex.stencil.multigrid import MultiGridEquation
 from pycomplex.stencil.block import BlockArray
+from pycomplex.stencil.equation import NormalSmoothEquation
 
 
-class Diffusion(System, MGEquation):
+class Diffusion(NormalSmoothEquation, MultiGridEquation):
     """0-form based diffusion, based on first-order operator logic
 
     constraint field has physical analogy; if domain is 2d, constraint is thermal connection in z-layer
@@ -70,25 +43,33 @@ class Diffusion(System, MGEquation):
     parallel vs series coarsening
     """
 
+    # FIXME: complex.scale still completely unused
+
+    def __init__(self, system, fine, fields):
+        self.system = system
+        self.fine = fine
+        self.fields = fields
+
+    @property
+    def complex(self):
+        return self.system.complex
+
     @classmethod
     def formulate(cls, complex, fields, fine=None):
         def DO(d):
             return DiagonalOperator(d, d.shape)
-        self = cls.canonical(complex)[:2, :2]
+        system = System.canonical(complex)[:2, :2]
         # overwrite diagonal; set constraint term
-        self.A[0, 0] = DO(-fields['constraint'])
+        system.A[0, 0] = DO(-fields['constraint'])
         # field effect can be driven to zero in either equation
-        self.A[0, 1] = self.A[0, 1] * DO(fields['conductance'])
-        self.A[1, 1] = self.A[1, 1] * DO(fields['resistance'])
-
-        self.fine = fine
-        self.fields = fields
-        return self
+        system.A[0, 1] = system.A[0, 1] * DO(fields['conductance'])
+        system.A[1, 1] = system.A[1, 1] * DO(fields['resistance'])
+        return cls(system, fine, fields)
 
     @cached_property
     def coarse(self):
         """Coarse variant of self"""
-        return type(self)(
+        return type(self).formulate(
             complex=self.complex.coarse,
             fine=self,
             fields={
@@ -103,10 +84,12 @@ class Diffusion(System, MGEquation):
     # note that solution is in terms of primal forms
     # residual of first order equation tends to be dual forms
     # but residual of normal equations ought to be in primal space too?
+    # also, full mg-cycle coarsens rhs first, which is certainly in dual space
     def restrict(self, y):
-        return BlockArray([self.complex.coarsen[n] * b for n, b in zip(self.L, y.block)])
+        return BlockArray([self.complex.coarsen[n] * b for n, b in zip(self.system.L, y.block)])
     def interpolate(self, x):
-        return BlockArray([self.complex.refine[n] * b for n, b in zip(self.R, x.block)])
+        return BlockArray([self.complex.refine[n] * b for n, b in zip(self.system.R, x.block)])
+
 
 
 class StencilForm(object):
@@ -118,6 +101,17 @@ class StencilForm(object):
 
     def __add__(self, other):
         """plain operators passed on to data array, given that degree and duality match"""
+
+
+def rect(complex, pos, size):
+    r = complex.topology.form(0)
+    r[0, pos[0]-size[0]:pos[0]+size[0], pos[1]-size[1]:pos[1]+size[1]] = 1
+    return r
+
+def circle(complex, pos, radius):
+    p = complex.primal_position[0]
+    d = np.linalg.norm(p - pos, axis=-1) - radius
+    return 1 / (1 + np.exp(d * 8))
 
 
 def test_diffusion(show_plot):
@@ -177,7 +171,7 @@ def test_diffusion(show_plot):
     and coarsening both independently?
     """
 
-    complex = StencilComplex2D.from_shape((16, 16))
+    complex = StencilComplex2D.from_shape((512, 512))
 
     # setup simple source and sink
     source = complex.topology.form(0)
@@ -187,44 +181,41 @@ def test_diffusion(show_plot):
     sep = 4
 
 
-    def rect(pos, size):
-        r = complex.topology.form(0)
-        r[0, pos[0]-size[0]:pos[0]+size[0], pos[1]-size[1]:pos[1]+size[1]] = 1
-        return r
-
-    def circle(pos, radius):
-        p = complex.primal_position[0]
-        d = np.linalg.norm(p - pos, axis=-1) - radius
-        return 1 / (1 + np.exp(d * 8))
 
 
-    source = circle([8, 8], 4)
+    # source = circle(complex, [8, 8], 4)
+    source = rect(complex, [64, 64], [32, 16])
+    source -= rect(complex, [32, 64], [32, 8])
+    source = np.clip(source, 0, 1)
     constraint = 1 - source
 
     # complex.plot_0(source)
     # complex.plot_2(complex.topology.averaging_operators_0[2] * source)
     # show_plot()
 
+    conductance = complex.topology.form(1, init='ones')
+    # conductance[:, :, 64:] *= 1e-1
+    resistance = complex.topology.form(1, init='ones')
+    # resistance[:, :, 64:] *= 1e-1
 
     fields = {
-        'constraint': constraint,
-        'conductance': complex.topology.form(1, init='ones'),
-        'resistance': complex.topology.form(1, init='ones'),
+        'constraint': constraint * 2e-1,
+        'conductance': conductance,
+        'resistance': resistance,
     }
 
     system = Diffusion.formulate(complex, fields)
 
-    from pycomplex.stencil.equation import NormalSmoothEquation
-    eq = NormalSmoothEquation(system)
-    print(eq.normal.system.A)
-
     rhs = BlockArray([-source, complex.topology.form(1)])
 
-    x = eq.solve(rhs, iterations=1000)
+    hierarchy = system.hierarchy(levels=4)
+    from pycomplex.stencil.multigrid import solve_full_cycle
+    from time import time
+    t = time()
+    x = solve_full_cycle(hierarchy, rhs, iterations=4)
+    print()
+    print(time() - t)
 
     complex.plot_0(x[0])
-    # complex.coarse.plot_0(complex.coarsen[0](x[0]))
-    # complex.plot_0(complex.refine[0](complex.coarsen[0](x[0])))
 
-    # complex.plot_0(system.rhs[0])
     show_plot()

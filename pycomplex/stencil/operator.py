@@ -69,6 +69,16 @@ class StencilOperator(object):
     def __repr__(self):
         return 'f'
 
+    def aslinearoperator(self):
+        """Return as flattened scipy linear operator"""
+        from scipy.sparse.linalg import LinearOperator
+        return LinearOperator(
+            shape=tuple([np.prod(s) for s in self.shape]),
+            matvec=lambda x: self.right(x.flatten()),
+            rmatvec=lambda x: self.left(x.flatten()),
+            dtype=np.float32,
+        )
+
 
 class ZeroOperator(StencilOperator):
     """Operator that maps all input to zero"""
