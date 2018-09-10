@@ -48,11 +48,27 @@ class Diffusion(NormalSmoothEquation, MultiGridEquation):
 
     @classmethod
     def formulate(cls, complex, fields, fine=None):
+        """
+
+        Parameters
+        ----------
+        complex
+        fields
+        fine
+
+        Returns
+        -------
+
+        Notes
+        -----
+        [* P, d * C] [T] = [S]    * P T    + * div(C * F)  = S
+        [* d, * R  ] [F]   [0]    * div(T) + * R F         = 0
+        """
         def DO(d):
             return DiagonalOperator(d, d.shape)
         system = System.canonical(complex)[:2, :2]
         # overwrite diagonal; set constraint term
-        system.A[0, 0] = DO(-fields['constraint'])
+        system.A[0, 0] = system.A[0, 0] * DO(-fields['constraint'])
         # field effect can be driven to zero in either equation
         system.A[0, 1] = system.A[0, 1] * DO(fields['conductance'])
         system.A[1, 1] = system.A[1, 1] * DO(fields['resistance'])
@@ -77,8 +93,12 @@ class Diffusion(NormalSmoothEquation, MultiGridEquation):
     # residual of first order equation tends to be dual forms
     # but residual of normal equations ought to be in primal space too?
     # also, full mg-cycle coarsens rhs first, which is certainly in dual space
+    # that is, as long as B operator equals identity
     def restrict(self, y):
-        return BlockArray([self.complex.coarsen[n] * b for n, b in zip(self.system.L, y.block)])
+        return BlockArray([
+            self.complex.coarse.hodge[n] * (self.complex.coarsen[n] * (self.complex.hodge[n].I * b))
+            for n, b in zip(self.system.L, y.block)
+        ])
     def interpolate(self, x):
         return BlockArray([self.complex.refine[n] * b for n, b in zip(self.system.R, x.block)])
 
@@ -151,7 +171,7 @@ def test_diffusion(show_plot):
     and coarsening both independently?
     """
 
-    complex = StencilComplex2D.from_shape((512, 512))
+    complex = StencilComplex2D.from_shape((128, 128))
 
     # setup simple source and sink
     source = complex.topology.form(0)
@@ -174,9 +194,9 @@ def test_diffusion(show_plot):
     # show_plot()
 
     conductance = complex.topology.form(1, init='ones')
-    # conductance[:, :, 64:] *= 1e-1
+    conductance[:, :, 64:] *= 1e-1
     resistance = complex.topology.form(1, init='ones')
-    # resistance[:, :, 64:] *= 1e-1
+    # resistance[:, :, 64:] *= 1e+0
 
     fields = {
         'constraint': constraint * 2e-1,
@@ -192,7 +212,7 @@ def test_diffusion(show_plot):
     from pycomplex.stencil.multigrid import solve_full_cycle
     from time import time
     t = time()
-    x = solve_full_cycle(hierarchy, rhs, iterations=2)
+    x = solve_full_cycle(hierarchy, rhs, iterations=10)
     print()
     print(time() - t)
 

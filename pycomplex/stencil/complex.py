@@ -84,8 +84,8 @@ class StencilComplex(object):
         """
         return [
             HodgeOperator(
-                self.scale ** (self.n_dim - n * 2),
-                self.n_elements[n],
+                diagonal=self.scale ** (self.n_dim - n * 2),
+                shape=self.n_elements[n],
             )
             for n in range(self.n_dim + 1)
         ]
