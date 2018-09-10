@@ -1,7 +1,7 @@
 """Dump things here to make self contained diffusion example
 
-refactor later
-need to rewrite mg code to accept blockarrays
+
+
 """
 
 from cached_property import cached_property
@@ -9,19 +9,11 @@ from cached_property import cached_property
 import numpy as np
 
 from pycomplex.stencil.complex import StencilComplex2D
-from pycomplex.stencil.linear_system import System
 from pycomplex.stencil.operator import DiagonalOperator
-
-
-def plot_sys(system):
-    import matplotlib.pyplot as plt
-    plt.imshow(system.A.to_dense())
-    plt.show()
-
-
-from pycomplex.stencil.multigrid import MultiGridEquation
 from pycomplex.stencil.block import BlockArray
+from pycomplex.stencil.linear_system import System
 from pycomplex.stencil.equation import NormalSmoothEquation
+from pycomplex.stencil.multigrid import MultiGridEquation
 
 
 class Diffusion(NormalSmoothEquation, MultiGridEquation):
@@ -89,18 +81,6 @@ class Diffusion(NormalSmoothEquation, MultiGridEquation):
         return BlockArray([self.complex.coarsen[n] * b for n, b in zip(self.system.L, y.block)])
     def interpolate(self, x):
         return BlockArray([self.complex.refine[n] * b for n, b in zip(self.system.R, x.block)])
-
-
-
-class StencilForm(object):
-    """Lets see how this feels; form object... not sure yet"""
-    def __init__(self, degree, shape, dual=False):
-        self.degree = degree
-        self.data = np.zeros(shape)
-        self.dual = dual
-
-    def __add__(self, other):
-        """plain operators passed on to data array, given that degree and duality match"""
 
 
 def rect(complex, pos, size):
@@ -208,11 +188,11 @@ def test_diffusion(show_plot):
 
     rhs = BlockArray([-source, complex.topology.form(1)])
 
-    hierarchy = system.hierarchy(levels=4)
+    hierarchy = system.hierarchy(levels=5)
     from pycomplex.stencil.multigrid import solve_full_cycle
     from time import time
     t = time()
-    x = solve_full_cycle(hierarchy, rhs, iterations=4)
+    x = solve_full_cycle(hierarchy, rhs, iterations=2)
     print()
     print(time() - t)
 
