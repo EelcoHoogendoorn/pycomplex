@@ -197,6 +197,14 @@ def test_diffusion(show_plot):
     conductance[:, :, 64:] *= 1e-1
     resistance = complex.topology.form(1, init='ones')
     # resistance[:, :, 64:] *= 1e+0
+    # FIXME: ah; the reason we cannot lower conductance in this manner is diagonal dominance of jacobi of course!
+    # FIXME: what can be done about this? absorb scaling into unknown using (left?)right-preconditioner?
+    # FIXME: also there is the question of overall balance of jacobi equations;
+    # just because we tune a coefficient does not mean we intend to give the equation more weight
+    # FIXME: would like to have sum of abolute coefficients to judge diagonal dominance; but not sure if easy to get from operator
+    # NOTE: gauss-seidel does not require diagonal dominance, but SPD will do
+    # seems like block-gauss-seidel may address both dominance and balance concerns?
+
 
     fields = {
         'constraint': constraint * 2e-1,

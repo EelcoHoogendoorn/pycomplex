@@ -59,7 +59,7 @@ class NormalSmoothEquation(Equation):
     def jacobi(self, x, y, relaxation: float=1) -> BlockArray:
         """Jacobi iteration."""
         residual = self.AT * self.residual(x, y)
-        # FIXME: is the below more efficient? seems like keeping A.T factored out of the residual calc is more efficient
+        # FIXME: keeping A.T factored out of the residual calc is more efficient
         # In factored calc we have twice the cost of the first order system; otherwise once first order and once second order
         # residual = self.normal.residual(x, y)
         # print(residual.abs().sum())
