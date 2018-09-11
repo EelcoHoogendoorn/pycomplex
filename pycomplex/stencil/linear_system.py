@@ -151,7 +151,7 @@ class System(object):
         )
 
     def normal(self):
-        """Form normal equations
+        """Form normal equations by left-multiplication with A.T
 
         Returns
         -------
@@ -164,6 +164,32 @@ class System(object):
             B=(AT * self.B).simplify(),
             R=self.R,
             L=self.R,   # NOTE: this is the crux of forming normal equations
+        )
+
+    def symmetric_substitute(self):
+        """Transform to symmetric problem by substituting x = A.T * x'
+
+        After solving these equations, the solution to the original problem
+        can be obtained by multiplying by A.T again
+
+        Returns
+        -------
+        System
+
+        Notes
+        -----
+        Is there a commonly accepted term for this kind of substitution? Not sure.
+
+        This may have an advantage over normal equations,
+        if a system has more unknowns than equations; which is basically never?
+        However, there might be some conditioning aspects too that id like to investigate.
+        """
+        AT = self.A.transpose()
+        return self.copy(
+            A=(self.A * AT).simplify(),
+            B=self.B,
+            R=self.L,
+            L=self.L,
         )
 
     def eliminate(self):

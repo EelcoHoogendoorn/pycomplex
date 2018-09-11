@@ -214,6 +214,8 @@ def test_diffusion(show_plot):
 
     system = Diffusion.formulate(complex, fields)
 
+    D = system.inverse_sg_normal_diagonal
+    print()
     rhs = BlockArray([-source, complex.topology.form(1)])
 
     hierarchy = system.hierarchy(levels=5)

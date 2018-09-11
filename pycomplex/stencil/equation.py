@@ -14,12 +14,6 @@ class Equation(object):
 
     def smooth(self):
         raise NotImplementedError
-    #
-    # def interpolate(self, x):
-    #     raise NotImplementedError
-    #
-    # def coarsen(self, x):
-    #     raise NotImplementedError
 
     def solve(self, y, x=None, iterations=10):
         if x is None:
@@ -32,6 +26,20 @@ class Equation(object):
     def normal(self):
         """Return normal equations corresponding to self"""
         return NormalEquation(self.system.normal())
+
+    def solve_minres_normal(self, y, x0):
+        A = self.normal.A.aslinearoperator()
+        b = (self.normal.system.B * y).to_dense()
+        import scipy.sparse.linalg
+        x = scipy.sparse.linalg.minres(A=A, b=b, x0=x0.to_dense())
+        return x0.from_dense(x)
+
+    def solve_qmr(self, y, x0):
+        A = self.A.aslinearoperator()
+        b = (self.system.B * y).to_dense()
+        import scipy.sparse.linalg
+        x = scipy.sparse.linalg.qmr(A=A, b=b, x0=x0.to_dense())
+        return x0.from_dense(x)
 
 
 class NormalSmoothEquation(Equation):
@@ -52,6 +60,21 @@ class NormalSmoothEquation(Equation):
         """
         return self.normal.system.A.diagonal().invert()
 
+
+    @cached_property
+    def projected_rows(self):
+        q = []
+        for ri in range(len(self.system.L)):
+            row = self.system.A.__getslice__((slice(None), slice(ri, ri+1)))
+            N = row.transpose() * row
+            q.append(N)
+        return q
+
+    @cached_property
+    def inverse_sg_normal_diagonal(self):
+        """Inverse diagonal of normal equations formed on a per-block-row-equation basis"""
+        return BlockArray([pr.diagonal()[0] for pr in self.projected_rows]).invert()
+
     @cached_property
     def AT(self):
         return self.system.A.transpose()
@@ -66,9 +89,20 @@ class NormalSmoothEquation(Equation):
         # FIXME: loop fusion on expressions like this would also be great from memory bandwidth perspective
         return x - self.inverse_normal_diagonal * residual * (relaxation / 2)
 
-    def block_jacobi(self):
-        """Perform jacobi iteration in blockwise fashion"""
-        raise NotImplementedError
+    def block_jacobi_sg(self, x, y):
+        """Perform jacobi iteration in blockwise fashion
+
+        We update unknowns in x one at a time
+        """
+        # FIXME: `by` needs to be computed only once; can lift it out of this function
+        x = x * 1
+        by = self.normal.system.B * y
+        for ri, (r, pr, d) in enumerate(zip(self.system.R, self.projected_rows, self.inverse_sg_normal_diagonal)):
+            # compute residual of normal equation for a given row
+            residual = self.normal.system.A[ri, :] * x - by[ri]
+            x[ri] -= self.inverse_sg_normal_diagonal[ri] * residual * (1/2)
+        return x
+
 
     def overrelax(self, x: BlockArray, y: BlockArray, knots):
         """overrelax, forcing the eigencomponent to zero at the specified overrelaxation knots

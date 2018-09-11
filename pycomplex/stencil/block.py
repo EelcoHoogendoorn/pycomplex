@@ -5,11 +5,27 @@ import numpy as np
 from pycomplex.stencil.operator import ZeroOperator
 
 
+
 class BlockArray(object):
     """ndim-blocked array object"""
 
-    def __init__(self, block):
-        self.block = np.asarray(block, dtype=np.object)
+    def __init__(self, block, ndim=None):
+        if isinstance(block, np.ndarray) and block.dtype == np.object:
+            self.block = block
+        else:
+            if ndim==1:
+                b = np.empty(len(block), np.object)
+                b[...] = block
+                self.block = b
+            elif ndim == 2:
+                b = np.empty((len(block), len(block[0])), np.object)
+                for i in range(b.shape[0]):
+                    for j in range(b.shape[1]):
+                        b[i, j] = block[i][j]
+                self.block = b
+            else:
+                # NOTE: this has some annoying failure cases, like singleton lists freaking out
+                self.block = np.asarray(block, dtype=np.object)
         # assert self.is_compatible
 
     @cached_property
@@ -28,7 +44,10 @@ class BlockArray(object):
 
         one list for each axis
         """
-        return [[self.block.take(i, axis=n).shape[n] for i in range(self.block.shape[n])] for n in range(self.ndim)]
+        return [
+            [self.block.take(i, axis=n).shape[n] for i in range(self.block.shape[n])]
+            for n in range(self.ndim)
+        ]
 
     def apply(self, func):
         """Copy of self, with func applied to all blocks"""
@@ -129,8 +148,18 @@ class BlockArray(object):
             pass
         raise NotImplementedError
 
-    # def to_dense(self):
-    #     return np.block([r for r in self.block])
+    def to_dense(self):
+        assert self.ndim == 1
+        return np.block([r.flatten() for r in self.block])
+
+    def from_dense(self, x):
+        """Map x to blockarray according to template layed out in self"""
+        splits = [b.size for b in self.block]
+        assert sum(splits) == x.size
+        return BlockArray([
+            s.reshape(b.shape)
+            for s, b in zip(np.split(x, splits[:-1]), self.block)
+        ], self.ndim)
 
 
 class BlockOperator(BlockArray):
@@ -155,7 +184,8 @@ class BlockOperator(BlockArray):
         return BlockOperator(
             [[ZeroOperator((l, r))
                 for r in R]
-                    for l in L]
+                    for l in L],
+            ndim=2
         )
 
     @staticmethod
@@ -212,7 +242,7 @@ class BlockOperator(BlockArray):
             shape = db.shape[1]
             return sum([do(db, shape, i) for i in range(shape[0])])
 
-        return BlockArray([block(i) for i in range(self.rows)])
+        return BlockArray([block(i) for i in range(self.rows)], ndim=1)
 
     def __mul__(self, other):
         """Compute self[i,j] * other[j,...] -> output[i,...]
@@ -264,10 +294,12 @@ class BlockOperator(BlockArray):
     def aslinearoperator(self):
         """Return as flattened and concatenated scipy linear operator"""
         from scipy.sparse.linalg import LinearOperator
-        raise NotImplementedError
-        # return LinearOperator(
-        #     shape=tuple([np.prod(s) for s in self.shape]),
-        #     matvec=lambda x: self.right(x.flatten()),
-        #     rmatvec=lambda x: self.left(x.flatten()),
-        #     dtype=np.float32,
-        # )
+        # raise NotImplementedError
+        shape = self.shape
+        L, R = 0 # FIXME: allocate template blockarrays here?
+        return LinearOperator(
+            shape=tuple([np.prod(s) for s in self.shape]),
+            matvec=lambda x: self.right(L.from_dense(x)),
+            rmatvec=lambda x: self.left(R.from_dense(x)),
+            dtype=np.float32,
+        )
