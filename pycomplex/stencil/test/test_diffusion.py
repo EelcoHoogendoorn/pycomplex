@@ -196,7 +196,7 @@ def test_diffusion(show_plot):
     conductance = complex.topology.form(1, init='ones')
     conductance[:, :, 64:] *= 1e-1
     resistance = complex.topology.form(1, init='ones')
-    # resistance[:, :, 64:] *= 1e+0
+    # resistance[:, :, 64:] *= 1e-1
     # FIXME: ah; the reason we cannot lower conductance in this manner is diagonal dominance of jacobi of course!
     # FIXME: what can be done about this? absorb scaling into unknown using (left?)right-preconditioner?
     # FIXME: also there is the question of overall balance of jacobi equations;
@@ -204,6 +204,11 @@ def test_diffusion(show_plot):
     # FIXME: would like to have sum of abolute coefficients to judge diagonal dominance; but not sure if easy to get from operator
     # NOTE: gauss-seidel does not require diagonal dominance, but SPD will do
     # seems like block-gauss-seidel may address both dominance and balance concerns?
+    # seems like we have working block SG;
+    # but it seems to have the same behavior as jacobi in this respect...
+    # so is it not a problem with dominance, or do with still have dominance problems inside the diagonal block that we do jacobi on?
+    # also; would the transpose algorithm have better results? should be promising for under-determined system;
+    # which is what we are moving towards with the problematic changes
 
 
     fields = {
@@ -222,6 +227,7 @@ def test_diffusion(show_plot):
     from pycomplex.stencil.multigrid import solve_full_cycle
     from time import time
     t = time()
+    # x = system.solve_minres_normal(rhs, x0=rhs * 0)
     x = solve_full_cycle(hierarchy, rhs, iterations=10)
     print()
     print(time() - t)

@@ -294,12 +294,14 @@ class BlockOperator(BlockArray):
     def aslinearoperator(self):
         """Return as flattened and concatenated scipy linear operator"""
         from scipy.sparse.linalg import LinearOperator
-        # raise NotImplementedError
-        shape = self.shape
-        L, R = 0 # FIXME: allocate template blockarrays here?
+        # FIXME: this is all still rather ugly and inefficient; but mostly the fault of block module itself
+        T = self.transpose()
+        R = BlockArray([np.zeros(self.block[0, i].shape[1]) for i in range(self.cols)], ndim=1)
+        L = BlockArray([np.zeros(self.block[i, 0].shape[0]) for i in range(self.rows)], ndim=1)
+        # FIXME: signature of matvec requires that we support both shape (N,) and (N, 1)
         return LinearOperator(
-            shape=tuple([np.prod(s) for s in self.shape]),
-            matvec=lambda x: self.right(L.from_dense(x)),
-            rmatvec=lambda x: self.left(R.from_dense(x)),
+            shape=tuple([sum(np.prod(b.shape) for b in s.block) for s in (L, R)]),
+            matvec=lambda x: self.vector_mul(L.from_dense(x)),
+            rmatvec=lambda x: T.vector_mul(R.from_dense(x)),
             dtype=np.float32,
         )
