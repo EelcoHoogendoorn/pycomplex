@@ -26,6 +26,7 @@ def add_coordinates(complex: ComplexCubical1Euclidian2):
     x = scipy.sparse.linalg.lsqr(topology[cols], edge_length[cols])[0]
     # scale correctly
     x = x - x.min()
+    print(edge_length.sum())
     x = x / edge_length.sum()
     x = x * 2 * np.pi - np.pi
     complex.coords = np.exp(1j * x)[:, None]
@@ -125,7 +126,7 @@ if False:
     plt.show()
 
 if True:
-    complex = sweep(section(6), circle(8))
+    complex = sweep(section(6), circle(8, radius=9))
     print('swept the ring')
 
     # map the product 2-cubes to a simplicial representation
