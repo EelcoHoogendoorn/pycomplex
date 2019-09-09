@@ -108,11 +108,16 @@ def circumcenter_barycentric(pts, weights=None, ratio=1e6):
     ----------
     pts : ndarray. [..., n_pts, n_dim], float
         set of points euclidian space.
+    weights : ndarray, [..., n_pts], float
+        vertex weights in a power-diagram sense
+    ratio : float
+        eigenvalue ratio in pseudoinverse;
+        determines if barycentric coords should snap to a subspace of n_dim
 
     Returns
     -------
     coords : ndarray. [..., n_pts], float
-        Barycentric coordinates of the circumcenter of the simplex defined by pts.
+        Barycentric coordinates of the (weighted) circumcenter of the simplex defined by pts.
 
     Examples
     --------
@@ -150,7 +155,7 @@ def circumcenter_barycentric(pts, weights=None, ratio=1e6):
 
     v, w = np.linalg.eigh(A)
     vr = 1 / v
-    vr[np.abs(vr)>np.abs(vr).min()*ratio] = 0
+    vr[np.abs(vr) > np.abs(vr).min() * ratio] = 0
     pinv = np.einsum('...ij,...j,...kj', w, vr, w)
 
     b = np.ones(gu + (N,))
@@ -194,6 +199,7 @@ def circumcenter(pts):
     Uses an extension of the method described here:
     http://www.ics.uci.edu/~eppstein/junkyard/circumcenter.html
     """
+    # FIXME: seems unweighted codepath here is no longer used
     pts = np.asarray(pts)
     mean = pts.mean(axis=-2, keepdims=True)  # centering
     pts = pts - mean

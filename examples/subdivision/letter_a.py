@@ -61,7 +61,7 @@ def create_letter_2d(handcrafted=True):
         quads = quads.select_subset(s.flatten())
 
     print(quads.topology.is_oriented)
-    return quads
+    return quads.copy(vertices=quads.vertices - quads.vertices.mean(axis=0))
 
 
 def create_letter_3d(quads, subdivisions=2):
@@ -79,7 +79,7 @@ def create_letter_3d(quads, subdivisions=2):
     fc = grid.topology.chain(2, 0)
     fc[fi] = 1
     # get faces around hole
-    fi = np.argsort(np.linalg.norm(fp - [1, 2, 0] - 0.5, axis=1))[:4]
+    fi = np.argsort(np.linalg.norm(fp - grid.vertices.mean(axis=0) - [0, 1, 0], axis=1))[:4]
     fc[fi] = 1
     c1 = grid.topology.matrix(1, 2) * fc
     c0 = grid.topology.chain(0)
@@ -93,10 +93,10 @@ def create_letter_3d(quads, subdivisions=2):
     original = grid
     # subdivide; propagate crease along the subdivision
     for i in range(subdivisions):
-        operator = grid.subdivide_operator(smooth=True, creases={0:c0, 1:c1})
+        operator = grid.subdivide_operator(smooth=True, creases={0: c0, 1: c1})
         total_operator = operator * total_operator
 
-        grid = grid.subdivide_cubical(smooth=True, creases={0:c0, 1:c1})
+        grid = grid.subdivide_cubical(smooth=True, creases={0: c0, 1: c1})
         c1 = grid.topology.transfer_matrices[1] * c1
         c0 = grid.topology.transfer_matrices[0] * c0
 
@@ -108,7 +108,7 @@ def create_letter_3d(quads, subdivisions=2):
         plt.show()
 
     # test if operator approach gives identical results
-    grid = grid.copy(vertices=total_operator * original.vertices)
+    # grid = grid.copy(vertices=total_operator * original.vertices)
 
     return grid.as_23()
 
@@ -123,12 +123,30 @@ if __name__ == '__main__':
     if False:
         letter.plot(plot_dual=True)
 
+    # add random rotation
+    np.random.seed(7)
+    rotation = linalg.power(linalg.orthonormalize(np.random.randn(3, 3)), 0.2)
+
+    if True:
+        from examples.util import save_animation
+        path = r'../output/letter_a'
+        plt.close('all')
+        for i in save_animation(path, frames=4, overwrite=True):
+            fix, ax = plt.subplots(1, 1, figsize=(4,6))
+            letter = create_letter(subdivisions=i)
+            print(letter.box)
+            letter = letter.transform(rotation)
+            letter.plot(plot_dual=False, plot_vertices=False, ax=ax)
+            plt.gca().set_adjustable("box")
+            ax.set_ylim(-3, 3)
+            ax.set_xlim(-2, 2)
+            plt.axis('off')
+        quit()
+
+
     letter = create_letter(subdivisions=2)
 
-    # add random rotation
-    np.random.seed(6)
-
-    letter = letter.transform(linalg.power(linalg.orthonormalize(np.random.randn(3, 3)), 0.2))
+    letter = letter.transform(rotation)
 
     letter.plot(plot_dual=False, plot_vertices=False)
 

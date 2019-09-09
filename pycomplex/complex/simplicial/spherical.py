@@ -15,6 +15,17 @@ class ComplexSpherical(BaseComplexSimplicial):
     """Simplicial complex on an n-sphere"""
 
     def __init__(self, vertices, simplices=None, topology=None, radius=1, weights=None):
+        """
+
+        Parameters
+        ----------
+        vertices
+        simplices
+        topology
+        radius
+        weights : ndarray, [n_vertices], float, optional
+            vertex weights
+        """
         self.vertices = np.asarray(vertices)
         self.weights = weights
         if topology is None:
@@ -108,6 +119,11 @@ class ComplexSpherical(BaseComplexSimplicial):
         Returns
         -------
         pp : list of primal element positions, length n_dim
+
+        Notes
+        -----
+        barycentric circumcenter of spherical and euclician triangle coincide in the unweighted case,
+        but that this should be so in weighted case too is not as immediately obvious?
         """
         from pycomplex.geometry import euclidian
         return [euclidian.circumcenter_barycentric(

@@ -210,10 +210,10 @@ class ComplexCubical(BaseComplex):
         ComplexCubical of dimension self.n_dim + other.n_dim
         """
         # FIXME: add transfer operators here too?
-        if not self.n_dim == self.topology.n_dim:
-            raise ValueError
-        if not other.n_dim == other.topology.n_dim:
-            raise ValueError
+        # if not self.n_dim == self.topology.n_dim:
+        #     raise ValueError
+        # if not other.n_dim == other.topology.n_dim:
+        #     raise ValueError
         # these vertex indices need to agree with the conventions employed in the topological product
         j, i = np.indices((len(other.vertices), len(self.vertices)))
         return ComplexCubical(
@@ -345,20 +345,45 @@ class ComplexCubical2Euclidian3(ComplexCubical2):
 class ComplexCubical1Euclidian2(ComplexCubical):
     """Line in 2d euclidian space"""
 
-    def plot(self, plot_vertices=True):
+    def volume(self):
+        """Return the volume enclosed by this complex
+
+        Returns
+        -------
+        float
+            The signed enclosed volume
+
+        Raises
+        ------
+        ValueError
+            If the manifold is not closed
+        """
+        if not self.topology.is_closed:
+            raise ValueError('Computing volume requires a closed manifold')
+        from pycomplex.geometry.euclidian import segment_normals
+        edges = self.vertices[self.topology.elements[1]]
+        normals = segment_normals(edges)
+        centroids = edges.mean(axis=1)
+        return (normals * centroids).sum() / self.n_dim
+
+    def plot(self, plot_vertices=True, ax=None, **kwargs):
         import matplotlib.pyplot as plt
         import matplotlib.collections
+
+        if ax is None:
+            fig, ax = plt.subplots(1, 1)
 
         edges = self.topology.elements[1]
         e = self.vertices[edges]
 
-        fig, ax = plt.subplots(1,1)
-        lc = matplotlib.collections.LineCollection(e, color='b', alpha=0.5)
+        lc = matplotlib.collections.LineCollection(e, **kwargs)
         ax.add_collection(lc)
         if plot_vertices:
-            ax.scatter(*self.vertices.T, color='b')
-
+            ax.scatter(*self.vertices.T, **kwargs)
         ax.axis('equal')
+
+        from matplotlib.collections import PatchCollection
+        ax.add_collection(PatchCollection([plt.Circle(self.vertices.mean(axis=0, keepdims=True).T, 0.1)], alpha=0.95))
 
 
 class ComplexCubical3Euclidian3(ComplexCubical):

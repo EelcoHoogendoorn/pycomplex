@@ -103,6 +103,9 @@ class BaseComplex(object):
         c.parent = self
         return c
 
+    def translate(self, vector):
+        return self.copy(vertices=self.vertices + vector)
+
     def transform(self, transform):
         return self.copy(vertices=self.vertices.dot(transform))
 
