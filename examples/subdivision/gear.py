@@ -31,7 +31,8 @@ def gear(R, N, f):
     return ComplexCubical1Euclidian2(vertices=c, cubes=cubes)
 
 
-def extrude_twist(profile, L):
+def extrude_twist(profile, L, offset):
+
     from pycomplex.synthetic import n_cube_grid
     line = n_cube_grid((L,), centering=False).subdivide_cubical().subdivide_cubical()
 
@@ -43,7 +44,12 @@ def extrude_twist(profile, L):
     vertices = -cylinder.vertices.copy()
     vertices[:, :2] = np.einsum('ijv, vi->vj', R, vertices[:, :2])
     cylinder = cylinder.copy(vertices=vertices)
-    cylinder.save_STL('gear.stl')
+
+    offsets = linalg.normalized(cylinder.vertex_normals() * [1, 1, 0]) * offset
+    print(cylinder.box)
+    cylinder = cylinder.copy(vertices=cylinder.vertices + offsets)
+    print(cylinder.box)
+    cylinder.save_STL('gear4.stl')
 
     # cylinder = cylinder.transform(linalg.orthonormalize(np.random.randn(3, 3)))
     # cylinder.plot_3d(plot_dual=False, plot_vertices=False)
@@ -52,12 +58,14 @@ def extrude_twist(profile, L):
 
 
 # fraction of epicyloid vs cycloid
-f = 0.6
+f = 0.5
 # note; classical progressive cavity consists of the 0-case, offset by some radius
 # at constant radius, doubling N almost halves displaced area
 N = 3
 target_radius = 12
 L = 50
+
+offset = 0.0    # half a printer line thickness
 
 rotor = gear(N, N, f)
 stator = gear(N+1, N+1, f)
@@ -68,8 +76,8 @@ scale = target_radius / max_radius
 rotor = rotor.transform(np.eye(2) * scale)
 stator = stator.transform(np.eye(2) * scale)
 
-extrude_twist(rotor, L=L)
-
+extrude_twist(stator, L=L, offset=-offset)
+# quit()
 print(max_radius)
 print(rotor.volume())
 print(stator.volume())
@@ -77,7 +85,7 @@ print('cc / rev')
 print((stator.volume() - rotor.volume()) * L / 1000)
 
 
-path = r'../output/gear2'
+path = r'../output/gear4'
 from examples.util import save_animation
 frames = 60
 for i in save_animation(path, frames=frames, overwrite=True):
