@@ -7,21 +7,21 @@ def rotation(a):
     return np.array([[c, s], [-s, c]])
 
 
-def trochoid(R, r, s):
+def trochoid(R, r, s, res):
     # r = R / N
     N = R / r
-    a = np.linspace(0, 2*np.pi/N, int(r * 100), endpoint=False)
+    a = np.linspace(0, 2*np.pi/N, int(r * res), endpoint=False)
     b = (R+r*s) / r * a * s
 
     q = [[np.cos(a), np.cos(b)], [np.sin(a), np.sin(b)]]
     return np.dot([(R+r*s), -r*s], q).T
 
 
-def gear(R, N, f):
+def gear(R, N, f, res):
     r = R / N
     t = 2*np.pi/N
-    p = trochoid(R, r * f, +1)
-    n = trochoid(R, r * (1-f), -1)
+    p = trochoid(R, r * f, +1, res=res)
+    n = trochoid(R, r * (1-f), -1, res=res)
     n = np.dot(n, rotation(t*f))
     u = np.concatenate([p, n], axis=0)
     c = np.concatenate([np.dot(u, rotation(t*i)) for i in range(N)], axis=0)
@@ -31,16 +31,19 @@ def gear(R, N, f):
     return ComplexCubical1Euclidian2(vertices=c, cubes=cubes)
 
 
-def extrude_twist(profile, L, offset):
+def extrude_twist(profile, L, offset, factor=1.0):
 
     from pycomplex.synthetic import n_cube_grid
-    line = n_cube_grid((L,), centering=False).subdivide_cubical().subdivide_cubical()
+    # assuming a 1/1 twist rate, similar number of points in both directions of the surface makes sense
+    N = profile.topology.n_elements[0]
+    line = n_cube_grid((N,), centering=False)
+    line = line.copy(vertices=line.vertices * L / N)
 
     cylinder = profile.product(line)
     from pycomplex.math import linalg
     cylinder = cylinder.as_23().subdivide_simplicial().as_3()
 
-    R = rotation(cylinder.vertices[:, -1] / L * 2 * np.pi)
+    R = rotation(cylinder.vertices[:, -1] / L * 2 * np.pi * factor)
     vertices = -cylinder.vertices.copy()
     vertices[:, :2] = np.einsum('ijv, vi->vj', R, vertices[:, :2])
     cylinder = cylinder.copy(vertices=vertices)
@@ -49,7 +52,6 @@ def extrude_twist(profile, L, offset):
     print(cylinder.box)
     cylinder = cylinder.copy(vertices=cylinder.vertices + offsets)
     print(cylinder.box)
-    cylinder.save_STL('gear4.stl')
 
     # cylinder = cylinder.transform(linalg.orthonormalize(np.random.randn(3, 3)))
     # cylinder.plot_3d(plot_dual=False, plot_vertices=False)
@@ -58,17 +60,28 @@ def extrude_twist(profile, L, offset):
 
 
 # fraction of epicyloid vs cycloid
-f = 0.5
+f = 0.3
 # note; classical progressive cavity consists of the 0-case, offset by some radius
 # at constant radius, doubling N almost halves displaced area
-N = 3
+N = 4
 target_radius = 12
 L = 50
 
-offset = 0.0    # half a printer line thickness
+offset = 0.3    # printer line thickness
 
-rotor = gear(N, N, f)
-stator = gear(N+1, N+1, f)
+rotor = gear(N, N, f, res=100)
+stator = gear(N+1, N+1, f, res=100)
+
+
+def quantify_error(res):
+    a = gear(N, N, f, res=res).subdivide_cubical(smooth=False)
+    b = gear(N, N, f, res=res*2)
+    import scipy.spatial
+    tree = scipy.spatial.cKDTree(a.vertices)
+    d, i = tree.query(b.vertices, k=1)
+    max_d = d.max()
+    print(f'Discretization error estimate {max_d}')
+quantify_error(res=100)
 
 
 max_radius = np.linalg.norm(stator.vertices, axis=1).max()
@@ -76,7 +89,8 @@ scale = target_radius / max_radius
 rotor = rotor.transform(np.eye(2) * scale)
 stator = stator.transform(np.eye(2) * scale)
 
-extrude_twist(stator, L=L, offset=-offset)
+extrude_twist(rotor, L=L * 1.5, offset=-offset*0.5, factor=1.5).save_STL('gear_inner.stl')
+extrude_twist(stator, L=L * 1.5, offset=+offset*0.5, factor=1.5 * N / (N+1)).save_STL('gear_outer.stl')
 # quit()
 print(max_radius)
 print(rotor.volume())
