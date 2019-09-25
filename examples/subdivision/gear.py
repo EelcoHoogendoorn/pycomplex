@@ -2,12 +2,19 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
+def ring(c):
+    from pycomplex.complex.cubical import ComplexCubical1Euclidian2
+    v = np.arange(len(c))
+    cubes = np.array([np.roll(v, 1), v]).T
+    return ComplexCubical1Euclidian2(vertices=c, cubes=cubes)
+
+
 def rotation(a):
     c, s = np.cos(a), np.sin(a)
     return np.array([[c, s], [-s, c]])
 
 
-def trochoid(R, r, s, res):
+def trochoid_part(R, r, s, res):
     # r = R / N
     N = R / r
     a = np.linspace(0, 2*np.pi/N, int(r * res), endpoint=False)
@@ -17,18 +24,80 @@ def trochoid(R, r, s, res):
     return np.dot([(R+r*s), -r*s], q).T
 
 
+def epitrochoid(a: float, q: int, d: float):
+    b = a / q
+    k = d / b
+    t = np.linspace(0, np.pi*2, 1000)
+    x = b * ((q + 1) * np.cos(t) - k * np.cos((q+1)*t))
+    y = b * ((q + 1) * np.sin(t) - k * np.sin((q+1)*t))
+    return np.array([x, y]).T
+
+
+def hypotrochoid(a: float, q: int, d: float):
+    """
+    where a is the radius of the base circle,
+    b = a / q that of the rolling circle,
+    and d = k b the distance between the point and the centre of the moving circle
+    """
+    # a = a - 0.6
+    b = a / q
+    print(b)
+    k = d / b
+    # k = 0.6
+    t = np.linspace(0, np.pi*2, 1000)
+    x = b * ((q - 1) * np.cos(t) + k * np.cos((q-1)*t))
+    y = b * ((q - 1) * np.sin(t) - k * np.sin((q-1)*t))
+    return np.array([x, y]).T
+
+
+def buffer(complex, r):
+    from shapely.geometry import Polygon
+    poly = Polygon(complex.vertices).buffer(r)
+    coords = np.array(poly.exterior.coords)
+    # print(len(coords))
+    return ring(coords[::-1])
+
+
+def test_epi():
+    curve = hypotrochoid(2, 6, 2/7)
+    complex = buffer(ring(curve), 0.3)
+
+    print(len(complex.vertices))
+    plt.plot(*complex.vertices.T)
+    plt.axis('equal')
+    plt.show()
+    quit()
+# test_epi()
+
+
 def gear(R, N, f, res):
+    """compound gear of alternating epi and hypo curves
+
+    Parameters
+    ----------
+    R: float
+        radius of fixed circle
+    N: int
+        number of teeth
+    f: float
+        fraction of epi-vs-hypo
+    res: int
+        number of vertices per curve-section
+    """
     r = R / N
     t = 2*np.pi/N
-    p = trochoid(R, r * f, +1, res=res)
-    n = trochoid(R, r * (1-f), -1, res=res)
+    p = trochoid_part(R, r * f, +1, res=res)
+    n = trochoid_part(R, r * (1 - f), -1, res=res)
     n = np.dot(n, rotation(t*f))
     u = np.concatenate([p, n], axis=0)
     c = np.concatenate([np.dot(u, rotation(t*i)) for i in range(N)], axis=0)
-    from pycomplex.complex.cubical import ComplexCubical1Euclidian2
-    v = np.arange(len(c))
-    cubes = np.array([v, (v+1)%len(c)]).T
-    return ComplexCubical1Euclidian2(vertices=c, cubes=cubes)
+    return ring(c)
+
+
+def hypo_gear(R, N, b, f=1):
+    # FIXME: only the f=1 gears mesh properly currently. not sure yet how to solve. correction factor to base radius seems called for
+    complex = ring(hypotrochoid(R, N, f))
+    return buffer(complex, b)
 
 
 def extrude_twist(profile, L, offset, factor=1.0):
@@ -48,6 +117,7 @@ def extrude_twist(profile, L, offset, factor=1.0):
     vertices[:, :2] = np.einsum('ijv, vi->vj', R, vertices[:, :2])
     cylinder = cylinder.copy(vertices=vertices)
 
+    # FIXME: use buffer here?
     offsets = linalg.normalized(cylinder.vertex_normals() * [1, 1, 0]) * offset
     print(cylinder.box)
     cylinder = cylinder.copy(vertices=cylinder.vertices + offsets)
@@ -59,11 +129,19 @@ def extrude_twist(profile, L, offset, factor=1.0):
     return cylinder
 
 
+def pcp():
+    # classical progressive cavity consists of the N=1 case, offset by some radius
+    rotor = hypo_gear(1, 1, 1)
+    stator = hypo_gear(1, 2, 1)
+    fig, ax = plt.subplots(1)
+    rotor.plot(ax=ax, plot_vertices=False)
+    stator.plot(ax=ax, plot_vertices=False)
+    plt.show()
+
+
 # fraction of epicyloid vs cycloid
-f = 0.3
-# note; classical progressive cavity consists of the 0-case, offset by some radius
-# at constant radius, doubling N almost halves displaced area
-N = 4
+f = 0.26
+N = 5
 target_radius = 12
 L = 50
 
@@ -83,15 +161,36 @@ def quantify_error(res):
     print(f'Discretization error estimate {max_d}')
 quantify_error(res=100)
 
+rotor= buffer(rotor, 1.6)
+stator = buffer(stator, 1.6)
+
+rotor = buffer(ring(epitrochoid(N, N, 0.999)), -1.1)
+stator = buffer(ring(epitrochoid(N + 1, N + 1, 0.999)), -1.1)
+
+# rotor = hypo_gear(N, N, 0.9, f=0.9)
+# stator = hypo_gear(N+1, N+1, 0.9, f=0.9 * (N / (N + 1)))
+# f = 0.7
+# scale = N / (N - (1-f))
+# rotor = hypo_gear(N*scale, N, 1.2*0, f=f)#.transform(np.eye(2) * scale)
+# stator = hypo_gear((N+1), N+1, 1.2*0, f=f)
+
+if True:
+    fig, ax = plt.subplots(1)
+    rotor.plot(ax=ax, plot_vertices=False)
+    stator.plot(ax=ax, plot_vertices=False)
+    plt.show()
+
 
 max_radius = np.linalg.norm(stator.vertices, axis=1).max()
 scale = target_radius / max_radius
 rotor = rotor.transform(np.eye(2) * scale)
 stator = stator.transform(np.eye(2) * scale)
 
+translation = np.linalg.norm(stator.vertices, axis=1).max() - np.linalg.norm(rotor.vertices, axis=1).max()
+
 extrude_twist(rotor, L=L * 1.5, offset=-offset*0.5, factor=1.5).save_STL('gear_inner.stl')
 extrude_twist(stator, L=L * 1.5, offset=+offset*0.5, factor=1.5 * N / (N+1)).save_STL('gear_outer.stl')
-# quit()
+
 print(max_radius)
 print(rotor.volume())
 print(stator.volume())
@@ -116,7 +215,7 @@ for i in save_animation(path, frames=frames, overwrite=True):
     else:
         rotor.\
             transform(rotation(i / frames * 2 * np.pi / N)).\
-            translate([scale, 0]).\
+            translate([translation, 0]).\
             plot(ax=ax, plot_vertices=False, color='b')
         stator.\
             transform(rotation(i / frames * 2 * np.pi / (N+1))).\
