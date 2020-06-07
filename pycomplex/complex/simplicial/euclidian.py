@@ -173,7 +173,7 @@ class ComplexSimplicialEuclidian(BaseComplexSimplicial):
         DM[0][...] = 1
 
         unsigned = euclidian.unsigned_volume
-        from scipy.misc import factorial
+        from scipy.special import factorial
         groups = [npi.group_by(c) for c in domains.T]   # cache groupings since they can be reused
 
         for i in range(1, self.topology.n_dim):
@@ -341,6 +341,100 @@ class ComplexTriangularEuclidian(ComplexSimplicialEuclidian):
             topology=self.topology.subdivide_cubical()
         )
 
+    def clip(self, support, direction, clip=True):
+        """Clip triangle mesh with plane, removing all elements where (pos - support).dot(direction) > 0
+
+        If clip == True, the clipped mesh will not be closed.
+
+        Parameters
+        ----------
+        support : array_like, [self.ndim], float
+            support vector of cut plane
+        direction : array_like, [self.ndim], float
+            direction vector of cut plane
+        clip : bool
+            If False, triangles are merely split along the plane,
+            if True, resulting mesh is actually clipped
+
+        Returns
+        -------
+        ComplexTriangularEuclidian
+
+        Notes
+        -----
+        Replace cut tris with 3 new ones.
+
+             0
+             /\
+            /  \
+         1 x----x 2
+          /      \
+         /        \
+        2----------1
+
+        For every cut tri, need to connect each cut edge with
+        Use property here, that incident vertex and opposing incident edge match
+
+        New triangles follow this pattern
+        v0-e2-e1
+        v1-e1-e2
+        v2-e1-v1
+
+        """
+        TE = self.topology.incidence[2, 1]
+        TV = self.topology.incidence[2, 0]
+        EV = self.topology.incidence[1, 0]
+
+        vert_side = (self.vertices - support).dot(direction) > 0
+        edge_cut = vert_side[EV].sum(axis=1) % 2 > 0
+        tri_side = vert_side[TV]
+        tri_cut = vert_side[TV].sum(axis=1) % 3 > 0  # true if mixed sidedness
+        tri_keep = vert_side[TV].sum(axis=1) == 0
+
+        # location of inserted vertices, one per cut edge; [E, 2, 3]
+        edge_vert = self.vertices[EV]
+        bary_insert = (edge_vert - support).dot(direction)
+        edge_length = (edge_vert[:, 1] - edge_vert[:, 0]).dot(direction)
+        bary_insert = np.abs(bary_insert[:, ::-1] / edge_length[:, None])
+        v_insert = np.einsum('vec,ve->vc', edge_vert, bary_insert)
+        new_vertices = v_insert[edge_cut]
+
+        one_cut = tri_side.sum(axis=1) == 1
+        # idx of tip vertex; the odd one out
+        tip = np.where(one_cut, np.argmax(tri_side, axis=1), np.argmin(tri_side, axis=1))[tri_cut]
+        tri_cut_idx = np.where(tri_cut)
+        lookup = np.cumsum(edge_cut) - 1
+        def e_lookup(o):
+            """look up original edge index, to see how-manyth cut-edge it is"""
+            e = TE[tri_cut_idx, (o+tip)%3]
+            return lookup[e] + self.topology.n_elements[0]
+
+        def v_lookup(o):
+            return TV[tri_cut_idx, (o+tip)%3]
+
+        NT = np.zeros((tri_cut.sum(), 3, 3), dtype=TV.dtype)
+        NT[:, 0, 0] = v_lookup(0)
+        NT[:, 0, 1] = e_lookup(2)
+        NT[:, 0, 2] = e_lookup(1)
+        NT[:, 1, 0] = v_lookup(1)
+        NT[:, 1, 1] = e_lookup(1)
+        NT[:, 1, 2] = e_lookup(2)
+        NT[:, 2, 0] = v_lookup(2)
+        NT[:, 2, 1] = e_lookup(1)
+        NT[:, 2, 2] = v_lookup(1)
+
+        cut = ComplexTriangularEuclidian(
+            vertices=np.concatenate((self.vertices, new_vertices), axis=0),
+            triangles=np.concatenate((TV[~tri_cut], NT.reshape(-1, 3)), axis=0)
+        )
+        if not clip:
+            return cut
+
+        # select subset of triangles to keep
+        NTs = vert_side[NT[:, :, 0]]
+        clipped = cut.select_subset(np.concatenate((tri_keep[~tri_cut], ~NTs.flatten())))
+        return clipped
+
     def as_2(self):
         assert self.n_dim == 2
         return ComplexTriangularEuclidian2(vertices=self.vertices, topology=self.topology, weights=self.weights)
@@ -480,11 +574,25 @@ class ComplexTriangularEuclidian3(ComplexTriangularEuclidian):
         ValueError
             If the manifold is not closed
         """
-        if not self.topology.is_closed:
-            raise ValueError('Computing volume requires a closed manifold')
+        # if not self.topology.is_closed:
+        #     raise ValueError('Computing volume requires a closed manifold')
         normals = self.triangle_normals()
         centroids = self.triangle_centroids()
-        return (normals * centroids).sum() / self.n_dim
+        return (normals * centroids).sum() / self.n_dim / 2
+
+    def center_of_mass(self):
+        # if not self.topology.is_closed:
+        #     raise ValueError('Computing COM requires a closed manifold')
+        # tet centroid is tri centroid, averaged with extra zero at origin
+        tris = self.vertices[self.topology.triangles]
+        tets = np.concatenate((
+            tris,
+            np.zeros_like(tris[:, 0:1, :])
+        ), axis=1)
+        tet_centroids = tets.mean(axis=1)
+        tet_volumes = euclidian.unsigned_volume(tets)
+
+        return (tet_volumes[..., None] * tet_centroids).sum(axis=0) / tet_volumes.sum()
 
     def area(self):
         """Compute total surface area"""

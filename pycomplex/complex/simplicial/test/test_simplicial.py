@@ -44,14 +44,21 @@ def test_subdivide_cubical_many(show_plot):
 
 
 def test_sphere(show_plot):
-    """Test a simple loop-subdivided sphere"""
+    """Test a simple loop-subdivided sphere; and test a cut-plane on it"""
     sphere = synthetic.icosahedron().as_euclidian()
-    sphere = sphere.transform(linalg.orthonormalize(np.random.randn(3, 3)))
 
-    for i in range(3):
+    for i in range(4):
         sphere = sphere.subdivide_loop(smooth=True)
 
-    sphere.plot_3d(backface_culling=True)
+    sphere = sphere.transform(linalg.orthonormalize(np.random.randn(3, 3)))
+    sphere = sphere.as_3().clip((0, 0, -0.5), (0, 0, 1), clip=True)
+    # sphere = sphere.transform(linalg.orthonormalize(np.random.randn(3, 3)))
+
+    assert sphere.topology.is_oriented
+    assert sphere.topology.is_connected
+    # assert sphere.topology.is_closed
+
+    sphere.plot_3d(backface_culling=True, plot_dual=False, plot_vertices=False)
     show_plot()
 
 

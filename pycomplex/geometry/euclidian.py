@@ -4,7 +4,7 @@ Note: these are vectorized variants of the functions found in pyDEC
 """
 
 import numpy as np
-import scipy.misc
+import scipy.special
 
 from pycomplex.math import linalg
 
@@ -260,7 +260,7 @@ def unsigned_volume(pts):
     head, tail = np.split(pts, [1], axis=-2)
     A = tail - head
     B = np.einsum('...ji, ...ki->...jk', A, A)
-    return np.sqrt(np.abs(np.linalg.det(B))) / scipy.misc.factorial(M)
+    return np.sqrt(np.abs(np.linalg.det(B))) / scipy.special.factorial(M)
 
 
 def signed_volume(pts):
@@ -305,7 +305,7 @@ def signed_volume(pts):
 
     head, tail = np.split(pts, [1], axis=-2)
     A = tail - head
-    return np.linalg.det(A) / scipy.misc.factorial(M)
+    return np.linalg.det(A) / scipy.special.factorial(M)
 
 
 def triangle_angles(vertices):

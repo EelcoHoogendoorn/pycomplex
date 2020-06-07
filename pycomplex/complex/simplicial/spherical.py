@@ -176,7 +176,7 @@ class ComplexSpherical(BaseComplexSimplicial):
         DM[0][...] = 1
 
         unsigned = spherical.unsigned_volume
-        from scipy.misc import factorial
+        from scipy.special import factorial
         groups = [npi.group_by(c) for c in domains.T]   # cache groupings since they may get reused
 
         for i in range(1, self.topology.n_dim):

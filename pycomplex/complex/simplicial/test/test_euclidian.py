@@ -96,3 +96,23 @@ def test_flux_to_vector(show_plot):
     quad.plot(plot_dual=False)
     plt.quiver(*quad.primal_position[2].T, *velocity_d0.T)
     show_plot()
+
+
+def test_com():
+    cube = synthetic.n_cube(3, centering=False).boundary.as_23().subdivide_simplicial().as_3()
+    print(cube.box)
+    print(cube.center_of_mass())
+
+
+def test_clip_2(show_plot):
+    quad = synthetic.delaunay_cube(n_dim=2, density=10).as_2()
+    quad = quad.clip((0.5, 0.4), (1, 0.5))
+    quad.plot(plot_dual=False)
+    show_plot()
+
+
+def test_clip_3():
+    cube = synthetic.n_cube(3).boundary.as_23().subdivide_simplicial().as_3()
+    print()
+    print(cube.box)
+    print(cube.clip((0.5, 0, 0), (1, 0, 0)).box)
