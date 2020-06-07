@@ -6,7 +6,6 @@ References
 
 """
 import numpy as np
-import numpy_indexed as npi
 import scipy.sparse
 
 from pycomplex.math import linalg
@@ -127,7 +126,7 @@ if __name__ == '__main__':
     seed[idx] = 1
     geo = letter.geodesic(seed)
 
-    letter = letter.copy(vertices = np.dot(letter.vertices, linalg.power(linalg.orthonormalize(np.random.randn(3, 3)), 0.2)))
+    letter = letter.transform(linalg.power(linalg.orthonormalize(np.random.randn(3, 3)), 0.2))
     letter.plot_3d(plot_dual=False, backface_culling=True, plot_vertices=False)
-    letter.plot_primal_0_form(geo)
+#    letter.plot_primal_0_form(geo)
     plt.show()

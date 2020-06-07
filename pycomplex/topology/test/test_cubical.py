@@ -1,11 +1,9 @@
-import numpy as np
 import numpy.testing as npt
 import pytest
 
 from pycomplex import synthetic
 from pycomplex.topology.cubical import *
 from pycomplex.topology.test.test_base import basic_test
-from pycomplex.math import linalg
 
 
 def test_generate_boundary():

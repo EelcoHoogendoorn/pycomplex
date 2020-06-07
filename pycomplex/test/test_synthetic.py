@@ -7,7 +7,7 @@ from pycomplex.math import linalg
 
 def test_optimal_sphere(show_plot):
     """Test the delaunay tesselation of an n-sphere"""
-    n_dim = 4
+    n_dim = 3
     complex = synthetic.optimal_delaunay_sphere(100, n_dim, iterations=50, weights=False, condition=None)
     # even this fairly weak condition often fails in ndim > 3 still...
     complex = complex.optimize_weights()

@@ -1,6 +1,4 @@
 
-import numpy as np
-
 
 def basic_test(topology):
     """Some basic sanity checks on a topology matrix"""

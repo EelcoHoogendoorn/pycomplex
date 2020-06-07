@@ -1,7 +1,5 @@
 
-import numpy as np
 import numpy.testing as npt
-import pytest
 
 from pycomplex import synthetic
 from pycomplex.topology.simplicial import *

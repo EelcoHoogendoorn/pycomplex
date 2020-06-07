@@ -4,6 +4,7 @@ from cached_property import cached_property
 import numpy as np
 import numpy_indexed as npi
 import scipy.spatial
+import scipy.sparse.linalg
 
 from pycomplex.math import linalg
 from pycomplex.complex.base import BaseComplex

@@ -395,7 +395,8 @@ class ComplexTriangularEuclidian(ComplexSimplicialEuclidian):
         edge_vert = self.vertices[EV]
         bary_insert = (edge_vert - support).dot(direction)
         edge_length = (edge_vert[:, 1] - edge_vert[:, 0]).dot(direction)
-        bary_insert = np.abs(bary_insert[:, ::-1] / edge_length[:, None])
+        with np.errstate(divide='ignore'):
+            bary_insert = np.abs(bary_insert[:, ::-1] / edge_length[:, None])
         v_insert = np.einsum('vec,ve->vc', edge_vert, bary_insert)
         new_vertices = v_insert[edge_cut]
 

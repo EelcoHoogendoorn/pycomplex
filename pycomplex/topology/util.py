@@ -76,7 +76,7 @@ def sort_and_argsort(arr, axis):
     argsort = np.argsort(arr, axis=axis)
     I = indices(arr.shape, index_dtype)
     I[axis] = argsort
-    return arr[I], argsort
+    return arr[tuple(I)], argsort
 
 
 def relative_permutations(self, other):

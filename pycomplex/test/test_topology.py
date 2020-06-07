@@ -1,6 +1,4 @@
 
-import pytest
-
 from pycomplex import topology, synthetic
 
 
