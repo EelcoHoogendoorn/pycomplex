@@ -1,4 +1,5 @@
-from examples.subdivision.gear import *
+from examples.subdivision.compound import *
+
 
 def test_solve_compound_symbolic():
     solve_compound_symbolic()
@@ -9,7 +10,7 @@ def test_brute_compound_gear():
 
 
 def test_extrude():
-    extrude_planetary(*(21, 24, 69), 5)
+    extrude_planetary_STL(*(21, 24, 69), 5)
 
     # two equal-planet meidum tooth count solutions
     # compound((15, 15, 45), (10, 15, 40), 5)#32.0, 0.06932108931632115, 0.16666666666666666)
