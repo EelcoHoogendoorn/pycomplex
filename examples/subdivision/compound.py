@@ -78,6 +78,7 @@ def solve_compound_symbolic():
     from sympy import symbols, linsolve
     s1, r1, s2, r2, p, c, d = symbols('s1 r1 s2 r2 p c d')
     S1, P1, R1, S2, P2, R2 = symbols('S1 P1 R1 S2 P2 R2')
+    # all no-slip conditions that should be satisfied between meshing gears
     eqs = [
         S1 * s1 + P1 * p - (S1 + P1) * c,
         R1 * r1 - P1 * p - (R1 - P1) * c,
@@ -132,6 +133,16 @@ def solve_compound_symbolic():
         # [r1, r2, s2],
         # [r2, r1, s1],
         # [r2, r1, s2],
+
+        # carrier-driven planetary options
+        # these tend to be a few times lower in ratio than the r-s-r config
+        [r1, c, r2],
+        # these tend to be lower still, but still potentially useful
+        [s1, c, s2],
+        # r-c-s configs tend to have ratios < 1; not of real world interest
+        # [r1, c, s1],
+        # [r1, c, s2],
+
     ]
     # generate bcs
     conditions = {
@@ -408,8 +419,12 @@ def compound(g1, g2, n=None, b1=0.5, b2=0.5):
     keys = [
         '[r1, s1, r2]',
         '[r1, s2, r2]',
-        '[r2, s1, r1]',
-        '[r2, s2, r1]',
+        # these always differ by just 1 from the above two
+        # '[r2, s1, r1]',
+        # '[r2, s2, r1]',
+        # carrier-driven variants
+        '[r1, c, r2]',
+        '[s1, c, s2]',
     ]
     ratios_ = eval_compound_symbolic(g1, g2)
     ratios = [1. / ratios_[k] for k in keys]
@@ -420,7 +435,9 @@ def compound(g1, g2, n=None, b1=0.5, b2=0.5):
     # print(mod_ratio)
 
     fig, ax = plt.subplots(1, 1)
-    ax.set_title('{:.2f}, {:.2f}, {:.2f}, {:.2f}'.format(*ratios))
+    title = ' / '.join(f'{k}:{r:.1f}' for k, r in zip(keys, ratios))
+    # title = '{:.2f}, {:.2f}, {:.2f}, {:.2f}'.format(*ratios)
+    ax.set_title(title)
     plot_planetary(s1, p1, r1, n, b1, ax=ax, col='r', phase=0.25)
     plot_planetary(s2, p2, r2, n, b2, ax=ax, col='b', phase=0)
     plt.show()

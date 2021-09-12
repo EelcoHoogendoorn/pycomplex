@@ -86,9 +86,7 @@ def test_max_p_diff():
     compound((5, 5, 15), (26, 24, 74), 5)#148.0, 3.9159265358979276, 0.1)
     compound((27, 15, 57), (42, 24, 90), 6)#233.3333333333355, 79.44689145077132, 0.045454545454545456)
 
-
-
-if False:
+def test_max_teeth():
     # attempt at going to higher tooth counts
     # depth of these teeth top to bottom is about 1% of total diameter;
     # 1mm on 10cm; tip to tip distance about 4x that, or 4mm
@@ -118,7 +116,7 @@ def test_min_teeth():
     compound((8, 4, 16), (9, 3, 15), 8, 0.6, 0.4)#15.0, 3.6991118430775174, 0.6666666666666666)
     # super low ratio
     compound((7, 2, 11), (4, 2, 8), 6, 0.3, 0.6) # 6.857142857142857, 5.849555921538759, 0.6666666666666666)
-    # actually looking kinda useful
+    # actually looking kinda useful. seems to have all identical planets too
     compound((6, 4, 14), (5, 5, 15), 5, 0.4, 0.6)#20.0, 3.9159265358979276, 0.5)
 
 def test_various():
@@ -151,6 +149,7 @@ def test_50():
     compound((5, 4, 13), (9, 6, 21), 6, 0.66, 0.33)#50.400000000000006, 0.27433388230813804, 0.4)
     compound((9, 3, 15), (11, 4, 19), 6, 0.4, 0.4)#50.66666666666667, 16.699111843077517, 0.4)
 
+
 def test_power():
     # power-density optimized ones
     # double-odd planets; quite rare. tiny sun like this might be good since little torque requirement there anyway
@@ -163,6 +162,7 @@ def test_power():
     compound((27, 5, 37), (34, 6, 46), 16)#68.1481481481484, 15.53096491487338, 0.4)
     compound((23, 5, 33), (29, 6, 41), 14)#71.30434782608667, 12.964594300514207, 0.39999999999999997)
     compound((29, 6, 41), (35, 7, 49), 14, 0.3, 0.3)#101.37931034482716, 19.955742875642756, 0.3333333333333333)
+
 
 def test_min_s():
     # some smaller suns;
@@ -192,6 +192,7 @@ def test_gdfw():
     compound((30, 10, 50), (34, 11, 56), 10, 0.4, 0.4)  # 149.33333333333334, 15.66370614359171, 0.22222222222222224)
     # this one seems strictly superior; if ignoring slippage friction
     compound((27, 8, 43), (23, 7, 37), 10, 0.4, 0.4)#153.48148148148147, 17.247779607693786, 0.2857142857142857)
+
 
 def test_10():
     # nice ones in the 10 gear range. simpler gearboxes may exist in this range but not with such nice self bearing props
