@@ -4,13 +4,58 @@ Currently all based on sparse matrices
 probably not hard to generalize to allow more generic linear operators
 """
 from cached_property import cached_property
-from abc import abstractmethod
 
 import numpy as np
 import scipy
-import scipy.sparse
+import scipy.sparse.linalg
 
 import pycomplex
+
+
+def is_symmetric(m):
+    """Check if a sparse matrix is symmetric
+
+    Parameters
+    ----------
+    m : array or sparse matrix
+        A square matrix.
+
+    Returns
+    -------
+    check : bool
+        The check result.
+
+    """
+    from scipy.sparse import coo_matrix
+    if m.shape[0] != m.shape[1]:
+        raise ValueError('m must be a square matrix')
+
+    if not isinstance(m, coo_matrix):
+        m = coo_matrix(m)
+
+    r, c, v = m.row, m.col, m.data
+    tril_no_diag = r > c
+    triu_no_diag = c > r
+
+    if triu_no_diag.sum() != tril_no_diag.sum():
+        return False
+
+    rl = r[tril_no_diag]
+    cl = c[tril_no_diag]
+    vl = v[tril_no_diag]
+    ru = r[triu_no_diag]
+    cu = c[triu_no_diag]
+    vu = v[triu_no_diag]
+
+    sortl = np.lexsort((cl, rl))
+    sortu = np.lexsort((ru, cu))
+    vl = vl[sortl]
+    vu = vu[sortu]
+
+    check = np.allclose(vl, vu)
+
+    return check
+
 
 
 class GeneralizedEquation(object):
@@ -130,12 +175,21 @@ class SymmetricEquation(GeneralizedEquation):
             eigenvalues, sorted low to high
         """
         A, B, BI = self.operators
+
+        if False:
+            A = np.asarray(A.todense())
+            B = 1 / np.sqrt(B.data)
+            A = B[:, None] * A * B[None, :]
+            R = np.linalg.eigh(A)
+            print()
+
         if preconditioner == 'amg':
             M = self.amg_solver.aspreconditioner()
         else:
             M = preconditioner
 
-        X = np.random.rand(A.shape[0], K)
+        # NOTE: zero-centered initialization is apparently important here!
+        X = np.random.normal(size=(A.shape[0], K))
 
         # monkey patch this dumb assert
         from scipy.sparse.linalg.eigen.lobpcg import lobpcg
@@ -146,9 +200,11 @@ class SymmetricEquation(GeneralizedEquation):
                 Y = self.null_space     # giving lobpcg the null space helps with numerical stability
             if nullspace is False:
                 Y = None
-            v, V = scipy.sparse.linalg.lobpcg(A=A, B=B, X=X, tol=tol, M=M, Y=Y, largest=False)
+            # assert is_symmetric(A)
+            # assert is_symmetric(B)
+            v, V = scipy.sparse.linalg.lobpcg(A=A, B=B, X=X, tol=tol, M=M, Y=Y, largest=False, verbosityLevel=1)
         except:
-            v, V = scipy.sparse.linalg.lobpcg(A=A, B=B, X=X, tol=tol, M=M, largest=False)
+            v, V = scipy.sparse.linalg.lobpcg(A=A, B=B, X=X, tol=tol, M=M, largest=False, verbosityLevel=1)
 
         return V, v
 

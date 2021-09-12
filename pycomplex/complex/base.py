@@ -109,6 +109,14 @@ class BaseComplex(object):
     def transform(self, transform):
         return self.copy(vertices=self.vertices.dot(transform))
 
+    def affine_transform(self, transform):
+        a = np.concatenate([self.vertices, np.ones_like[self.vertices[:, 0]]], axis=1)
+        v = a.dot(transform)
+        return self.copy(vertices=v[:, :2] / v[:, 2])
+
+    def scale(self, scale):
+        return self.copy(vertices=self.vertices * scale)
+
     @cached_property
     def dual_position(self):
         """Positions of all dual elements; primal elements with boundary elements appended where required

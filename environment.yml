@@ -3,7 +3,7 @@ channels:
   - anaconda
   - conda-forge
 dependencies:
-  - python
+  - python # >= 3.8 got to relax for pydy
   - python.app    # [osx]
   - numpy
   - scipy
@@ -12,10 +12,17 @@ dependencies:
   - pycosat
   - cached-property
   - pytest
-  - snakeviz
+#  - snakeviz
   - fastcache
   - funcsigs
-  - pyamg
-  - vispy
-  - scikit-image
-  - shapely
+#  - pyamg
+#  - vispy
+#  - scikit-image
+#  - shapely
+#  - opencv
+#  - pyserial
+#  - pandas
+  - sympy
+#  - control # for bike controller
+#  - pydy
+#  - cython

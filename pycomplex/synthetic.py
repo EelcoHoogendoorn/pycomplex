@@ -5,7 +5,7 @@ import numpy as np
 import scipy.spatial
 
 from pycomplex.complex.simplicial.euclidian import ComplexSimplicialEuclidian
-from pycomplex.complex.cubical import ComplexCubical
+from pycomplex.complex.cubical import ComplexCubical, ComplexCubical1Euclidian2
 from pycomplex.complex.simplicial.spherical import ComplexSpherical, ComplexSpherical2, ComplexSpherical3
 from pycomplex.topology import index_dtype
 from pycomplex.topology.simplicial import TopologyTriangular, TopologySimplicial
@@ -65,6 +65,22 @@ def n_cube(n_dim, centering=False, mirror=True):
     ComplexCubical
     """
     return n_cube_grid((1,) * n_dim, centering=centering, mirror=mirror)
+
+
+def circle(subdivisions: int) -> ComplexCubical1Euclidian2:
+    """Construct a circle as a 1-cube grid embedded in euclidian 2-space"""
+    complex = n_cube(2, centering=True).boundary
+    for i in range(subdivisions):
+        complex = complex.subdivide_cubical(smooth=True)
+        complex = complex.copy(vertices=linalg.normalized(complex.vertices))
+    return complex.as_12()
+
+
+def cylinder(length, radius, divisions=1):
+    """Construct a cylinder as a 2-cube grid embedded in euclidian 3-space"""
+    n = 2**divisions
+    line = n_cube_grid((n,)).as_11()
+    return line.scale(length / n).product(circle(divisions).scale(radius))
 
 
 def n_cube_grid(shape, centering=True, mirror=True):

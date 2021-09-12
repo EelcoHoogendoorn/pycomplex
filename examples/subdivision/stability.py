@@ -4,7 +4,7 @@ import numpy as np
 def stability(mesh, displacement, cog):
     """Perform static stability analysis for a floating object
 
-    Rotation is performed in the x-z plane
+    Rotation is performed in the x-z plane, around the y-axis
     Gravity is directed along the negative z axis
 
     Parameters

@@ -17,6 +17,7 @@ from examples.multigrid.equation import SymmetricEquation
 from pycomplex.sparse import normalize_l1, inv_diag
 
 
+
 class Poisson(SymmetricEquation):
     """Wrap complex with poisson equation methods and state
 

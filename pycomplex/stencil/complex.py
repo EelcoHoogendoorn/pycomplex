@@ -238,7 +238,7 @@ class StencilComplex2D(StencilComplex):
         assert f0.shape == self.n_elements[0], "Not a zero-form"
         f0 = f0[0]
         # enforce periodicity
-        w, h = f0.shape
+        w, h = np.array(f0.shape) * self.scale
         f0 = np.pad(f0, [(0, 1)] * self.n_dim, mode='wrap')
         plt.figure()
         plt.imshow(f0.T, interpolation='bilinear', extent=[0, w, 0, h])
@@ -254,7 +254,7 @@ class StencilComplex2D(StencilComplex):
         v = v + np.roll(v, shift=1, axis=1)
         x = np.arange(self.shape[0]) * self.scale
         y = np.arange(self.shape[1]) * self.scale
-        plt.streamplot(x, y, u.T, v.T)
+        plt.streamplot(x, y[::-1], u.T, -v.T)
 
     def plot_2(self, f2):
         """Plot a 2-form"""

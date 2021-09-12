@@ -27,4 +27,7 @@ applications:
     viewed more simply; we can eigensolve compressible stokes problem, with hard boundary conditions
     interestingly, this is identical to elasticity approach, with the exception of boundary conditions
 
+
+weird idea; should custom convolution stencil logic be implemented,
+doing so for a bounded triangular domain would not be much harder?
 """

@@ -4,103 +4,11 @@
 
 """
 
-from cached_property import cached_property
-
 import numpy as np
 
 from pycomplex.stencil.complex import StencilComplex2D
-from pycomplex.stencil.operator import DiagonalOperator
+from pycomplex.stencil.diffusion import Diffusion
 from pycomplex.stencil.block import BlockArray
-from pycomplex.stencil.linear_system import System
-from pycomplex.stencil.equation import NormalSmoothEquation
-from pycomplex.stencil.multigrid import MultiGridEquation
-
-
-class Diffusion(NormalSmoothEquation, MultiGridEquation):
-    """0-form based diffusion, based on first-order operator logic
-
-    constraint field has physical analogy; if domain is 2d, constraint is thermal connection in z-layer
-    could have seperate setpoint and constraint fields,
-    but for now all setpoints are zero so it drops out
-
-    Add R and C mask fields as well?
-    driving conductance to zero changes divergence operator interpretation
-    driving resistance to zero changes gradient operator interpretation
-
-    is there a difference between a domain mask and a regular parameter?
-    we do not scale the field afterwards with regular parameter I suppose;
-    or do we? can we just think of them as distinguishing flux and gradient?
-
-    Note that having dual R and C fields need not be bad; it also gives us control over
-    parallel vs series coarsening
-    """
-
-    # FIXME: complex.scale still completely unused
-
-    def __init__(self, system, fine, fields):
-        self.system = system
-        self.fine = fine
-        self.fields = fields
-
-    @property
-    def complex(self):
-        return self.system.complex
-
-    @classmethod
-    def formulate(cls, complex, fields, fine=None):
-        """
-
-        Parameters
-        ----------
-        complex
-        fields
-        fine
-
-        Returns
-        -------
-
-        Notes
-        -----
-        [* P, d * C] [T] = [S]    * P T    + * div(C * F)  = S
-        [* d, * R  ] [F]   [0]    * div(T) + * R F         = 0
-        """
-        def DO(d):
-            return DiagonalOperator(d, d.shape)
-        system = System.canonical(complex)[:2, :2]
-        # overwrite diagonal; set constraint term
-        system.A[0, 0] = system.A[0, 0] * DO(-fields['constraint'])
-        # field effect can be driven to zero in either equation
-        system.A[0, 1] = system.A[0, 1] * DO(fields['conductance'])
-        system.A[1, 1] = system.A[1, 1] * DO(fields['resistance'])
-        return cls(system, fine, fields)
-
-    @cached_property
-    def coarse(self):
-        """Coarse variant of self"""
-        return type(self).formulate(
-            complex=self.complex.coarse,
-            fine=self,
-            fields={
-                'constraint': self.complex.coarsen[0] * self.fields['constraint'],
-                'conductance': self.complex.coarsen[1] * self.fields['conductance'],
-                'resistance': self.complex.coarsen[1] * self.fields['resistance'],
-            }
-        )
-
-    # NOTE: we restrict the residual, and interpolate error-corrections
-    # FIXME: interpolate, refine, prolongate... need to make up our mind sometime
-    # note that solution is in terms of primal forms
-    # residual of first order equation tends to be dual forms
-    # but residual of normal equations ought to be in primal space too?
-    # also, full mg-cycle coarsens rhs first, which is certainly in dual space
-    # that is, as long as B operator equals identity
-    def restrict(self, y):
-        return BlockArray([
-            self.complex.coarse.hodge[n] * (self.complex.coarsen[n] * (self.complex.hodge[n].I * b))
-            for n, b in zip(self.system.L, y.block)
-        ])
-    def interpolate(self, x):
-        return BlockArray([self.complex.refine[n] * b for n, b in zip(self.system.R, x.block)])
 
 
 def rect(complex, pos, size):
@@ -209,6 +117,7 @@ def test_diffusion(show_plot):
     # so is it not a problem with dominance, or do with still have dominance problems inside the diagonal block that we do jacobi on?
     # also; would the transpose algorithm have better results? should be promising for under-determined system;
     # which is what we are moving towards with the problematic changes
+    # transpose algo seems worse; we have a zero-diagonal for coeffs that go to zero
 
 
     fields = {
@@ -235,3 +144,195 @@ def test_diffusion(show_plot):
     complex.plot_0(x[0])
 
     show_plot()
+
+
+def test_isolator(show_plot):
+    """Test to drive conductance to zero in linear gradient field; cylinder in potential flow if you will
+
+    With minres solver, it is working for both resistance and conductance = 0
+
+    mg is still struggeling however; needs a thorough debugging. prone to kinda-working
+
+    """
+    complex = StencilComplex2D.from_shape((128, 128))
+
+    # source = circle(complex, [8, 8], 4)
+    source = rect(complex, [3, 64], [1, 64])
+    source -= rect(complex, [128-3, 64], [1, 64])
+    # constraint = 1 - source
+
+    complex.plot_0(source)
+    complex.plot_2(complex.topology.averaging_operators_0[2] * source)
+    show_plot()
+
+    quit()
+    # conductance = complex.topology.form(1, init='ones')
+    conductance = complex.topology.form(0, init='zeros') + circle(complex, [64, 64], 32)
+
+    if True:
+        import scipy.ndimage
+        conductance[0] = scipy.ndimage.gaussian_filter(conductance[0], 2)
+        complex.plot_0(conductance)
+        show_plot()
+
+    conductance = complex.topology.averaging_operators_0[1] * conductance
+
+    resistance = complex.topology.form(1, init='ones')
+
+    constraint = complex.topology.form(0, init='zeros')
+
+
+    fields = {
+        'constraint': constraint,
+        'conductance': resistance,
+        'resistance': conductance,
+    }
+
+    system = Diffusion.formulate(complex, fields)
+
+    rhs = BlockArray([-source, complex.topology.form(1, init='zeros')])
+
+    hierarchy = system.hierarchy(levels=5)
+    from time import time
+    t = time()
+    x = system.solve(rhs, x0=rhs * 0, tol=1e-8)
+    # x = system.solve_qmr(rhs, x0=rhs * 0, atol=1e-12)
+    # x = solve_full_cycle(hierarchy, rhs, iterations=2)
+    # x = system.solve(rhs)
+    print()
+    print(time() - t)
+
+    complex.plot_0(x[0])
+    complex.plot_1(x[1])
+
+    show_plot()
+
+    # show surface charges. we may multiply flux with mask, and then take the divergence,
+    # to compute the induced charge density. this may be due to movement of free electrons,
+    # or polarization-displacement currents; any gradient in permitivvity will result in an induced charge
+    complex.plot_0(complex.topology.dual[0](conductance * x[1]) + source)
+
+    show_plot()
+
+
+def test_ray_mapping(show_plot):
+    """Test mapping from domain boundary to object boundary.
+
+    place source distribution on object boundary,
+    matched by source distribution on domain boundary.
+
+    We want to see flow lines connecting both of these, in a uniform manner
+
+    looking pretty good.
+
+    note that setting conductance to zero in interior leads to zero entries in system matrix.
+    seems problematic for jacobi based smoother method; no diagonal to divide by.
+    can we use another smoother? or simply dampen smoothing, with epsilon added to diag?
+
+    periodic bcs really dont make sense here; would like to replace with prescribed-flux bcs.
+    or just isolating ones with sink/source field; need that anyway for surface bcs.
+
+    would this problem lend itself well to MC-integration? not sure noise is very welcome.
+    also not sure about prescribed flux bcs.
+
+    what options do we have for fused stencil? numba.stencil may be alright
+    set cval to inf, and do conditional to replace grads with central value?
+
+    loopy; cupy; numba.cuda.jit?
+
+    """
+    import scipy.ndimage
+
+    complex = StencilComplex2D.from_shape((128, 128))
+
+    # source = circle(complex, [8, 8], 4)
+    source = rect(complex, [1, 64], [1, 64])
+    source += rect(complex, [128-1, 64], [1, 64])
+    source += rect(complex, [64, 1], [64, 1])
+    source += rect(complex, [64, 128-1], [64, 1])
+
+    outer = 1 - rect(complex, [64, 64], [63, 63])
+    source = 1 - rect(complex, [64, 64], [62, 62]) - outer
+    # source = rect(complex)
+
+    # outer = source
+    # constraint = 1 - source
+
+    # conductance = complex.topology.form(1, init='ones')
+    solid = complex.topology.form(0, init='zeros') + circle(complex, [64, 64], 32)
+    solid = rect(complex, [64, 64], [40, 40]) - rect(complex, [64, 44], [20, 20])
+    solid = scipy.ndimage.gaussian_filter(solid, 1)
+
+    # solid = rect(complex, [64, 64], [5, 40])
+
+    boundary = scipy.ndimage.gaussian_filter(np.abs(np.clip(scipy.ndimage.laplace(solid), -1e9, 1e9)), 0.5)
+
+    source = source - boundary / boundary.sum() * source.sum()
+
+
+    solid = complex.coarsen[0] * solid
+    boundary = complex.coarsen[0] * boundary
+    source = complex.coarsen[0] * source
+    outer = complex.coarsen[0] * outer
+
+    complex = complex.coarse
+
+
+    if True:
+        complex.plot_0(outer)
+        complex.plot_0(source)
+        show_plot()
+
+    if False:
+        complex.plot_0(source)
+        complex.plot_2(complex.topology.averaging_operators_0[2] * source)
+        show_plot()
+
+
+
+    # inverse of amount of flow generated for a given potential difference
+    solid_1 = complex.topology.averaging_operators_0[1] * solid
+    resistance = 0.1 + solid_1 * 10
+    resistance = complex.topology.form(1, init='ones')
+
+    # should be a zero-form; literally irrelevant here
+    constraint = complex.topology.form(0, init='zeros')
+    # 1-form. def want this at 1 in this context?
+    conductance = complex.topology.form(1, init='ones')
+    # conductance = 1.0 - solid_1
+
+    # foo zero inside domain, means interior grad of potential does not produce a flux
+    # effective results seems constant potential in interior; any value should do but appears not to matter
+    # going to zero appears to form effective barrier to flow, whic his as intended.
+    # somehow streamlines are screwed up tho
+    foo = 1.001 - solid_1
+    # foo = complex.topology.form(1, init='ones')
+
+    fields = {
+        'constraint': constraint,
+        'conductance': conductance,
+        'resistance': resistance,
+        'foo': foo
+    }
+
+    system = Diffusion.formulate(complex, fields)
+
+    rhs = BlockArray([+source, complex.topology.form(1, init='zeros')])
+
+    hierarchy = system.hierarchy(levels=5)
+    from time import time
+    t = time()
+    from pycomplex.stencil.multigrid import solve_full_cycle
+    x = system.solve(rhs, x0=rhs * 0, tol=1e-12)
+    # x = system.solve_qmr(rhs, x0=rhs * 0, atol=1e-12)
+    # x = solve_full_cycle(hierarchy, rhs, iterations=5)
+    # x = system.solve(rhs)
+    print()
+    print(time() - t)
+
+    complex.plot_0(x[0] * (1-solid))
+    # x[1] = system.complex.topology.primal[0](x[0])
+    complex.plot_1(x[1] * (1-solid))
+
+    show_plot()
+    quit()

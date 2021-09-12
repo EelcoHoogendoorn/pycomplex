@@ -11,7 +11,7 @@ class MultiGridEquation(object):
         raise NotImplementedError
     def smooth(self, x, y):
         raise NotImplementedError
-    def solve(self, y):
+    def solve(self, y, x):
         raise NotImplementedError
     def restrict(self, y):
         raise NotImplementedError
@@ -66,7 +66,7 @@ def v_cycle(hierarchy, y, x=None):
 
     # root level recursion break
     if len(hierarchy) == 1:
-        return fine.solve(y)
+        return fine.solve(y, x)
 
     def coarsesmooth(x):
         fine_res = fine.residual(x, y)
@@ -134,7 +134,7 @@ def solve_full_cycle(hierarchy, y, iterations=2):
     x = fine.interpolate(
         solve_full_cycle(
             hierarchy[:-1],
-            y=fine.restrict(y),     # NOTE: note restricting residual here, but actual right hand side
+            y=fine.restrict(y),     # NOTE: not restricting residual here, but actual right hand side
             iterations=iterations
         )
     )

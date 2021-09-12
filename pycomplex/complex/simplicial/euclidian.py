@@ -99,6 +99,11 @@ class ComplexSimplicialEuclidian(BaseComplexSimplicial):
         from pycomplex.complex.simplicial.spherical import ComplexSpherical
         return ComplexSpherical(vertices=self.vertices, topology=self.topology, weights=self.weights)
 
+    def as_cube(self):
+        assert self.topology.n_dim == 1
+        from pycomplex.complex.cubical import ComplexCubical1
+        return ComplexCubical1(vertices=self.vertices, cubes=self.topology.elements[1])
+
     def as_2(self):
         return ComplexTriangularEuclidian(
             vertices=self.vertices, topology=self.topology.as_2(), weights=self.weights)

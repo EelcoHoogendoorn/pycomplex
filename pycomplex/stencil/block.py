@@ -301,7 +301,7 @@ class BlockOperator(BlockArray):
         # FIXME: signature of matvec requires that we support both shape (N,) and (N, 1)
         return LinearOperator(
             shape=tuple([sum(np.prod(b.shape) for b in s.block) for s in (L, R)]),
-            matvec=lambda x: self.vector_mul(L.from_dense(x)),
-            rmatvec=lambda x: T.vector_mul(R.from_dense(x)),
+            matvec=lambda x: self.vector_mul(L.from_dense(x)).to_dense(),
+            rmatvec=lambda x: T.vector_mul(R.from_dense(x)).to_dense(),
             dtype=np.float32,
         )

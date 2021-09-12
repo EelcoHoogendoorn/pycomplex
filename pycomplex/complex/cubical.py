@@ -300,7 +300,7 @@ class ComplexCubical(BaseComplex):
 
 
 class ComplexCubical1(ComplexCubical):
-    """Specialization for 2d quads"""
+    """Specialization for 1d lines"""
 
     def to_simplicial(self):
         """Convert the cubical complex into a simplicial complex; trivial"""
@@ -366,7 +366,7 @@ class ComplexCubical1Euclidian2(ComplexCubical):
         centroids = edges.mean(axis=1)
         return (normals * centroids).sum() / self.n_dim
 
-    def plot(self, plot_vertices=True, ax=None, **kwargs):
+    def plot(self, plot_vertices=True, plot_mean=False, ax=None, **kwargs):
         import matplotlib.pyplot as plt
         import matplotlib.collections
 
@@ -383,7 +383,8 @@ class ComplexCubical1Euclidian2(ComplexCubical):
         ax.axis('equal')
 
         from matplotlib.collections import PatchCollection
-        ax.add_collection(PatchCollection([plt.Circle(self.vertices.mean(axis=0, keepdims=True).T, 0.1)], alpha=0.95))
+        if plot_mean:
+            ax.add_collection(PatchCollection([plt.Circle(self.vertices.mean(axis=0, keepdims=True).T, 0.1)], alpha=0.95))
 
 
 class ComplexCubical3Euclidian3(ComplexCubical):

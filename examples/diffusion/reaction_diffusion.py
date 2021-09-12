@@ -98,7 +98,7 @@ if __name__ == '__main__':
     from examples.util import save_animation
     import matplotlib.pyplot as plt
 
-    kind = 'sphere'
+    kind = 'cylinder'
     if kind == 'sphere':
         from pycomplex import synthetic
         surface = synthetic.icosphere(refinement=5).copy(radius=50)
@@ -120,16 +120,22 @@ if __name__ == '__main__':
         surface = surface.as_22().as_regular()
         tris = surface.subdivide_simplicial()
 
+    if kind == 'cylinder':
+        from pycomplex import synthetic
+        surface = synthetic.cylinder(20, 12, divisions=6)
+
+
 
     assert surface.topology.is_oriented
     print(surface.topology.n_elements)
-    if False:
+    if True:
         surface.plot(plot_dual=False, plot_vertices=False)
+        plt.show()
 
     path = r'../output/reaction_diffusion_8'
     rd = ReactionDiffusion(surface, key='swimming_medusae')
 
-    for i in save_animation(path, frames=200, overwrite=True):
+    for i in save_animation(path, frames=10, overwrite=True):
 
         rd.simulate(1)
         form = rd.state[1]
@@ -143,5 +149,7 @@ if __name__ == '__main__':
             tris.as_2().plot_primal_0_form(form, plot_contour=False, shading='gouraud')
         if kind == 'letter':
             surface.plot_primal_0_form(form, plot_contour=False, shading='gouraud')
+        if kind == 'cylinder':
+            form.reshape()
 
         plt.axis('off')

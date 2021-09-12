@@ -1,5 +1,8 @@
-import numpy as np
+
 from cached_property import cached_property
+
+import numpy as np
+import scipy.sparse.linalg
 
 from pycomplex.stencil.block import BlockArray
 
@@ -15,31 +18,40 @@ class Equation(object):
     def smooth(self):
         raise NotImplementedError
 
-    def solve(self, y, x=None, iterations=10):
-        if x is None:
-            x = y * 0
-        for i in range(iterations):
-            x = self.smooth(x, y)
-        return x
+    def solve(self, y, x0=None, **kwargs):
+        """Default solver; minres on the normal equation is a pretty good default
+        but this can be overridden for specific problems
+        """
+        return self.solve_minres_normal(y=y, x0=x0, **kwargs)
 
     @cached_property
     def normal(self):
         """Return normal equations corresponding to self"""
         return NormalEquation(self.system.normal())
 
-    def solve_minres_normal(self, y, x0):
-        A = self.normal.system.A.aslinearoperator()
-        b = (self.normal.system.B * y).to_dense()
-        q = A(b)
-        import scipy.sparse.linalg
-        x = scipy.sparse.linalg.minres(A=A, b=b, x0=x0.to_dense())
+    @cached_property
+    def normal_ne(self):
+        """Return normal equations corresponding to self"""
+        return NormalEquation(self.system.normal_ne())
+
+    def solve_minres(self, y, x0=None, **kwargs):
+        A = self.system.A.aslinearoperator()
+        b = (self.system.B * y).to_dense()
+        x, _ = scipy.sparse.linalg.minres(A=A, b=b, x0=x0.to_dense(), **kwargs)
         return x0.from_dense(x)
 
-    def solve_qmr(self, y, x0):
-        A = self.A.aslinearoperator()
+    def solve_minres_normal(self, y, x0=None, **kwargs):
+        """Works both for zero-conduction and zero-resistance zero-order problems"""
+        if x0 is None:
+            x0 = y * 0
+        return self.normal.solve_minres(y, x0, **kwargs)
+
+    def solve_qmr(self, y, x0, **kwargs):
+        """Does not seem to work at all?
+        even for uniform coefficient problem returns with 0 solution immediately"""
+        A = self.system.A.aslinearoperator()
         b = (self.system.B * y).to_dense()
-        import scipy.sparse.linalg
-        x = scipy.sparse.linalg.qmr(A=A, b=b, x0=x0.to_dense())
+        x, _ = scipy.sparse.linalg.qmr(A=A, b=b, x0=x0.to_dense(), **kwargs)
         return x0.from_dense(x)
 
 
@@ -60,6 +72,17 @@ class NormalSmoothEquation(Equation):
         requiring multiple evaluations of the operator with a checkered pattern
         """
         return self.normal.system.A.diagonal().invert()
+
+    @cached_property
+    def inverse_normal_ne_diagonal(self) -> BlockArray:
+        """Inverse diagonal of the normal equations; needed for jacobi iteration
+
+        Notes
+        -----
+        This is somewhat expensive to compute for a stencil operator,
+        requiring multiple evaluations of the operator with a checkered pattern
+        """
+        return (self.normal_ne.system.A.diagonal() + 1e-16).invert()
 
 
     @cached_property
@@ -90,8 +113,8 @@ class NormalSmoothEquation(Equation):
         # FIXME: loop fusion on expressions like this would also be great from memory bandwidth perspective
         return x - self.inverse_normal_diagonal * residual * (relaxation / 2)
 
-    def block_jacobi_sg(self, x, y):
-        """Perform jacobi iteration in blockwise fashion
+    def NR_BLOCK_GS(self, x, y):
+        """Perform jacobi iteration in blockwise fashion on normal equations
 
         We update unknowns in x one at a time
 
@@ -103,13 +126,23 @@ class NormalSmoothEquation(Equation):
         # FIXME: `by` needs to be computed only once; can lift it out of this function
         x = x * 1
         by = self.normal.system.B * y
-        for ri, l in enumerate(self.system.L):
+        for ri, r in enumerate(self.system.R):
             # compute residual of normal equation for a given block row
-            residual = sum(e * xc for e, xc in zip(self.normal.system.A[ri, :], x)) - by[ri]
+            residual = sum(e * xc for e, xc in zip(self.normal.system.A[ri, :], x.block)) - by[ri]
             # residual = self.normal.system.A.__getslice__(slice(ri, ri + 1)) * x - by[ri]
             x[ri] = x[ri] - self.inverse_normal_diagonal[ri] * residual * (1/2)
         return x
 
+    def NE_BLOCK_GS(self, x, y):
+        """Relax on a row-by-row basis wrt the original system"""
+        by = self.system.B * y
+        DI = self.inverse_normal_ne_diagonal
+        x = x * 1
+        for ri, l in enumerate(self.system.L):
+            residual = sum(a * xc for a, xc in zip(self.system.A[ri, :], x.block)) - by[ri]
+            for ci, xc in enumerate(x.block):
+                xc[:] += self.system.A[ri, ci].T * (DI[ri] * residual * (1 / 2))
+        return x
 
     def overrelax(self, x: BlockArray, y: BlockArray, knots):
         """overrelax, forcing the eigencomponent to zero at the specified overrelaxation knots
@@ -122,11 +155,11 @@ class NormalSmoothEquation(Equation):
             for interpretation, see self.descent
         """
         for s in knots:
-            x = self.block_jacobi_sg(x, y)
-            # x = self.jacobi(x, y, s)
+            # x = self.NR_BLOCK_GS(x, y)
+            x = self.jacobi(x, y, s)
         return x
 
-    def smooth(self, x: BlockArray, y: BlockArray, base=0.6):
+    def smooth(self, x: BlockArray, y: BlockArray, base=0.5):
         """Basic smoother; inspired by time integration of heat diffusion equation
 
         Notes
@@ -140,4 +173,7 @@ class NormalSmoothEquation(Equation):
 
 
 class NormalEquation(Equation):
-    pass
+    def solve(self, y, x0=None, **kwargs):
+        if x0 is None:
+            x0 = y * 0
+        return self.solve_minres(y=y, x0=x0, **kwargs)

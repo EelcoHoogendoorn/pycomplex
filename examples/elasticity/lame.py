@@ -175,6 +175,14 @@ if restriction/prolongation is based on smoothing on fine level, it should compe
 also, integration coarse correction in a more nuanced way than just subtracting;
 treating it as a direction on the fine grid and rescaling it there for optimum effect should help;
 maybe it would even be enough to solve the topology change problem? doubtfull of that
+
+
+remember; original motivation for all of this was the ability to solver elastic equation on a sphere
+how far have we come? ignoring multigrid, we are done; can be solved using minres on first order system
+just need to add operators to boundify all dual n-forms
+
+if seeking mg solver, transfer operators for all n-forms on triangle meshes are needed
+or can we just use direct parent-child relations, and let smoother do the rest?
 """
 import matplotlib.pyplot as plt
 

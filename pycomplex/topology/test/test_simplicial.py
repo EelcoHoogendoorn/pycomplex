@@ -24,12 +24,13 @@ def test_simplex_parity():
 
 def test_simplex():
     """See if we can construct simplicial topologies of various dimensions"""
-    for n in [1, 2, 3, 4, 5]:
+    for n in [1, 2, 3, 4, 5, 6, 7, 8]:
         print()
         print(n)
         print()
         simplex = synthetic.n_simplex(n)
-        basic_test(simplex.topology)
+        # basic_test(simplex.topology)
+        print(simplex.topology.n_elements)
 
 
 def test_triangular():

@@ -456,10 +456,10 @@ class TopologyCubical(PrimalTopology):
             topology of dimension self.n_dim + other.n_dim
         """
 
-        if not np.array_equiv(self.elements[0], np.arange(self.n_elements[0], dtype=index_dtype)):
-            raise ValueError('This breaks the assumptions made in this function')
-        if not np.array_equiv(other.elements[0], np.arange(other.n_elements[0], dtype=index_dtype)):
-            raise ValueError('This breaks the assumptions made in this function')
+        # if not np.array_equiv(self.elements[0], np.arange(self.n_elements[0], dtype=index_dtype)):
+        #     raise ValueError('This breaks the assumptions made in this function')
+        # if not np.array_equiv(other.elements[0], np.arange(other.n_elements[0], dtype=index_dtype)):
+        #     raise ValueError('This breaks the assumptions made in this function')
 
         self_cubes = self.elements[-1]
         other_cubes = other.elements[-1]

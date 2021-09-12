@@ -423,7 +423,22 @@ class ComplexRegular4(ComplexRegularMixin, ComplexCubical4Euclidian4):
 
 
 class ComplexCubicalToroidal(ComplexCubical, ComplexRegularMixin):
-    """Cubical complex with a toroidal topology, and corresponding metric"""
+    """Cubical complex with a hyper-toroidal closed topology, and corresponding metric
+
+    This corresponds to the default stencil complex topology
+    """
+    # FIXME: about time to give cubical complexes their own submodule too?
+    def __init__(self, radii):
+        self.radii = radii
+
+    def boundary(self):
+        return None
+
+    def primal_position(self):
+        """"""
+
+    def box(self):
+        """Box has special interpretation in toroidal case"""
 
     @cached_property
     def pick_primal_precomp(self):

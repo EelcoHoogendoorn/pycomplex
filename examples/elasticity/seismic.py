@@ -113,6 +113,7 @@ class Elastic(SymmetricEquation):
         # more interesting still; need a mass term for dual boundary unknowns too. any ideas here?
         A = mi * Pl * PDl * l * Dl * mi + \
             mi * PDm * Dr * DPr * r * Pr * PDm * mi
+        # A = (A + A.T) * 0.5   # some numerical asymmetry during construction; does not seem to make a different to solver tho
 
         if False:
             # experimental gravity wave term; not a success
@@ -289,7 +290,7 @@ if __name__ == '__main__':
 
     # set up scenario
     pp = complex.primal_position[0]
-    air_density = 1e-4      # mode calculation gets numerical problems with lower densities. 1e-4 is feasible with current configuration
+    air_density = 1e-3      # mode calculation gets numerical problems with lower densities. 1e-4 is feasible with current configuration
     # FIXME: investigate how much the choice of sigma, or boundary layer really matters. does it influence the spectrum, for instance?
     # sigma 0.5->0.2 messes badly with the rotational symmetry of our circle
     # sigma 0.5 -> 1.0 takes rotation mode from 37 to 29;
@@ -375,16 +376,16 @@ if __name__ == '__main__':
     output = 'modes'
     if output == 'modes':
         # output eigenmodes
-        path = r'../output/seismic_modes_0'
+        path = r'../output/seismic_modes_1'
         from examples.util import save_animation
-        from time import clock
-        t = clock()
+        from time import time
+        t = time()
         # FIXME: using preconditioning influences spectrum? could be an error of lobpcg
         # however, modes without preconditioning are completely useless, so hard to say
         # for simple isotropic square domain, pattern persists: adding amg slows down by factor two,
         # but yields purer modes, despite being forced to lower tolerance
-        V, v = equation.eigen_basis(K=100, preconditioner='amg', tol=1e-6)
-        print('eigen solve time:', clock() - t)
+        V, v = equation.eigen_basis(K=50, preconditioner='amg', tol=1e-12)
+        print('eigen solve time:', time() - t)
         print(v)
         # quit()
         for i in save_animation(path, frames=len(v), overwrite=True):

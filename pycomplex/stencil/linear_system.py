@@ -111,6 +111,7 @@ class System(object):
 
         NE = complex.n_elements
         A = BlockOperator.zeros(NE, NE)
+        # FIXME: is diagonal of hodges a better default? does it make residual-vs-rhs mg logic more consistent?
         B = BlockOperator.identity(NE)
 
         PD = complex.hodge
@@ -166,7 +167,7 @@ class System(object):
             L=self.R,   # NOTE: this is the crux of forming normal equations
         )
 
-    def symmetric_substitute(self):
+    def normal_ne(self):
         """Transform to symmetric problem by substituting x = A.T * x'
 
         After solving these equations, the solution to the original problem
@@ -178,8 +179,6 @@ class System(object):
 
         Notes
         -----
-        Is there a commonly accepted term for this kind of substitution? Not sure.
-
         This may have an advantage over normal equations,
         if a system has more unknowns than equations; which is basically never?
         However, there might be some conditioning aspects too that id like to investigate.
@@ -199,4 +198,17 @@ class System(object):
     @staticmethod
     def laplace_beltrami(n: int):
         raise NotImplementedError
+
+    def restrict_dual(self, y):
+        return BlockArray([
+            self.complex.coarse.hodge[n] * (self.complex.coarsen[n] * (self.complex.hodge[n].I * b))
+            for n, b in zip(self.L, y.block)
+        ], ndim=1)
+
+    def restrict_primal(self, y):
+        return BlockArray([
+            self.complex.coarsen[n] * b
+            for n, b in zip(self.R, y.block)
+        ], ndim=1)
+
 
