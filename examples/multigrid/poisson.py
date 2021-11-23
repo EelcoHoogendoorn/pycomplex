@@ -381,19 +381,19 @@ if __name__ == '__main__':
     print('mg full time: ', clock() - t)
     print('mg full resnorm', np.linalg.norm(equations[-1].residual(x, p0)))
 
-    from examples.multigrid.krylov import krylov_cycle
-    t = clock()
-    x = krylov_cycle(equations, p0)
-    print('krylov full time: ', clock() - t)
-    print('krylov full resnorm', np.linalg.norm(equations[-1].residual(x, p0)))
+    # from examples.multigrid.krylov import krylov_cycle
+    # t = clock()
+    # x = krylov_cycle(equations, p0)
+    # print('krylov full time: ', clock() - t)
+    # print('krylov full resnorm', np.linalg.norm(equations[-1].residual(x, p0)))
 
 
-    # warm up amg
-    x_minres = equations[-1].solve_minres(p0, preconditioner='amg')
-    t = clock()
-    x_minres = equations[-1].solve_minres(p0, preconditioner='amg')
-    print('minres+amg time: ', clock() - t)
-    print('minres+amg resnorm', np.linalg.norm(equations[-1].residual(x_minres, p0)))
+    # # warm up amg
+    # x_minres = equations[-1].solve_minres(p0, preconditioner='amg')
+    # t = clock()
+    # x_minres = equations[-1].solve_minres(p0, preconditioner='amg')
+    # print('minres+amg time: ', clock() - t)
+    # print('minres+amg resnorm', np.linalg.norm(equations[-1].residual(x_minres, p0)))
 
     # warm up mg
     x_minres = equations[-1].solve_minres(p0, preconditioner=multigrid.as_preconditioner(equations[1:]))
@@ -403,18 +403,18 @@ if __name__ == '__main__':
     print('minres+mg time: ', clock() - t)
     print('minres+mg resnorm', np.linalg.norm(equations[-1].residual(x_minres, p0)))
 
-    t = clock()
-    x_amg = equations[-1].solve_amg(p0)
-    print('amg time: ', clock() - t)
-    print('amg resnorm', np.linalg.norm(equations[-1].residual(x_amg, p0)))
+    # t = clock()
+    # x_amg = equations[-1].solve_amg(p0)
+    # print('amg time: ', clock() - t)
+    # print('amg resnorm', np.linalg.norm(equations[-1].residual(x_amg, p0)))
 
     t = clock()
     x_eigen = equations[-1].eigen_basis(K=100, preconditioner=None, tol=1e-6)
     print('eigen time: ', clock() - t)
 
-    t = clock()
-    x_eigen = equations[-1].eigen_basis(K=100, preconditioner='amg', tol=1e-6)
-    print('eigen amg time: ', clock() - t)
+    # t = clock()
+    # x_eigen = equations[-1].eigen_basis(K=100, preconditioner='amg', tol=1e-6)
+    # print('eigen amg time: ', clock() - t)
 
     t = clock()
     x_eigen = equations[-1].eigen_basis(K=100, preconditioner=multigrid.as_preconditioner(equations[1:]), tol=1e-6)

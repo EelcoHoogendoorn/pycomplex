@@ -43,10 +43,10 @@ Possible novelties
 See also
 --------
 The discrete exterior calculus components of this package provide a lot of overlapping functionality with <a href="https://github.com/hirani/pydec">pydec</a>,
-although the vectorized implementation provided here should scale a lot better
+although the vectorized implementations provided here will scale a lot better
 
 Many of the algorithms implemented here are generalized variants of those initially implemented in <a href="https://github.com/EelcoHoogendoorn/Escheresque">Escheresque</a>,
-which will become the first real use-cases of this package.
+which was intended to become the first real use-cases of this package.
 
 Todo
 ----
@@ -74,4 +74,46 @@ Testing
 To invoke the tests from the command line, run pytest --show_plot=False
 Many tests have a visual component that will be suppressed by using this flag
 
+License
+-------
+The intent of the licenses offered is to make this work easily accessible for all uses, while incentivising contributions to it.
 
+- CC BY-NC-SA 4.0
+OSL3/ ASL
+academic public license
+- AGPLv3
+- Proprietary
+
+For educational and research use, the CC BY-NC-SA 4.0 license is probably most relevant.
+All educational and research use is considered non-commercial use for the purposes of this license,
+so it works like any open-access paper; you are free to use it, with attribution.
+With one exception; this is a share-alike license, and it obliges you to distribute your code.
+Of course since you are a scientist and strive to do work that is reproducible in a meaningfull sense of the word,
+you do always publish your code.
+But as for those other wannabe-scientists out there who feel putting their code out is too much trouble;
+sorry, you cant use this code either.
+
+Proprietary licensing can be arranged. Considering that this package is only of modest size,
+there is only so much stopping you from absorbing the ideas contained therein,
+and making a good faith effort at writing your own independent implementation thereof.
+However, reimbursing me for my spent is probably a more efficient solution.
+
+An AGPL license is also offered.
+Note, that is AGPL, not LGPL. If you use this software, id like you to contribute back in some way or another,
+and technically obsolete details like `linking` or `distributing` have no bearing on that logic as far as I am concerned.
+
+Note that these considerations pertain to the `pycomplex` python package.
+All code in the sister-module `examples` is free-as-in-beer.
+
+
+Contributing
+------------
+What I particularly hope to see is people implementing research in the field of computational geometry or computational physics using this package.
+This can be in the form of you adding this package as a dependency to your project,
+but from the perspective of this project, adding a submodule to the examples module would be even better.
+Such contributions would be happily merged into the `examples` module, and I feel it is natural you should retain authorship thereof.
+
+When it comes to bugfixes or minor contributions to the core of the package,
+I would be happy to consider them, but under CLA such as to not complicate my creative control of this project.
+In the unlikely event anyone is interested in making major additions relative to the existing project,
+it would be best to discuss that in advance and work out something mutually agreeable.

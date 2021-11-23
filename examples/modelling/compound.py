@@ -1,11 +1,15 @@
-"""Utilities for compound planetary gear sets"""
+"""
+Utilities for analyzing and generating compound planetary gear sets
+
+For entrypoints into this code, see test_compound.py
+"""
 
 from functools import lru_cache
 
 import numpy as np
 from matplotlib import pyplot as plt
 
-from examples.subdivision.gear import gear, ring, sinusoid, rotation, trochoid_part, extrude_twist
+from examples.modelling.gear import gear, ring, sinusoid, rotation, trochoid_part, extrude_twist
 
 
 def check_compound_compat(R, P, S, n):

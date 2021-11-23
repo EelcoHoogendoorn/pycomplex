@@ -1,4 +1,4 @@
-from examples.subdivision.compound import *
+from examples.modelling.compound import *
 
 
 def test_solve_compound_symbolic():

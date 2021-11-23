@@ -1,5 +1,7 @@
-from examples.subdivision.gear import *
-
+"""
+Some hacky scripts to generate 'Progressive Cavity Pump' geometries
+"""
+from examples.modelling.gear import *
 
 # extrude_twist(ring(epitrochoid(15/2, 1, 0)), 60, 0, 1).save_STL('cylinder.stl')
 # quit()

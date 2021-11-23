@@ -1,3 +1,7 @@
+"""
+Computational tool to perform static roll stability analysis of boat hulls
+"""
+
 import numpy as np
 
 
@@ -13,7 +17,7 @@ def stability(mesh, displacement, cog):
         geometry to be analyzed.
         it should represent the displaced volume of water; so should not include modelled internal volumes
     displacement : float
-        total displacement; should be some fraction of the volume of the mesh
+        total displaced volume; should be some fraction of the volume of the mesh
     cog : array_like, [3], float
         center of gravity, relative to coordinate system of input `mesh`
 
@@ -32,11 +36,30 @@ def stability(mesh, displacement, cog):
 
     def solve_depth(mesh, volume: float) -> float:
         def target(d: float) -> float:
+            # clip the translated mesh with the XY plane, and compute the resulting volume
             return mesh.translate((0, 0, -d)).clip((0, 0, 0), (0, 0, 1.0)).as_3().volume() - volume
         import scipy.optimize
         return scipy.optimize.bisect(target, *mesh.box[:, -1])
 
     def stability(mesh, volume: float, r: np.array) -> (float, float):
+        """
+
+        Parameters
+        ----------
+        mesh : ComplexTriangularEuclidian3
+        volume : float
+            displaced volume
+        r : np.ndarray, [3, 3]
+            rotation matrix describing orientation of the hull
+
+        Returns
+        -------
+        depth : float
+            depth to which the hull will sink in the given orientation
+        cob : float
+            center of bouyancy
+            center of mass of the displaced volume
+        """
         mesh = mesh.transform(r)
         depth = solve_depth(mesh, volume)
         cob = mesh.translate((0, 0, -depth)).clip((0, 0, 0), (0, 0, 1.0)).as_3().center_of_mass()

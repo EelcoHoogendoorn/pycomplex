@@ -1,4 +1,11 @@
-"""Demonstrate 2d triangle surface embedded in 3-space with creased edges"""
+"""Demonstrate 2d triangle surface embedded in 3-space with some creased edges
+
+Note that the concept of 'creases' has been generalized in this implementation to any dimension
+
+That is, any n-element marked as a crease, will constrain any subdivision elements
+generated that topologically coincide with it, to take its positional weights only
+from the crease element, and not from any other incident n-element
+"""
 
 import numpy as np
 np.random.seed(21)

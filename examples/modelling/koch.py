@@ -1,11 +1,15 @@
+"""
+Script to generate a 3d printable lampshade based on a twisted extrusion of a koch snowflake
+"""
+
 from pycomplex.synthetic import n_simplex, n_cube_grid
 import matplotlib.pyplot as plt
 import numpy as np
 from pycomplex.complex.simplicial.euclidian import ComplexSimplicialEuclidian
 
-cube = n_cube_grid((1, 1, 1))
-cube.boundary.as_23().subdivide_simplicial().as_3().save_STL('cube.stl')
-quit()
+# cube = n_cube_grid((1, 1, 1))
+# cube.boundary.as_23().subdivide_simplicial().as_3().save_STL('cube.stl')
+# quit()
 def subdivide_koch(coarse, f):
     assert coarse.topology.is_oriented
     assert coarse.topology.is_manifold

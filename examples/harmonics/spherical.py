@@ -16,7 +16,7 @@ if __name__ == '__main__':
 
     from time import clock
     t = clock()
-    v = get_harmonics_0(sphere, amg=True, K=150, tol=1e-6)
+    v = get_harmonics_0(sphere, amg=False, K=150, tol=1e-6)
     print(clock() - t)
     # plot a spherical harmonic
     sphere.as_euclidian().plot_primal_0_form(v[:, -1])

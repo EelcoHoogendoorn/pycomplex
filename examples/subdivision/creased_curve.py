@@ -1,4 +1,4 @@
-"""Demonstrate 1d curve embedded in 2-space with a crease point"""
+"""Demonstrate 1d curve embedded in 2-space with a single crease point"""
 
 from pycomplex import synthetic
 
@@ -8,6 +8,7 @@ root = curve
 # make one vertex a crease vertex
 crease = curve.topology.chain(0)
 crease[0] = 1
+# accumulate a total subdivision operator through all subdivision steps
 total_operator = 1
 for i in range(5):
     operator = curve.subdivide_operator(smooth=True, creases={0: crease})
@@ -18,7 +19,8 @@ for i in range(5):
 
 curve.as_12().plot(plot_vertices=False)
 # overwrite vertices with operator based ones to demonstrate equivalence
-curve = curve.copy(vertices = total_operator * root.vertices)
+# note that this is useful in the context of realtime editing of subdivision surfaces
+curve = curve.copy(vertices=total_operator * root.vertices)
 curve.as_12().plot(plot_vertices=False)
 import matplotlib.pyplot as plt
 plt.show()

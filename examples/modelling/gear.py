@@ -1,6 +1,5 @@
 """
-Utilities for generating gear shapes and manipulating them
-
+Hacky utilities for generating gear shapes and manipulating them
 
 
 https://core.ac.uk/download/pdf/74220401.pdf
@@ -441,7 +440,7 @@ def generate_gcode(profile, height, layer_height, filament_factor=0.05, twist=1)
         if z > height:
             break
 
-    with open('foo.gcode', 'w') as fh:
+    with open('../subdivision/foo.gcode', 'w') as fh:
         fh.writelines(gcode)
 
 
