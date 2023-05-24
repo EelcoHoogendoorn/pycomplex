@@ -93,7 +93,8 @@ class BaseTopology(object):
     #     print()
 
     def label_connections(self):
-        """Label all n-elements with int denoting the connected region they are part of
+        """Label all n-elements with a unique integer,
+        denoting the connected region they are part of
 
         Returns
         -------
@@ -285,6 +286,14 @@ class BaseTopology(object):
 
     @cached_property
     def matrices(self):
+        """
+
+        Returns
+        -------
+        List[Sparse], len(ndim)
+            Sequence of signed incidence matrices defining n-elements in terms of their indicence
+            with n-1 boundary elements
+        """
         raise NotImplementedError
 
     def __getitem__(self, item):

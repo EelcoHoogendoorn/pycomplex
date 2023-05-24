@@ -51,6 +51,7 @@ def test_sphere(show_plot):
         sphere = sphere.subdivide_loop(smooth=True)
 
     sphere = sphere.transform(linalg.orthonormalize(np.random.randn(3, 3)))
+    # clip of the top of the sphere
     sphere = sphere.as_3().clip((0, 0, -0.5), (0, 0, 1), clip=True)
     # sphere = sphere.transform(linalg.orthonormalize(np.random.randn(3, 3)))
 

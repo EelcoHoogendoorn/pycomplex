@@ -429,7 +429,7 @@ class ComplexTriangularEuclidian(ComplexSimplicialEuclidian):
         NT[:, 2, 1] = e_lookup(1)
         NT[:, 2, 2] = v_lookup(1)
 
-        cut = ComplexTriangularEuclidian(
+        cut = type(self)(
             vertices=np.concatenate((self.vertices, new_vertices), axis=0),
             triangles=np.concatenate((TV[~tri_cut], NT.reshape(-1, 3)), axis=0)
         )
@@ -489,7 +489,7 @@ class ComplexTriangularEuclidian2(ComplexTriangularEuclidian):
         else:
             ax.tripcolor(triang, c0, cmap=cmap, **kwargs)
 
-        ax.axis('equal')
+        # ax.axis('equal')
 
     def plot_primal_2_form(self, p2, ax=None, cmap='jet'):
         """plot a primal 2-form
@@ -511,7 +511,7 @@ class ComplexTriangularEuclidian2(ComplexTriangularEuclidian):
         facecolors = ScalarMappable(cmap=cmap).to_rgba(p2)
         ax.add_collection(PolyCollection(self.vertices[self.topology.triangles], facecolors=facecolors, edgecolors=None))
 
-        ax.axis('equal')
+        # ax.axis('equal')
 
 
 class ComplexTriangularEuclidian3(ComplexTriangularEuclidian):

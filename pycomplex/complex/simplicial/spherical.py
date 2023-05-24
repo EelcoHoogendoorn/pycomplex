@@ -133,7 +133,7 @@ class ComplexSpherical(BaseComplexSimplicial):
 
     @cached_property
     def primal_position(self):
-        """positions of all primal elements
+        """Positions of all primal elements
 
         Returns
         -------

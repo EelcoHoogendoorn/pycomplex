@@ -84,7 +84,7 @@ class BaseComplex(object):
         if boundary is None:
             return None
         else:
-            # FIXME: type self should be boundary_type
+            # FIXME: type self should be boundary_type; make that a seperate problem
             return type(self)(vertices=self.vertices[boundary.parent_idx[0]], topology=boundary)
 
     def fix_orientation(self):
