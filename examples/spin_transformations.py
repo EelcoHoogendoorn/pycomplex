@@ -1,7 +1,11 @@
 """implementation of keenan cranes spin transforms paper,
 using geometric algebra
 
+https://www.cs.cmu.edu/~kmcrane/Projects/SpinTransformations/paper.pdf
+https://github.com/syedalamabbas/SpinXForm/tree/master/SpinXForm
+
 Some bugs still; some quite evident shear components present atm
+I dont think the eigen solver is converging
 """
 import numpy as np
 
