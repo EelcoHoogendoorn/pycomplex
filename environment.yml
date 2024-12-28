@@ -6,10 +6,11 @@ dependencies:
   - python # >= 3.8 got to relax for pydy
 #  - python.app    # [osx]
   - numpy
-  - scipy
+  - scipy >= 1.9
   - numpy-indexed
   - matplotlib
   - pycosat
+  - sympy
   - cached-property
   - pytest
   - fastcache

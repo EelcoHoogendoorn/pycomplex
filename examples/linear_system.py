@@ -1,6 +1,8 @@
-
-# -*- coding: utf-8 -*-
-
+"""
+Seemingly aborted attempt at implementing a more general linear system object,
+to provide an interface between the linear operators provided by the Complex object,
+and the methods that tend to be useful to map those to physical modelling problems
+"""
 import numpy as np
 import scipy.sparse.linalg
 from pycomplex.topology import sign_dtype, index_dtype
@@ -190,14 +192,14 @@ class BaseSystem(object):
     # perhaps this class should just be a matrix assembly helper
     def allocate_x(self):
         N = self.complex.topology.n_dim
-        b = np.zeros(len(self.R), np.object)
+        b = np.zeros(len(self.R), object)
         for i, k in enumerate(self.R):
             b[i] = self.complex.topology.dual.form(n=N-k)
         return block.DenseBlockArray(b)
 
     def allocate_y(self):
         N = self.complex.topology.n_dim
-        b = np.zeros(len(self.L), np.object)
+        b = np.zeros(len(self.L), object)
         for i, k in enumerate(self.L):
             b[i] = self.complex.topology.dual.form(n=N-k)
         return block.DenseBlockArray(b)
@@ -545,7 +547,7 @@ class System(BaseSystem):
         # FIXME: current implementation ignores / assumes zero RHS!
         n_unknowns = len(self.R)
         n_retained = len(cols_retained)
-        elim = np.zeros((n_unknowns, n_retained), np.object)
+        elim = np.zeros((n_unknowns, n_retained), object)
 
         import pycomplex.sparse
         def get_diag(i, j):

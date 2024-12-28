@@ -159,7 +159,7 @@ class TopologySimplicial(PrimalTopology):
         n_simplices, n_pts = EN0.shape
         n_dim = n_pts - 1
 
-        E = np.zeros((n_pts), dtype=np.object)
+        E = np.zeros((n_pts), dtype=object)
         E[...] = None
         E[n_dim] = EN0
         O = np.zeros(n_dim, dtype=object)

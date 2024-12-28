@@ -90,7 +90,7 @@ class PrimalTopology(BaseTopology):
     @cached_property
     def incidence(self):
         """Incidence relations between topological elements"""
-        I = np.zeros((self.n_dim + 1, self.n_dim + 1), dtype=np.object)
+        I = np.zeros((self.n_dim + 1, self.n_dim + 1), dtype=object)
         for i, e in enumerate(self.elements):
             I[i, 0] = e
         for i, b in enumerate(self._boundary):

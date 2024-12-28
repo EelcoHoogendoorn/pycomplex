@@ -7,16 +7,21 @@ from examples.modelling.gear import *
 # quit()
 
 # fraction of epicyloid vs hypocycloid
-f = 0.4
-N = 3       # number of inner gear teeth
-target_radius = 14
+f = 0.999
+N = 5       # number of inner gear teeth
+if False:
+    M = 6
+    ratio = (N * M) / (N - M)
+    print(ratio)
+    quit()
+target_radius = 8
 L = 50
 stages = 2
 # printer line thickness; or conservative estimate thereof
 # should also contain layer thickness factor? thick lines key together more at overhangs;
 # want controllable keying. that said, in areas without overhang, logic is different
 # controllable roughness regardless of overhang would be great.
-offset = 0.3
+offset = 0.0
 
 rotor = gear(N, N, f, res=295)
 stator = gear(N+1, N+1, f, res=295)
@@ -27,9 +32,6 @@ stator = gear(N+1, N+1, f, res=295)
 # offsets that dont violate curvature still viable tho
 # but shrinking offsets increase discontinuity
 # whereas growing leads to poorer pressure angles and more unbalanced curvature
-# b = -0.8
-# rotor = buffer(rotor, b)
-# stator = buffer(stator, b)
 #
 # b = 2.3
 # rotor = buffer(rotor, b)
@@ -49,8 +51,13 @@ stator = gear(N+1, N+1, f, res=295)
 # scaling that achieves the target radius
 max_radius = np.linalg.norm(stator.vertices, axis=1).max()
 scale = target_radius / max_radius
-rotor = rotor.transform(np.eye(2) * scale)
-stator = stator.transform(np.eye(2) * scale)
+rotor = rotor.scale(scale)
+stator = stator.scale(scale)
+
+# FIXME: for some stupid reason this buffer does not appear to correspond to absolute coords
+b = -1
+rotor = buffer(rotor, b)
+stator = buffer(stator, b)
 
 
 
@@ -72,7 +79,13 @@ if True:
     fig, ax = plt.subplots(1)
     rotor.translate([translation, 0]).plot(ax=ax, plot_vertices=False)
     stator.plot(ax=ax, plot_vertices=False)
+
+    circle = ring(sinusoid(1, amplitude=0, pitch_radius=0.5))
+    circle.scale(2).plot(ax=ax, plot_vertices=False)
+    circle.scale(5).translate([translation, 0]).plot(ax=ax, plot_vertices=False)
+    circle.scale(6).translate([translation, 0]).plot(ax=ax, plot_vertices=False)
     plt.show()
+    quit()
 
 
 

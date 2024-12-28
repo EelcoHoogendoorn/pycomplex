@@ -167,8 +167,77 @@ def solve_compound_symbolic():
     # d-term is of interest
     r = {k: str(v.args[0][-1]) for k, v in r.items()}
 
-    print(r)
+    for k, v in r.items():
+        print(k, v)
     return r
+
+
+def solve_4point_symbolic(Dr, P):
+    """solve gear ratio of 4-point roller bearing transmission
+    Parameters
+    ----------
+    Dr : diameter ratio, rolling circle diameter / ball diameter
+    P : points, ndarray, [2, 2, 2]
+        first axis is inner/outer
+        second axis is bottom/top
+        third axis is x/y, or radial/axial
+    """
+    from sympy import symbols, linsolve
+    i, o = 0, 1
+    b, t = 0, 1
+    x, y = 0, 1
+
+    r = [symbols('rib, rit'), symbols('rob, rot')]
+    p = symbols('px, py')   # negative x is inner; negative y is bottom
+    c = symbols('c')
+    d = symbols('d')
+    # C = symbols('C')
+
+    # eqs = [
+    #     (Dr + P[i, b, x]) * r[i][b] - Dr*c + P[i, b, x] * p[x] + P[i, b, y] * p[y],
+    #     (Dr + P[i, t, x]) * r[i][t] - Dr*c + P[i, t, x] * p[x] + P[i, t, y] * p[y],
+    #     (Dr + P[o, b, x]) * r[o][b] - Dr*c + P[o, b, x] * p[x] + P[o, b, y] * p[y],
+    #     (Dr + P[o, t, x]) * r[o][t] - Dr*c + P[o, t, x] * p[x] + P[o, t, y] * p[y],
+    # ]
+    eqs = [
+        (Dr + P[s, h, x]) * -r[s][h] + Dr * c + P[s, h, x] * p[x] + P[s, h, y] * p[y]
+        for s in (i, o)
+        for h in (t, b)
+    ]
+
+    # first item is the 'ground'; what the motor stator is connected to, mechanically and electrically
+    # second item is what the motor rotor is connected to
+    # third item is what we consider to be the mechanical output, relative to the ground
+    configs = [
+        # [r, s, r]
+        # primary config; drive inner, outer as outputs; wolfram, high ratio
+        [r[o][b], r[i][b], r[o][t]],
+        # static double ring; eviolo-like, low ratio
+        [r[i][b], r[o][b], r[o][t]],
+    ]
+    # generate bcs
+    conditions = {
+        str(con): [
+            # fix ground
+            con[0] - 0,
+            # apply one unit of rotation across motor rotor/stator
+            con[1] - con[0] - 1,
+            # define mechanical output
+            con[2] - con[0] - d,
+            # fuse inner ring; FIXME: add this to config?
+            r[i][t] - r[i][b]
+        ]
+        for con in configs
+    }
+    res = {
+        # k: linsolve(eqs + bcs)
+        k: linsolve(eqs + bcs, tuple(p) + (d, c) + r[0] + r[1])
+        for k, bcs in conditions.items()
+    }
+    # extract and label relevant info
+    res = {k: {kk: float(vv) for kk, vv in zip('px py r'.split(), v.args[0][:3])} for k, v in res.items()}
+
+    return res
 
 
 def eval_compound_symbolic(G1, G2):
@@ -186,7 +255,7 @@ def eval_compound_symbolic(G1, G2):
     return R
 
 
-def brute_compound_gear(target_ratio=50):
+def brute_compound_gear(target_ratio=10):
     S, P = np.meshgrid(np.arange(5, 20), np.arange(5, 20))
     S, P = S.flatten(), P.flatten()
     R = S + P * 2
@@ -226,7 +295,8 @@ def brute_compound_gear(target_ratio=50):
         # calc ratios with r1 locked and s1 driven
         s1, p1, r1 = s[:, None], p[:, None], r[:, None]
         s2, p2, r2 = s[None, :], p[None, :], r[None, :]
-        q = eval_compound_symbolic((s1, p1, r1), (s2, p2, r2))['[r1, s1, r2]']
+        # q = eval_compound_symbolic((s1, p1, r1), (s2, p2, r2))['[r1, s1, r2]']
+        q = eval_compound_symbolic((s1, p1, r1), (s2, p2, r2))['[s1, r1, s2]']
         # q = ((r2 - ((r1 / p1) * p2)) / r2) * (s1 / (r1 + s1))
         q = 1 / q
         return np.where(q > 1e9, 0, q)
@@ -261,9 +331,11 @@ def brute_compound_gear(target_ratio=50):
         # score = -ratios * torque # power density score
         locked = (ratios == 0)
         ratio_error = np.abs(ratios - target_ratio)
+        # do we want low planet tooth diff?
         p_diff = np.abs(p[:, None] - p[None, :])
+        r_sum = r[:, None] + r[None, :]
         air_error = np.maximum(np.abs(air[None, :] - 0.15), np.abs(air[:, None] - 0.15))
-        score = locked * 1e9 - torque * 0 + ratio_error * 1e-1 + p_diff * 1e1 + air_error * 1e1
+        score = locked * 1e9 - torque * 0 + ratio_error * 1e-1 + p_diff * 1e-1 + air_error * 1e-1 + r_sum *1e-2
         i1, i2 = np.indices(score.shape)
         i = np.argsort(score.flatten())[:10]
 
@@ -287,30 +359,31 @@ def brute_compound_gear(target_ratio=50):
     print()
 
 
-def generate_gearset(s, p, r, b=0.5, cycloid=True, N=2000):
+def generate_gearset(s, p, r, b=0.5, cycloid=True, N=100, depth=None):
     """
     as generated, this triplet of gears are constructed to mesh,
     after translation of the planet by [1, 0]
     """
     # normalize sizes so that planets lie on unit radius
     scale = s + p
-    # just about 0.6mm bottom to top depth of tooth if scaling box to 10cm
-    depth = 0.01
 
+    # depth is just about 0.6mm bottom to top depth of tooth if scaling box to 10cm
+
+    fb = 0.1    # flank bias; want to transmit force on pitch circle for lowest static friction
     if cycloid:
-        sg = gear(s / scale, s, b, N)
+        sg = gear(s / scale, s, b, N*s)
     else:
-        sg = ring(sinusoid(T=s, r=s / scale, s=depth, N=n))
+        sg = ring(sinusoid(n_teeth=s, pitch_radius=s / scale, amplitude=depth, n_points=N * s, fb=-fb))
     # if planet is uneven, rotate sun by half a tooth, to ensure meshing
     sg = sg.transform(rotation(2 * np.pi / s * ((p % 2) / 2)))
     if cycloid:
-        pg = gear(p / scale, p, 1 - b, N)
+        pg = gear(p / scale, p, 1 - b, N*p)
     else:
-        pg = ring(sinusoid(T=p, r=p / scale, s=depth, N=N))
+        pg = ring(sinusoid(n_teeth=p, pitch_radius=p / scale, amplitude=depth, n_points=N * p, fb=-fb))
     if cycloid:
-        rg = gear(r / scale, r, 1 - b, N)
+        rg = gear(r / scale, r, 1 - b, N*r)
     else:
-        rg = ring(sinusoid(T=r, r=r / scale, s=depth, N=N))
+        rg = ring(sinusoid(n_teeth=r, pitch_radius=r / scale, amplitude=depth, n_points=N * r, fb=fb))
 
     return sg, pg, rg
 
@@ -325,7 +398,7 @@ def rotate_gearset(s, p, r, sg, pg, rg, phase):
 
 def generate_planetary(s, p, r, n, sg, pg, rg, phase=None):
     # expand set of gears into properly aligned ring config, with n meshing planets
-    check_compound_compat(r, p, s, n)
+    # check_compound_compat(r, p, s, n)
 
     if phase is None:
         phase = float(np.random.rand(1)) # phase offset as a fractional tooth
@@ -355,6 +428,19 @@ def plot_planetary(s, p, r, n, b=0.5, phase=None, ax=None, col='b'):
     rg.plot(plot_vertices=False, ax=ax, color=col)
 
 
+def save_json_planetary(s, p, r, n):
+    """Write all vertex positions of a planetary to a json file
+    purpose is to keep fusion code minimal.
+    just create a fusion script to load, and dump splines into a sketch
+    could also automate extrusion but need not bother for now
+    """
+    sg, pg, rg = generate_gearset(s, p, r, cycloid=False, N=10)
+    sg, pgs, rg = generate_planetary(s, p, r, n, sg, pg, rg, phase=None)
+    import json
+    with open(f'../output/planetary_{s}_{p}_{r}_{n}.json', 'w') as fh:
+        json.dump([g.vertices.tolist() for g in [sg] + pgs + [rg]], fh)
+
+
 def animate_planetary(s, p, r, n, b=0.33, col='b'):
 
     from examples.util import save_animation
@@ -363,13 +449,13 @@ def animate_planetary(s, p, r, n, b=0.33, col='b'):
     for i in save_animation(path, frames=N, overwrite=True):
         fig, ax = plt.subplots(1)
         phase = i / N
-        sg, pgs, rg = generate_planetary(s, p, r, n, b, phase, cycloid=True)
+        plot_planetary(s, p, r, n, b, phase=phase, ax=ax)
 
-        sg.plot(plot_vertices=False, ax=ax, color=col)
-        for pg in pgs:
-            pg.plot(plot_vertices=False, ax=ax, color=col)
-
-        rg.plot(plot_vertices=False, ax=ax, color=col)
+        # sg.plot(plot_vertices=False, ax=ax, color=col)
+        # for pg in pgs:
+        #     pg.plot(plot_vertices=False, ax=ax, color=col)
+        #
+        # rg.plot(plot_vertices=False, ax=ax, color=col)
         plt.axis('off')
         ax.set_xlim(-1.6, +1.6)
         ax.set_ylim(-1.6, +1.6)
@@ -382,7 +468,7 @@ def extrude_planetary_STL(s, p, r, n, b=0.5):
         return x / n * (n.mean() + offset)
     # single planetary set, single herringbone
     # matching into compound set left to other function
-    sg, pg, rg = generate_gearset(s, p, r, b, cycloid=True)
+    sg, pg, rg = generate_gearset(s, p, r, b, cycloid=False)
 
     def do_stuff(g, teeth, offset, L, suffix):
         print(suffix)
@@ -391,11 +477,12 @@ def extrude_planetary_STL(s, p, r, n, b=0.5):
         ge = extrude_twist(g, L=L, N=100, offset=0, twist=lambda z: np.abs(z - 0.5) * 2 * np.pi * 2 / teeth)
         b = np.clip(((1 - np.abs(L/2 - ge.vertices[:, 2:]) / (L/2))) * 20, 0, 1)
         ge = ge.copy(vertices=ge.vertices * (b) + gfe.vertices * (1 - b))
-        ge.save_STL(f'gear_{suffix}.stl')
+        ge = ge.copy(vertices=ge.vertices * -1)
+        ge.save_STL(f'../output/gear_extrude_{s}_{p}_{r}_{suffix}.stl')
 
-    do_stuff(sg, -s, -0.005, 0.5, 'sun')
-    do_stuff(pg, p, -0.005, 0.5, f'planet_{n}')
-    do_stuff(rg, r, 0.005, 0.5, 'ring')
+    do_stuff(sg, -s, -0.005, 1.5, 'sun')
+    do_stuff(pg, p, -0.005, 1.5, f'planet_{n}')
+    do_stuff(rg, r, 0.005, 1.5, 'ring')
 
     # sgf = sg.copy(vertices=flatten(sg.vertices, offset=-0.005))
     # sgfe = extrude_twist(sgf, L=0.5, N=100, offset=0, twist=lambda z: np.abs(z - 0.5) * 2 * np.pi * 2 / -s)
@@ -422,13 +509,16 @@ def compound(g1, g2, n=None, b1=0.5, b2=0.5):
     # ratios = solve_compound(g1, g2)
     keys = [
         '[r1, s1, r2]',
-        '[r1, s2, r2]',
+        # '[r1, s2, r2]',
         # these always differ by just 1 from the above two
         # '[r2, s1, r1]',
         # '[r2, s2, r1]',
         # carrier-driven variants
-        '[r1, c, r2]',
-        '[s1, c, s2]',
+        # '[r1, c, r2]',
+        # '[s1, c, s2]',
+        # ring-driven sun-io variants
+        # '[s1, r1, s2]',
+        # '[s1, r2, s2]',
     ]
     ratios_ = eval_compound_symbolic(g1, g2)
     ratios = [1. / ratios_[k] for k in keys]
@@ -478,8 +568,8 @@ def calc_slippage(N1, N2):
 
 def calc_slippage_sinusoid(N1, N2):
     # this is about a 0.6mm tooth
-    p = sinusoid(N1, r=N1 / 10, N=N1*1000, s=0.03)
-    n = sinusoid(N2, r=N2 / 10, N=N2*1000, s=0.03)
+    p = sinusoid(N1, pitch_radius=N1 / 10, n_points=N1 * 1000, amplitude=0.03)
+    n = sinusoid(N2, pitch_radius=N2 / 10, n_points=N2 * 1000, amplitude=0.03)
 
     p = p[750:1250]
     n = n[250: 750]

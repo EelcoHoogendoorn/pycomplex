@@ -74,6 +74,7 @@ def test_simplicial_3():
 def test_icosphere():
     """Test if we can create a triangulated sphere"""
     sphere = synthetic.icosphere(refinement=0)
+    print(sphere.primal_position)
     assert sphere.topology.is_closed
     assert sphere.topology.is_oriented
 

@@ -1,20 +1,210 @@
+import matplotlib.pyplot as plt
+import numpy as np
+
 from examples.modelling.compound import *
 
 
 def test_solve_compound_symbolic():
-    solve_compound_symbolic()
+    r = solve_compound_symbolic()
+    print(r)
+
+
+def test_4point_num():
+    pressure_concentration = 2.36 #@ 25 deg pressure angle
+    # pressure_concentration = 4 #@ 15 deg pressure angle
+    D = 160e-3
+    # does not matter for transmission ratios or axial/torque ratio
+    # 40x4g = 160g; starting to add up
+    d = 8e-3        # 3000N
+    # d = 10e-3       # 5000N; x40=200k; only 2x of tapered roller!
+    d = 12e-3       # 8000N
+    V = 4/3*np.pi*(d/2)**3
+    gap = 1e-3
+    n_max = int(np.pi*D / (d + gap))
+    print(n_max)
+    n = n_max
+    mass = V * 7.8e3 * n_max
+    print('mass', mass)
+    normal = 400 # 2gpa for r=4 in 4.6 race
+    normal = 400
+    axial = normal / pressure_concentration * n
+    print('required axial preload', axial)
+    # seen values up to 0.11 mentioned
+    # 0.09 at only 1.1gpa, not bad
+    traction_coef = 0.09  # https://www.idemitsu.com/en/business/lube/tdf/traction.html
+    torque = n * (D + d) / 2 * normal * traction_coef
+    print('torque:', torque)
+    print(axial / torque)
+
+
+def test_4point():
+    """test tilted 4-point contact ball bearing reducer"""
+    # FIXME: add both in-plane and tangential force balance calcs
+    Dr = 150 / 12   # rolling vs ball diameter
+
+    # conicity; major driver of ratios
+    cone = 5
+    # tilt of contacts. does not seem hugely influential
+    tilt = -5
+    # flattness of contacts.
+    # flatter means more radial, less axial capacity.
+    # more squat, also means less contact point rotation
+    # low squat also lowers ratios
+    # more squat, also means lower axial preload requirements?
+    # high squat also eats into moment arm to transfer torque over the ball
+    squat = 20
+    # assymmetry; diff in spacing between contat points, inner/outer
+    asym = -2
+    asym = 0
+
+    a = [
+        [-135 - cone + tilt - squat + asym, +135 - cone + tilt + squat - asym],
+        [-45 + cone + tilt + squat + asym, 45 + cone + tilt - squat - asym],
+    ]
+    a = np.array(a)
+    print(a)
+    ar = a / 180 * np.pi
+    P = np.dstack([np.cos(ar), np.sin(ar)])
+    print(P[..., 1])
+    print('preload concentration')
+    print(np.sqrt(1 + (P[..., 0] / P[..., 1])**2))
+    # return
+    res = solve_4point_symbolic(Dr, P)['[rob, rib, rot]']
+    print(res)
+    # print('ratio')
+    ratio = (1 / res['r'])
+    axis = np.array([res['py'], -res['px']])
+    axis = axis / np.linalg.norm(axis)
+
+
+    import matplotlib.pyplot as plt
+    plt.scatter([0], [0])
+    plt.scatter(P[..., 0].flatten(), P[..., 1].flatten())
+    plt.plot(*(axis[:, None] * [-1, +1]))
+
+    text = lambda t, p, a: plt.text(*p, t, horizontalalignment='center', verticalalignment='center', rotation=a)
+    for i in range(2):
+        for j in range(2):
+            text(a[i][j], P[i, j] * 0.8, 0)
+
+    text('ground', P[1, 0] * 1.1, a[1, 0] - 90)
+    text('output', P[1, 1] * 1.1, a[1, 1] - 90)
+    text('input', P[0, :].mean(axis=0) * 1.2, a[0].mean(axis=0) + 90)
+
+
+    a = np.linspace(0, 2*np.pi, 200)
+    xy = np.array([np.cos(a), np.sin(a)]).T
+    # plot cup shapes
+    delta = xy.reshape(-1, 1, 2) - P.reshape(1, 4, 2)
+    dist = np.linalg.norm(delta, axis=2)
+    mindist = np.min(dist, axis=1)
+    curve_ratio = 0.5   # 0=unit circle, 1=flat
+    r = mindist ** 2 * curve_ratio / 2 + 1
+    ds = np.linalg.norm(P[:, 0] - P[:, 1], axis=1)
+    r[np.logical_and(xy[:, 0] < 0, mindist > ds[0] / 1.9)] = np.nan
+    r[np.logical_and(xy[:, 0] > 0, mindist > ds[1] / 2.1)] = np.nan
+    # r[[0, 1, -1, -2]] = np.nan # split ring
+    plt.plot(*(xy * r[:, None]).T)
+
+    plt.plot(*xy.T)
+
+    plt.axis('equal')
+    plt.title(f'input/output =  {ratio:.2f}')
+    plt.xlabel('inner <-> outer')
+    plt.ylabel('bottom <-> top')
+    plt.show()
+
 
 
 def test_brute_compound_gear():
     brute_compound_gear()
 
 
+def test_flex():
+    n = 3
+    d = 3
+    b = 20
+    n = 2
+    d = 0
+    b = 30
+    r1, s1 = b, b
+    r2, s2 = b + d + n, b + d
+    # r1, s1 = 60, 60
+    # r2, s2 = 62, 60
+    m1 = r1 - s1
+    m2 = r2 - s2
+    r = (m2 / r2 - m1 / r1)
+    print(1/r)
+    return
+
+
+
+def test_sun_io():
+
+    # finer teeth
+    compound((13*2, 8*2, 29*2), (14*2, 7*2, 28*2), 7)#10.666666666666666, 0.8091807156732074, 0.3333333333333333)
+    # love this one too
+    compound((19, 9, 37), (18, 10, 38), 8)#8.756756756756758, 0.3964594300514207, 0.2857142857142857)
+    compound((13, 17, 47), (18, 17, 52), 5) #10.4
+    compound((16, 14, 44), (19, 14, 47), 6) #15.666
+
+
+    # big bore sun attached
+    compound((19, 6, 31), (18, 7, 32), 10)#7.680000000000004, 0.505688048534976, 0.4) # mixed planets
+    compound((18, 7, 32), (15, 5, 25), 10)# 6.999999999999997, 0.505688048534976, 0.4) # two plaets
+    compound((13, 7, 27), (14, 6, 26), 8  )#4.8999999999999995, 0.4045504388279803, 0.4) # single planet?
+
+
+    # nice and low ring gear tooth count
+    # note; single tooth diff on all accounts. kinda cool?
+    compound((13, 8, 29), (14, 7, 28), 7)#10.666666666666666, 0.8091807156732074, 0.3333333333333333)
+
+
+    compound((9, 6, 21), (5, 5, 15), 5)#, 5.999999999999997, 0.7831853071795856, 0.3333333333333333)
+    # this one is very magical somehow; especially if leaving out 22 ring
+    # tiny tooth count if that your thing and great ratio. solid bore but stiff planets
+    compound((8, 7, 22), (7, 5, 17), 6)# 13.22222222222223, 0.3034128291209847, 0.4)
+
+
+def test_save_json():
+    fig, ax = plt.subplots()
+    plot_planetary(*(4, 2, 8), 6, ax=ax) # nice bearing config for p=8
+    plot_planetary(*(4, 3, 8), 6, ax=ax) # nice bearing config for p=8
+
+    # n = 2
+    # plot_planetary(*(n, n, n*3), 4, ax=ax)
+    # n = 7
+    # plot_planetary(*(n, n+1, n*3+2), 5, ax=ax)
+    # n = 5
+    # plot_planetary(*(n, n, n*3), 5, ax=ax)
+    # save_json_planetary(*(n, n+1, n*3+2), 5)       # trochoidal
+    plt.show()
+    # save_json_planetary(*(7, 5, 17), 6)       # trochoidal
+
+
+def test_save_json_cycloid():
+    fig, ax = plt.subplots()
+    import json
+    n = 7
+    R = 80
+    r = R / n
+
+    gear(R, n, f=1)
+    # p = trochoid_part(R, r, +1, res=10, endpoint=True)
+    # ax.plot(*p.T)
+    # plt.show()
+    # with open(f'../output/cycloid_{R}_{n}.json', 'w') as fh:
+    #     json.dump([g.tolist() for g in [p]], fh)
+
+
 def test_extrude():
-    extrude_planetary_STL(*(21, 24, 69), 5)
+    extrude_planetary_STL(*(7, 5, 17), 6)       # trochoidal
+
+    # extrude_planetary_STL(*(21, 24, 69), 5)
 
     # two equal-planet meidum tooth count solutions
     # compound((15, 15, 45), (10, 15, 40), 5)#32.0, 0.06932108931632115, 0.16666666666666666)
-    compound((23, 22, 67), (18, 22, 62), 5)#48.52173913043479, 4.66370614359171, 0.11111111111111112)
+    # compound((23, 22, 67), (18, 22, 62), 5)#48.52173913043479, 4.66370614359171, 0.11111111111111112)
 
 
 def test_slippage():
@@ -39,6 +229,17 @@ def test_overlap():
 
 
 def test_animate():
+    # n = 5
+    # animate_planetary(*(n, n, n*3), 5)
+    # n = 7
+    # animate_planetary(*(n, n+1, n*3+2), 5)
+    animate_planetary(*(4, 2, 8), 6) # nice bearing config for p=8
+
+    # animate_planetary(*(1, 1, 3), 4)
+    # animate_planetary(*(18, 10, 38), 8)
+    # animate_planetary(7, 5, 17, 6)
+    return
+
     animate_planetary(1, 2, 5, 3)
     animate_planetary(5, 19, 43, 3)
     animate_planetary(34, 22, 78, 7)

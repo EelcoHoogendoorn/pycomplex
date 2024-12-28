@@ -228,7 +228,7 @@ class TopologyCubical(PrimalTopology):
         if not EN0.shape[1:] == (2,) * n_dim:
             raise ValueError
 
-        E = np.zeros((n_dim + 1), dtype=np.object)
+        E = np.zeros((n_dim + 1), dtype=object)
         E[...] = None
         E[n_dim] = EN0
 

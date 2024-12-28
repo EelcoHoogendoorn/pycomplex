@@ -194,10 +194,10 @@ def rotation(a):
     return np.array([[c, s], [-s, c]])
 
 
-def trochoid_part(R, r, s, res):
+def trochoid_part(R, r, s, res, endpoint=False):
     # r = R / N
     N = R / r
-    a = np.linspace(0, 2*np.pi/N, int(r * res), endpoint=False)
+    a = np.linspace(0, 2*np.pi/N, int(r * res), endpoint=endpoint)
     b = (R+r*s) / r * a * s
 
     q = [[np.cos(a), np.cos(b)], [np.sin(a), np.sin(b)]]
@@ -211,7 +211,7 @@ def epitrochoid(a: float, q: int, d: float, N=2000):
     x = b * ((q + 1) * np.cos(t) - k * np.cos((q+1)*t))
     y = b * ((q + 1) * np.sin(t) - k * np.sin((q+1)*t))
 
-    # q = (a + b) / b
+    q = (a + b) / b
     x = (a + b) * np.cos(t) - d * np.cos(q*t)
     y = (a + b) * np.sin(t) - d * np.sin(q*t)
     return np.array([x, y]).T
@@ -239,12 +239,49 @@ def hypotrochoid(a: float, q: int, d: float):
     return np.array([x, y]).T
 
 
-def sinusoid(T: int, s:float=0.01, r: float=1.0, N=2000):
-    t = np.linspace(0, np.pi*2, N)
-    s = s
-    x = (r + s * np.sin(T * t)) * np.cos(t)
-    y = (r + s * np.sin(T * t)) * np.sin(t)
+def sinusoid(n_teeth: int, slope=1/10, amplitude=None, pitch_radius: float=1.0, n_points=2000, fb=0):
+    a = np.linspace(0, np.pi * 2, n_points)
+    if amplitude is None:
+        tooth_length = pitch_radius / n_teeth
+        amplitude = tooth_length * slope
+    # add tangential motion, to fiddle contact point, like trochoid?
+    #  not sure its desirable; just gives moment arm to static friction components?
+    # add flank bias; offset with q**2?
+    #  needs to be flipped for interior gears
+
+    q = np.sin(n_teeth * a)
+    qs = q*q
+    q2 = qs * np.sign(q)
+
+    # positive values make it more sawtoothy; negative values more snub
+    # more snub gives more clearance, and less urethane consumption
+    # but a lowering effect on skipping torque
+    fb2 = 0.25
+    fb2 = 0.1
+
+    x = (pitch_radius + amplitude * (q + fb * qs + fb2 * q2)) * np.cos(a)
+    y = (pitch_radius + amplitude * (q + fb * qs + fb2 * q2)) * np.sin(a)
     return np.array([x, y]).T
+
+
+def involute(n_teeth, pressure_angle, pitch_radius):
+    """how to parametrize? offse relative to pitch circle?"""
+    n_points = 10   # points per tooth
+    a = np.linspace(0, np.pi * 2)
+    s = np.sin(n_teeth * a)
+    c = np.cos(n_teeth * a)
+
+    base_radius = pitch_radius * np.cos(pressure_angle)
+
+    # for i in range(0, involutePointCount):
+    #     involuteIntersectionRadius = (baseCircleDia / 2.0) + ((involuteSize / (involutePointCount - 1)) * i)
+    #     newPoint = involutePoint(baseCircleDia / 2.0, involuteIntersectionRadius)
+    #     involutePoints.append(newPoint)
+
+    x = c + s * a
+    y = s - c * a
+
+    return np.array([x, y]).T * base_radius
 
 
 def buffer(complex, r):
@@ -263,7 +300,7 @@ def test_epi():
     ep2 = ring(epitrochoid(2, 90, 2./90 * 0.5))
     # hypo = ring(hypotrochoid(2, 11, 2./12 * 0.9))
 
-    ep2 = ring(sinusoid(T=55))
+    ep2 = ring(sinusoid(n_teeth=55))
 
     # complex = buffer((curve), 0.0)
 
@@ -326,7 +363,8 @@ def hypo_gear(R, N, b, f=1):
     https://www.researchgate.net/publication/303053954_Specific_Sliding_of_Trochoidal_Gearing_Profile_in_the_Gerotor_Pumps
     """
     # FIXME: only the f=1 gears mesh properly currently. not sure yet how to solve. correction factor to base radius seems called for
-    complex = ring(hypotrochoid(R, N, f))
+    complex = ring(epitrochoid(R, N, f))
+    # complex = ring(hypotrochoid(R, N, f))
     return buffer(complex, b)
 
 

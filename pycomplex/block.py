@@ -29,7 +29,7 @@ class BlockArray(object):
     """ndim-blocked array object"""
     def __init__(self, block):
         # FIXME: we wish to convertnested lists but not merge in leaf level arrays. how to enforce this?
-        self.block = np.asarray(block, dtype=np.object)
+        self.block = np.asarray(block, dtype=object)
         # assert self.compatible
 
     @cached_property
@@ -78,7 +78,7 @@ class BlockArray(object):
     def apply(self, func):
         """Copy of self, with func applied to all blocks"""
         block = [func(b) for b in self.block.flatten()]
-        return type(self)(np.asarray(block, np.object).reshape(self.block.shape))
+        return type(self)(np.asarray(block, object).reshape(self.block.shape))
 
     def transpose(self):
         """Return transpose of self"""
@@ -90,7 +90,7 @@ class BlockArray(object):
                 return np.transpose(x)
 
         block = [t(b) for b in self.block.T.flatten()]
-        return type(self)(np.asarray(block, np.object).reshape(self.block.T.shape))
+        return type(self)(np.asarray(block, object).reshape(self.block.T.shape))
 
     def __getitem__(self, slc):
         """Slicing simply passes on to the block"""
@@ -109,7 +109,7 @@ class BlockArray(object):
 
         A, B = np.broadcast_arrays(A, B)
         block = [op(a, b) for a, b in zip(A.flatten(), B.flatten())]
-        block = np.asarray(block, np.object).reshape(A.shape)
+        block = np.asarray(block, object).reshape(A.shape)
         return type(self)(block)
 
     def __add__(self, other):
@@ -155,7 +155,7 @@ class BlockArray(object):
 
         # allocate output
         output_shape = [axis_size[a] for a in right]
-        output = np.zeros(output_shape, dtype=np.object)
+        output = np.zeros(output_shape, dtype=object)
 
         # loop over all axes of the product
         for idx in itertools.product(*[range(axis_size[a]) for a in axes_labels]):
@@ -207,7 +207,7 @@ class BlockMatrix(BlockArray):
     @staticmethod
     def as_diagonal(diag):
         assert diag.ndim == 1
-        block = np.zeros((diag.block.shape[0],)*2, dtype=np.object)
+        block = np.zeros((diag.block.shape[0],)*2, dtype=object)
         for i, a in enumerate(diag.block):
             for j, b in enumerate(diag.block):
                 if i == j:
@@ -252,7 +252,7 @@ class SparseBlockMatrix(BlockMatrix):
         assert self.block.shape[1] == other.block.shape[0]
         output_shape = self.rows, np.prod(other.block.shape[1:], dtype=np.int)
         other_block = other.block.reshape(other.block.shape[0], output_shape[1])
-        output = np.zeros(output_shape, dtype=np.object)
+        output = np.zeros(output_shape, dtype=object)
         for i in range(self.rows):
             for j in range(self.cols):
                 for k in range(output_shape[1]):
@@ -275,7 +275,7 @@ class SparseBlockMatrix(BlockMatrix):
         """Turn dense block vector into diagonal block structure"""
         assert diag.ndim == 1
         output_shape = diag.block.shape * 2
-        output = np.zeros(output_shape, dtype=np.object)
+        output = np.zeros(output_shape, dtype=object)
         for i, b in enumerate(diag.block):
             output[i, i] = scipy.sparse.diags(b)
         return SparseBlockMatrix(output)
@@ -297,7 +297,7 @@ class DenseBlockArray(BlockArray):
 
         coords = np.indices(self.block.shape)
         blocks = [x[slices(c)] for c in coords.reshape(self.ndim, -1).T]
-        blockss = np.empty(len(blocks), np.object)
+        blockss = np.empty(len(blocks), object)
         blockss[...] = blocks
         blocks = blockss.reshape(self.block.shape)
         if self.nested:

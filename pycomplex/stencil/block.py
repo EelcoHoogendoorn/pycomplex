@@ -10,22 +10,22 @@ class BlockArray(object):
     """ndim-blocked array object"""
 
     def __init__(self, block, ndim=None):
-        if isinstance(block, np.ndarray) and block.dtype == np.object:
+        if isinstance(block, np.ndarray) and block.dtype == object:
             self.block = block
         else:
             if ndim==1:
-                b = np.empty(len(block), np.object)
+                b = np.empty(len(block), object)
                 b[...] = block
                 self.block = b
             elif ndim == 2:
-                b = np.empty((len(block), len(block[0])), np.object)
+                b = np.empty((len(block), len(block[0])), object)
                 for i in range(b.shape[0]):
                     for j in range(b.shape[1]):
                         b[i, j] = block[i][j]
                 self.block = b
             else:
                 # NOTE: this has some annoying failure cases, like singleton lists freaking out
-                self.block = np.asarray(block, dtype=np.object)
+                self.block = np.asarray(block, dtype=object)
         # assert self.is_compatible
 
     @cached_property
@@ -52,7 +52,7 @@ class BlockArray(object):
     def apply(self, func):
         """Copy of self, with func applied to all blocks"""
         block = [func(b) for b in self.block.flatten()]
-        return type(self)(np.asarray(block, np.object).reshape(self.block.shape))
+        return type(self)(np.asarray(block, object).reshape(self.block.shape))
 
     def transpose(self):
         """Return transpose of self"""
@@ -64,7 +64,7 @@ class BlockArray(object):
                 return np.transpose(x)
 
         block = [t(b) for b in self.block.T.flatten()]
-        return type(self)(np.asarray(block, np.object).reshape(self.block.T.shape))
+        return type(self)(np.asarray(block, object).reshape(self.block.T.shape))
 
     def broadcasting_operator(self, other, op):
         try:
@@ -78,7 +78,7 @@ class BlockArray(object):
 
         A, B = np.broadcast_arrays(A, B)
         block = [op(a, b) for a, b in zip(A.flatten(), B.flatten())]
-        block = np.asarray(block, np.object).reshape(A.shape)
+        block = np.asarray(block, object).reshape(A.shape)
         return type(self)(block)
 
     def __add__(self, other):
